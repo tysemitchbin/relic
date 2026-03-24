@@ -2102,6 +2102,17 @@ let feedActiveTypes = new Set(Object.keys(TYPE_CONFIG));
 function buildFeed() {
   buildFeedTypeFilters();
   renderHoneycomb();
+
+  // Reflow honeycomb on container resize
+  if (!window._honeycombRO) {
+    const wrap = document.querySelector('.honeycomb-wrap');
+    if (wrap) {
+      window._honeycombRO = new ResizeObserver(() => {
+        if (document.getElementById('feed-view').classList.contains('active')) renderHoneycomb();
+      });
+      window._honeycombRO.observe(wrap);
+    }
+  }
 }
 
 function buildFeedTypeFilters() {
@@ -2217,6 +2228,14 @@ function openFeedPreview(memId) {
       });
       miniMap.setTerrain({ source: 'preview-dem', exaggeration: 2.0 });
 
+      // Hide noisy labels, keep only essential ones
+      const hideLayers = ['poi-label', 'transit-label', 'road-label', 'road-number-shield',
+        'motorway-junction', 'waterway-label', 'natural-point-label', 'airport-label',
+        'settlement-subdivision-label', 'state-label', 'country-label', 'continent-label'];
+      hideLayers.forEach(id => {
+        if (miniMap.getLayer(id)) miniMap.setLayoutProperty(id, 'visibility', 'none');
+      });
+
       // Calculate optimal bearing from track direction
       const trackBearing = calcTrackBearing(coords);
 
@@ -2290,12 +2309,22 @@ function renderHoneycomb() {
   container.innerHTML = '';
 
   const mems = getFeedMemories();
-  const COLS = 4;
+
+  // Dynamic column count based on container width
+  const wrapW = wrap.clientWidth || 620;
   const HEX_W = 148;
-  const HEX_H = HEX_W * 1.1547; // perfect hex height
-  const COL_W = HEX_W + 4;      // horizontal step
-  const ROW_H = HEX_H * 0.75;   // vertical step (3/4 height for interlocking)
-  const OFFSET = HEX_W / 2 + 2; // odd row horizontal offset
+  const HEX_H = HEX_W * 1.1547;  // perfect hex ratio
+  const GAP = 2;                   // minimal gap for breathing room
+  const COL_W = HEX_W + GAP;      // horizontal step
+  const ROW_H = HEX_H * 0.75 + GAP; // vertical step (3/4 overlap + gap)
+  const OFFSET = COL_W / 2;       // odd row horizontal offset (half a column)
+
+  // Calculate how many columns fit — odd rows are offset so need extra half-hex clearance
+  const COLS = Math.max(2, Math.floor((wrapW - OFFSET - GAP) / COL_W));
+
+  // Center the grid horizontally
+  const gridW = COLS * COL_W + OFFSET; // max width when odd row is offset
+  const padX = Math.max(0, Math.floor((wrapW - gridW) / 2)) + GAP;
 
   const totalRows = Math.ceil(mems.length / COLS);
   const totalH = totalRows * ROW_H + HEX_H * 0.25 + 40;
@@ -2305,7 +2334,7 @@ function renderHoneycomb() {
     const col = idx % COLS;
     const row = Math.floor(idx / COLS);
     const isOddRow = row % 2 === 1;
-    const x = col * COL_W + (isOddRow ? OFFSET : 0) + 10;
+    const x = col * COL_W + (isOddRow ? OFFSET : 0) + padX;
     const y = row * ROW_H + 20;
     const cell = document.createElement('div');
     cell.className = 'hex-cell';
