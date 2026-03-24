@@ -629,44 +629,39 @@ body {
 /* Honeycomb grid */
 .honeycomb-wrap {
   flex: 1; overflow-y: auto;
-  background: var(--ink);
+  background: var(--paper2);
   position: relative;
 }
 .honeycomb {
   position: relative;
   width: 100%;
 }
-/* Relic stone fragment cells */
+/* Hexagon cells */
 .hex-cell {
   position: absolute;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   cursor: pointer; overflow: hidden;
-  transition: transform 0.3s ease, filter 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: 2px 4px 12px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.06);
+  transition: transform 0.2s, filter 0.2s;
 }
-.hex-cell:hover {
-  transform: scale(1.06) rotate(0.5deg);
-  filter: brightness(1.12);
-  z-index: 2;
-  box-shadow: 4px 8px 24px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.1);
-}
+.hex-cell:hover { transform: scale(1.04); filter: brightness(1.08); z-index: 2; }
 .hex-bg { position: absolute; inset: 0; }
 .hex-img { width: 100%; height: 100%; object-fit: cover; }
 .hex-overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(26,24,20,0.88) 0%, rgba(26,24,20,0.15) 55%);
+  background: linear-gradient(to top, rgba(26,24,20,0.85) 0%, rgba(26,24,20,0.1) 60%);
   display: flex; flex-direction: column; justify-content: flex-end;
-  padding: 16px 14px 20px;
+  padding: 16px 12px 24px;
 }
 .hex-map { position: absolute; inset: 0; }
 .hex-name {
   font-family: 'Cormorant Garamond', serif;
   font-size: 13px; font-weight: 500; color: white;
   line-height: 1.2; margin-bottom: 3px;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.hex-meta { font-size: 8px; color: rgba(255,255,255,0.65); letter-spacing: 0.5px; }
-.hex-mood { position: absolute; top: 12px; right: 12px; font-size: 14px; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+.hex-meta { font-size: 8px; color: rgba(255,255,255,0.7); letter-spacing: 0.5px; }
+.hex-mood { position: absolute; top: 12px; right: 12px; font-size: 14px; }
 
 /* ── CALENDAR ── */
 #calendar-view {
@@ -2314,40 +2309,32 @@ function renderHoneycomb() {
 
   // Dynamic column count based on container width
   const wrapW = wrap.clientWidth || 620;
-  const CELL_W = 156;
-  const CELL_H = 172;
-  const GAP = 14;                  // museum-piece spacing
-  const COL_W = CELL_W + GAP;
-  const ROW_H = CELL_H + GAP;
+  const HEX_W = 148;
+  const HEX_H = HEX_W * 1.1547;  // perfect hex ratio
+  const GAP = 2;                   // minimal gap for breathing room
+  const COL_W = HEX_W + GAP;      // horizontal step
+  const ROW_H = HEX_H * 0.75 + GAP; // vertical step (3/4 overlap + gap)
+  const OFFSET = COL_W / 2;       // odd row horizontal offset (half a column)
 
-  const COLS = Math.max(2, Math.floor((wrapW - GAP) / COL_W));
+  // Calculate how many columns fit — odd rows are offset so need extra half-hex clearance
+  const COLS = Math.max(2, Math.floor((wrapW - OFFSET - GAP) / COL_W));
 
   // Center the grid horizontally
-  const gridW = COLS * COL_W - GAP;
-  const padX = Math.max(GAP, Math.floor((wrapW - gridW) / 2));
+  const gridW = COLS * COL_W + OFFSET; // max width when odd row is offset
+  const padX = Math.max(0, Math.floor((wrapW - gridW) / 2)) + GAP;
 
   const totalRows = Math.ceil(mems.length / COLS);
-  const totalH = totalRows * ROW_H + GAP + 20;
+  const totalH = totalRows * ROW_H + HEX_H * 0.25 + 40;
   container.style.height = totalH + 'px';
 
   mems.forEach((mem, idx) => {
     const col = idx % COLS;
     const row = Math.floor(idx / COLS);
-
-    // Seeded jitter for position — each piece slightly off-grid
-    const seed = hashStr(mem.id);
-    const jitterX = seededRand(seed, 0) * 8 - 4;
-    const jitterY = seededRand(seed, 1) * 8 - 4;
-    const rotation = (seededRand(seed, 2) * 6 - 3).toFixed(1);
-
-    const x = col * COL_W + padX + jitterX;
-    const y = row * ROW_H + GAP + jitterY;
-
+    const isOddRow = row % 2 === 1;
+    const x = col * COL_W + (isOddRow ? OFFSET : 0) + padX;
+    const y = row * ROW_H + 20;
     const cell = document.createElement('div');
     cell.className = 'hex-cell';
-    cell.style.clipPath = generateRelicShape(seed);
-    cell.style.transform = `rotate(${rotation}deg)`;
-
     const color = mem.customColor || getColor(mem.type);
     const date = mem.date ? new Date(mem.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
     const dist = mem.distance ? (mem.distance/1000).toFixed(1)+' km' : '';
@@ -2363,7 +2350,7 @@ function renderHoneycomb() {
         </div>
         ${mood ? `<div class="hex-mood">${mood.emoji}</div>` : ''}`;
     } else {
-      const staticUrl = buildStaticMapUrl(mem, coords, color, CELL_W, CELL_H);
+      const staticUrl = buildStaticMapUrl(mem, coords, color, HEX_W, Math.round(HEX_H));
       cell.innerHTML = `
         <div class="hex-bg">
           ${staticUrl ? `<img class="hex-img" src="${staticUrl}" alt="" loading="lazy">` : ''}
@@ -2378,49 +2365,10 @@ function renderHoneycomb() {
     cell.onclick = () => openFeedPreview(mem.id);
     cell.style.left = x + 'px';
     cell.style.top = y + 'px';
-    cell.style.width = CELL_W + 'px';
-    cell.style.height = CELL_H + 'px';
+    cell.style.width = HEX_W + 'px';
+    cell.style.height = HEX_H + 'px';
     container.appendChild(cell);
   });
-}
-
-// ── Relic shape generation ──
-function hashStr(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
-
-function seededRand(seed, offset) {
-  const x = Math.sin(seed + offset * 127.1) * 43758.5453;
-  return x - Math.floor(x);
-}
-
-function generateRelicShape(seed) {
-  // Generate an irregular stone-fragment polygon with 8-12 vertices
-  const numPoints = 8 + Math.floor(seededRand(seed, 10) * 5);
-  const points = [];
-
-  for (let i = 0; i < numPoints; i++) {
-    const angle = (i / numPoints) * Math.PI * 2 - Math.PI / 2;
-
-    // Base radius varies between 38% and 50% from center
-    const baseR = 38 + seededRand(seed, i + 20) * 12;
-
-    // Jagged variation — some vertices bite in deeper
-    const jag = seededRand(seed, i + 50) < 0.3 ? -6 : 0;
-    const r = baseR + jag;
-
-    // Convert to percentage coordinates from center (50%, 50%)
-    const px = 50 + r * Math.cos(angle);
-    const py = 50 + r * Math.sin(angle);
-
-    points.push(`${px.toFixed(1)}% ${py.toFixed(1)}%`);
-  }
-
-  return `polygon(${points.join(', ')})`;
 }
 
 function buildStaticMapUrl(mem, coords, color, w, h) {
