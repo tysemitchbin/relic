@@ -723,7 +723,7 @@ body {
 
       <!-- Map controls -->
       <div class="map-controls">
-        <button class="map-btn" id="terrain-btn" onclick="toggleTerrain()" title="3D Terrain">▲</button>
+        <button class="map-btn" id="terrain-btn" onclick="toggleTerrain()" title="Toggle 3D">3D</button>
         <button class="map-btn" id="satellite-btn" onclick="toggleSatellite()" title="Satellite">⊞</button>
         <button class="map-btn" onclick="map.easeTo({pitch:0,bearing:0,duration:800})" title="Reset view">⊙</button>
         <button class="map-btn" onclick="map.zoomIn()" title="Zoom in">+</button>
@@ -843,7 +843,7 @@ const COLORS_KEY = 'relic_colors_v1';
 const CACHE_TS_KEY = 'relic_sync_ts';
 
 let db = {}; // id -> memory object
-let map, terrainOn = true, satelliteOn = false;
+let map, terrainOn = false, satelliteOn = false;
 let allMemories = [], filteredMemories = [];
 let activeTypes = new Set(Object.keys(TYPE_CONFIG));
 let activeYears = new Set();
@@ -940,11 +940,12 @@ function initMap() {
     container: 'map',
     style: 'mapbox://styles/mapbox/outdoors-v12',
     center: [10.4, 63.4],
-    zoom: 5, pitch: 45, bearing: -10, antialias: true
+    zoom: 5, pitch: 0, bearing: 0, antialias: true
   });
 
   map.on('load', async () => {
-    addTerrain();
+    // Terrain source added but not enabled by default
+    addTerrainSource();
     loadDB();
     loadColors();
     setProgress(10);
@@ -997,13 +998,12 @@ function initMap() {
   });
 }
 
-function addTerrain() {
+function addTerrainSource() {
   if (map.getSource('mapbox-dem')) return;
   map.addSource('mapbox-dem', {
     type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
     tileSize: 512, maxzoom: 14
   });
-  map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
   if (!map.getLayer('sky')) {
     map.addLayer({ id: 'sky', type: 'sky', paint: {
       'sky-type': 'atmosphere', 'sky-atmosphere-sun': [0.0, 90.0], 'sky-atmosphere-sun-intensity': 15
@@ -1011,11 +1011,16 @@ function addTerrain() {
   }
 }
 
+function addTerrain() {
+  addTerrainSource();
+  if (terrainOn) map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+}
+
 async function renderAll() {
   allMemories = Object.values(db).sort((a,b) => new Date(b.date) - new Date(a.date));
 
-  // Add map layers
-  allMemories.forEach(mem => addMemoryToMap(mem));
+  // Render all tracks as unified GeoJSON
+  initMapLayers();
 
   // Build UI
   const years = new Set(allMemories.map(m => m.date?.substring(0,4)).filter(Boolean));
@@ -1028,23 +1033,157 @@ async function renderAll() {
 }
 
 function addMemoryToMap(mem) {
-  const id = `track-${mem.id}`;
-  if (map.getLayer(id)) return; // already added
+  // No-op — tracks are now rendered via unified GeoJSON
+  // Individual highlight is handled by updateTrackHighlight
+}
 
-  let coords = mem.coords;
-  if (!coords && mem._polyline) coords = decodePolyline(mem._polyline);
-  if (!coords || coords.length < 2) return;
+function buildTracksGeoJSON(memories) {
+  return {
+    type: 'FeatureCollection',
+    features: memories.map(mem => {
+      let coords = mem.coords;
+      if (!coords && mem._polyline) coords = decodePolyline(mem._polyline);
+      if (!coords || coords.length < 2) return null;
+      return {
+        type: 'Feature',
+        properties: { id: mem.id, color: mem.customColor || getColor(mem.type) },
+        geometry: { type: 'LineString', coordinates: coords }
+      };
+    }).filter(Boolean)
+  };
+}
 
-  const color = mem.customColor || getColor(mem.type);
+function buildClusterGeoJSON(memories) {
+  return {
+    type: 'FeatureCollection',
+    features: memories.map(mem => {
+      if (!mem.startLat) return null;
+      return {
+        type: 'Feature',
+        properties: { id: mem.id, color: mem.customColor || getColor(mem.type), name: mem.name },
+        geometry: { type: 'Point', coordinates: [mem.startLng, mem.startLat] }
+      };
+    }).filter(Boolean)
+  };
+}
 
-  map.addSource(id, { type: 'geojson', data: { type:'Feature', geometry:{ type:'LineString', coordinates:coords } } });
-  map.addLayer({ id, type:'line', source:id,
-    layout:{'line-join':'round','line-cap':'round'},
-    paint:{'line-color':color,'line-width':2.5,'line-opacity':0.85}
-  });
-  map.on('click', id, () => showDetail(mem.id));
-  map.on('mouseenter', id, () => { map.getCanvas().style.cursor='pointer'; map.setPaintProperty(id,'line-width',5); map.setPaintProperty(id,'line-opacity',1); });
-  map.on('mouseleave', id, () => { map.getCanvas().style.cursor=''; if(selectedId!==mem.id){map.setPaintProperty(id,'line-width',2.5);map.setPaintProperty(id,'line-opacity',0.85);} });
+function initMapLayers() {
+  const tracksGeoJSON = buildTracksGeoJSON(allMemories);
+  const clusterGeoJSON = buildClusterGeoJSON(allMemories);
+
+  // Tracks layer (shown when zoomed in)
+  if (map.getSource('tracks')) {
+    map.getSource('tracks').setData(tracksGeoJSON);
+  } else {
+    map.addSource('tracks', { type: 'geojson', data: tracksGeoJSON });
+    map.addLayer({
+      id: 'tracks-layer', type: 'line', source: 'tracks',
+      minzoom: 7,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-width': 2.5,
+        'line-opacity': 0.85
+      }
+    });
+    map.addLayer({
+      id: 'tracks-highlight', type: 'line', source: 'tracks',
+      minzoom: 7,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      filter: ['==', ['get', 'id'], ''],
+      paint: { 'line-color': ['get', 'color'], 'line-width': 5, 'line-opacity': 1 }
+    });
+
+    map.on('click', 'tracks-layer', e => {
+      const id = e.features[0].properties.id;
+      showDetail(id);
+      const mem = db[id];
+      if (mem?.startLat) map.flyTo({ center:[mem.startLng,mem.startLat], zoom:13, pitch:terrainOn?50:0, duration:1000 });
+    });
+    map.on('mouseenter', 'tracks-layer', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'tracks-layer', () => map.getCanvas().style.cursor = '');
+  }
+
+  // Cluster layer (shown when zoomed out)
+  if (map.getSource('clusters')) {
+    map.getSource('clusters').setData(clusterGeoJSON);
+  } else {
+    map.addSource('clusters', {
+      type: 'geojson', data: clusterGeoJSON,
+      cluster: true, clusterMaxZoom: 7, clusterRadius: 40
+    });
+
+    map.addLayer({
+      id: 'cluster-circles', type: 'circle', source: 'clusters',
+      maxzoom: 7,
+      filter: ['has', 'point_count'],
+      paint: {
+        'circle-color': '#1a1814',
+        'circle-radius': ['step', ['get', 'point_count'], 14, 10, 20, 50, 26],
+        'circle-opacity': 0.85,
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#d4cdc2'
+      }
+    });
+
+    map.addLayer({
+      id: 'cluster-count', type: 'symbol', source: 'clusters',
+      maxzoom: 7,
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': '{point_count_abbreviated}',
+        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+        'text-size': 11
+      },
+      paint: { 'text-color': '#f5f0e8' }
+    });
+
+    map.addLayer({
+      id: 'cluster-single', type: 'circle', source: 'clusters',
+      maxzoom: 7,
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': ['get', 'color'],
+        'circle-radius': 5,
+        'circle-opacity': 0.85,
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#ffffff'
+      }
+    });
+
+    map.on('click', 'cluster-circles', e => {
+      const features = map.queryRenderedFeatures(e.point, { layers: ['cluster-circles'] });
+      const clusterId = features[0].properties.cluster_id;
+      map.getSource('clusters').getClusterExpansionZoom(clusterId, (err, zoom) => {
+        if (err) return;
+        map.easeTo({ center: features[0].geometry.coordinates, zoom, duration: 500 });
+      });
+    });
+
+    map.on('click', 'cluster-single', e => {
+      const id = e.features[0].properties.id;
+      showDetail(id);
+    });
+
+    map.on('mouseenter', 'cluster-circles', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'cluster-circles', () => map.getCanvas().style.cursor = '');
+    map.on('mouseenter', 'cluster-single', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'cluster-single', () => map.getCanvas().style.cursor = '');
+  }
+}
+
+function updateTrackHighlight(memId) {
+  if (!map.getLayer('tracks-highlight')) return;
+  map.setFilter('tracks-highlight', ['==', ['get', 'id'], memId || '']);
+  if (memId) {
+    map.setPaintProperty('tracks-layer', 'line-opacity',
+      ['case', ['==', ['get', 'id'], memId], 1, 0.2]);
+    map.setPaintProperty('tracks-layer', 'line-width',
+      ['case', ['==', ['get', 'id'], memId], 5, 1.5]);
+  } else {
+    map.setPaintProperty('tracks-layer', 'line-opacity', 0.85);
+    map.setPaintProperty('tracks-layer', 'line-width', 2.5);
+  }
 }
 
 // ════════════════════════════════════════════════
@@ -1107,11 +1246,13 @@ function applyFilters() {
       && m.name.toLowerCase().includes(search);
   });
 
-  allMemories.forEach(m => {
-    const id = `track-${m.id}`;
-    if (!map.getLayer(id)) return;
-    map.setLayoutProperty(id, 'visibility', filteredMemories.find(f=>f.id===m.id) ? 'visible' : 'none');
-  });
+  // Update unified GeoJSON with filtered set
+  if (map.getSource('tracks')) {
+    map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  }
+  if (map.getSource('clusters')) {
+    map.getSource('clusters').setData(buildClusterGeoJSON(filteredMemories));
+  }
 
   document.getElementById('result-count').textContent = `${filteredMemories.length} of ${allMemories.length} moments`;
   renderList();
@@ -1202,13 +1343,8 @@ function showDetail(memId) {
   document.getElementById('d-strava-link').innerHTML = mem.stravaId
     ? `<a class="strava-link" href="https://www.strava.com/activities/${mem.stravaId}" target="_blank">↗ View on Strava</a>` : '';
 
-  // Highlight track
-  allMemories.forEach(m => {
-    const id = `track-${m.id}`;
-    if (!map.getLayer(id)) return;
-    if (m.id===memId) { map.setPaintProperty(id,'line-width',5); map.setPaintProperty(id,'line-opacity',1); }
-    else { map.setPaintProperty(id,'line-width',1.5); map.setPaintProperty(id,'line-opacity',0.2); }
-  });
+  // Highlight selected track
+  updateTrackHighlight(memId);
 
   document.getElementById('detail-panel').classList.add('open');
   document.getElementById('save-indicator').textContent = '';
@@ -1218,11 +1354,7 @@ function closeDetail() {
   selectedId = null;
   document.getElementById('detail-panel').classList.remove('open');
   renderList();
-  allMemories.forEach(m => {
-    const id = `track-${m.id}`;
-    if (!map.getLayer(id)) return;
-    if (filteredMemories.find(f=>f.id===m.id)) { map.setPaintProperty(id,'line-width',2.5); map.setPaintProperty(id,'line-opacity',0.85); }
-  });
+  updateTrackHighlight(null);
 }
 
 // ── EDITING ──
@@ -1485,8 +1617,9 @@ function updateHeaderStats() {
 function toggleTerrain() {
   terrainOn = !terrainOn;
   map.setTerrain(terrainOn ? { source:'mapbox-dem', exaggeration:1.5 } : null);
-  map.easeTo({ pitch: terrainOn?45:0, duration:800 });
+  map.easeTo({ pitch: terrainOn?50:0, bearing: terrainOn?-10:0, duration:800 });
   document.getElementById('terrain-btn').classList.toggle('active', terrainOn);
+  document.getElementById('terrain-btn').textContent = terrainOn ? '2D' : '3D';
 }
 
 function toggleSatellite() {
@@ -1494,9 +1627,9 @@ function toggleSatellite() {
   map.setStyle(satelliteOn ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/outdoors-v12');
   document.getElementById('satellite-btn').classList.toggle('active', satelliteOn);
   map.once('style.load', () => {
-    addTerrain();
-    if (!terrainOn) map.setTerrain(null);
-    allMemories.forEach(m => addMemoryToMap(m));
+    addTerrainSource();
+    if (terrainOn) map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+    initMapLayers();
     applyFilters();
   });
 }
@@ -1506,11 +1639,13 @@ function updateTypeColor(typeKey, color) {
   document.getElementById(`swatch-${typeKey}`).style.background = color;
   const chip = document.querySelector(`.type-chip[data-type="${typeKey}"] .type-dot`);
   if (chip) chip.style.background = color;
-  allMemories.forEach(m => {
-    if (getGroup(m.type) !== typeKey) return;
-    const id = `track-${m.id}`;
-    if (map.getLayer(id)) map.setPaintProperty(id, 'line-color', color);
-  });
+  // Refresh unified GeoJSON layer
+  if (map.getSource('tracks')) {
+    map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  }
+  if (map.getSource('clusters')) {
+    map.getSource('clusters').setData(buildClusterGeoJSON(filteredMemories));
+  }
   const saved = JSON.parse(localStorage.getItem(COLORS_KEY)||'{}');
   saved[typeKey] = color;
   localStorage.setItem(COLORS_KEY, JSON.stringify(saved));
@@ -1586,8 +1721,7 @@ function doImport() {
     };
     saveDB();
     allMemories.unshift(db[id]);
-    addMemoryToMap(db[id]);
-    map.flyTo({ center: coords[0], zoom: 11, pitch: 50, duration: 1000 });
+    map.flyTo({ center: coords[0], zoom: 11, pitch: terrainOn?50:0, duration: 1000 });
     closeImport();
     applyFilters();
     buildStats();
@@ -1663,7 +1797,7 @@ document.addEventListener('keydown', e=>{
 });
 
 // Expose globals
-window.toggleTerrain=toggleTerrain; window.toggleSatellite=toggleSatellite;
+window.toggleTerrain=toggleTerrain; window.updateTrackHighlight=updateTrackHighlight; window.toggleSatellite=toggleSatellite;
 window.togglePanel=togglePanel; window.switchView=switchView;
 window.closeDetail=closeDetail; window.openImport=openImport; window.closeImport=closeImport;
 window.handleGPXSelect=handleGPXSelect; window.doImport=doImport;
