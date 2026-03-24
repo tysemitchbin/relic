@@ -2017,6 +2017,285 @@ function decodePolyline(encoded) {
 function setStatus(msg) { document.getElementById('loading-status').textContent = msg; }
 function setProgress(pct) { document.getElementById('loading-fill').style.width = pct+'%'; }
 
+
+// ════════════════════════════════════════════════
+// FEED — HONEYCOMB
+// ════════════════════════════════════════════════
+let feedSort = 'recent';
+let feedActiveTypes = new Set(Object.keys(TYPE_CONFIG));
+
+function buildFeed() {
+  buildFeedTypeFilters();
+  renderHoneycomb();
+}
+
+function buildFeedTypeFilters() {
+  const container = document.getElementById('feed-type-filters');
+  container.innerHTML = '';
+  Object.entries(TYPE_CONFIG).forEach(([key, cfg]) => {
+    const btn = document.createElement('button');
+    btn.className = 'feed-type-chip active'; btn.dataset.type = key;
+    btn.style.color = cfg.color; btn.style.borderColor = cfg.color;
+    btn.innerHTML = `<div class="type-dot" style="background:${cfg.color}"></div>${cfg.label}`;
+    btn.onclick = () => {
+      feedActiveTypes.has(key) ? feedActiveTypes.delete(key) : feedActiveTypes.add(key);
+      btn.classList.toggle('active');
+      renderHoneycomb();
+    };
+    container.appendChild(btn);
+  });
+}
+
+function setFeedSort(sort) {
+  feedSort = sort;
+  document.querySelectorAll('.feed-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === sort));
+  renderHoneycomb();
+}
+
+function getFeedMemories() {
+  let mems = Object.values(db).filter(m => feedActiveTypes.has(getGroup(m.type)));
+  if (feedSort === 'recent') mems.sort((a,b) => new Date(b.date) - new Date(a.date));
+  else if (feedSort === 'distance') mems.sort((a,b) => (b.distance||0) - (a.distance||0));
+  else if (feedSort === 'elevation') mems.sort((a,b) => (b.elevation||0) - (a.elevation||0));
+  else if (feedSort === 'story') mems = mems.filter(m => m.note).sort((a,b) => new Date(b.date) - new Date(a.date));
+  else if (feedSort === 'photos') mems = mems.filter(m => m.photos?.length).sort((a,b) => new Date(b.date) - new Date(a.date));
+  return mems;
+}
+
+function renderHoneycomb() {
+  const container = document.getElementById('honeycomb');
+  container.innerHTML = '';
+  const mems = getFeedMemories();
+  mems.forEach((mem) => {
+    const cell = document.createElement('div');
+    cell.className = 'hex-cell';
+    const color = mem.customColor || getColor(mem.type);
+    const date = mem.date ? new Date(mem.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
+    const dist = mem.distance ? (mem.distance/1000).toFixed(1)+' km' : '';
+    const mood = MOODS.find(m => m.id === mem.mood);
+    if (mem.photos?.length) {
+      cell.innerHTML = `
+        <div class="hex-bg"><img class="hex-img" src="${mem.photos[0].dataUrl}" alt=""></div>
+        <div class="hex-overlay">
+          <div class="hex-name">${mem.name}</div>
+          <div class="hex-meta">${date}${dist?' · '+dist:''}</div>
+        </div>
+        ${mood ? `<div class="hex-mood">${mood.emoji}</div>` : ''}`;
+    } else {
+      const coords = mem.coords || (mem._polyline ? decodePolyline(mem._polyline) : null);
+      cell.innerHTML = `
+        <div class="hex-bg" style="background:${color}20">
+          ${coords ? `<canvas class="hex-map" id="hexmap-${mem.id}" width="160" height="184"></canvas>` : ''}
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,${color}40,${color}15)"></div>
+        </div>
+        <div class="hex-overlay">
+          <div class="hex-name">${mem.name}</div>
+          <div class="hex-meta">${date}${dist?' · '+dist:''}</div>
+        </div>
+        ${mood ? `<div class="hex-mood">${mood.emoji}</div>` : ''}`;
+    }
+    cell.onclick = () => {
+      switchView('map');
+      setTimeout(() => {
+        showDetail(mem.id);
+        if (mem.startLat) map.flyTo({ center:[mem.startLng,mem.startLat], zoom:13, pitch:terrainOn?50:0, duration:1000 });
+      }, 150);
+    };
+    container.appendChild(cell);
+    if (!mem.photos?.length) {
+      const coords = mem.coords || (mem._polyline ? decodePolyline(mem._polyline) : null);
+      if (coords?.length >= 2) requestAnimationFrame(() => drawMiniMap(mem.id, coords, color));
+    }
+  });
+}
+
+function drawMiniMap(memId, coords, color) {
+  const canvas = document.getElementById(`hexmap-${memId}`);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 160, H = 184;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  coords.forEach(([lng, lat]) => { minX=Math.min(minX,lng); maxX=Math.max(maxX,lng); minY=Math.min(minY,lat); maxY=Math.max(maxY,lat); });
+  const pad = 24;
+  const scaleX = (W-pad*2) / (maxX-minX || 1);
+  const scaleY = (H-pad*2) / (maxY-minY || 1);
+  const scale = Math.min(scaleX, scaleY);
+  const offX = (W-(maxX-minX)*scale) / 2;
+  const offY = (H-(maxY-minY)*scale) / 2;
+  ctx.clearRect(0, 0, W, H);
+  ctx.beginPath();
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.globalAlpha = 0.9;
+  coords.forEach(([lng, lat], i) => {
+    const x = offX + (lng-minX)*scale;
+    const y = H - offY - (lat-minY)*scale;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  if (coords.length > 0) {
+    const [lng, lat] = coords[0];
+    const x = offX + (lng-minX)*scale;
+    const y = H - offY - (lat-minY)*scale;
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.globalAlpha = 1; ctx.fill();
+  }
+}
+
+// ════════════════════════════════════════════════
+// CALENDAR
+// ════════════════════════════════════════════════
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+function buildCalendar() {
+  document.getElementById('cal-title').textContent =
+    new Date(calYear, calMonth).toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase();
+  const body = document.getElementById('calendar-body');
+  body.innerHTML = '';
+  const weekdays = document.createElement('div'); weekdays.className = 'cal-weekdays';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d => {
+    const el = document.createElement('div'); el.className = 'cal-weekday'; el.textContent = d;
+    weekdays.appendChild(el);
+  });
+  body.appendChild(weekdays);
+  const grid = document.createElement('div'); grid.className = 'cal-grid';
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth+1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7;
+  const today = new Date();
+  const byDate = {};
+  Object.values(db).forEach(m => {
+    if (!m.date) return;
+    const key = m.date.substring(0,10);
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(m);
+  });
+  const prevLast = new Date(calYear, calMonth, 0).getDate();
+  for (let i = startDow-1; i >= 0; i--) {
+    const cell = document.createElement('div'); cell.className = 'cal-day other-month';
+    cell.innerHTML = `<div class="cal-day-num">${prevLast-i}</div>`;
+    grid.appendChild(cell);
+  }
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dateKey = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const acts = byDate[dateKey] || [];
+    const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
+    const cell = document.createElement('div');
+    cell.className = 'cal-day'+(isToday?' today':'')+(acts.length?' has-activity':'');
+    cell.innerHTML = `<div class="cal-day-num">${d}</div>
+      <div class="cal-dots">${acts.slice(0,6).map(a =>
+        `<div class="cal-dot" style="background:${getColor(a.type)}" title="${a.name}"></div>`
+      ).join('')}</div>`;
+    if (acts.length) cell.onclick = () => showCalendarDetail(acts);
+    grid.appendChild(cell);
+  }
+  const endDow = (lastDay.getDay() + 6) % 7;
+  for (let i = 1; i < 7-endDow; i++) {
+    const cell = document.createElement('div'); cell.className = 'cal-day other-month';
+    cell.innerHTML = `<div class="cal-day-num">${i}</div>`;
+    grid.appendChild(cell);
+  }
+  body.appendChild(grid);
+  document.getElementById('calendar-detail').innerHTML = '<span style="font-size:9px;color:var(--muted);letter-spacing:1px">Click a day to see activities</span>';
+}
+
+function showCalendarDetail(acts) {
+  document.getElementById('calendar-detail').innerHTML = acts.map(a => `
+    <div class="cal-detail-item" onclick="goToActivity('${a.id}')">
+      <div class="cal-detail-dot" style="background:${getColor(a.type)}"></div>
+      <span>${a.name}</span>
+      ${a.distance?`<span style="color:var(--muted);font-size:8px">${(a.distance/1000).toFixed(1)} km</span>`:''}
+    </div>`).join('');
+}
+
+function goToActivity(id) {
+  switchView('map');
+  setTimeout(() => {
+    const mem = db[id];
+    showDetail(id);
+    if (mem?.startLat) map.flyTo({ center:[mem.startLng,mem.startLat], zoom:13, pitch:terrainOn?50:0, duration:1000 });
+  }, 150);
+}
+
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  buildCalendar();
+}
+
+// ════════════════════════════════════════════════
+// PROFILE
+// ════════════════════════════════════════════════
+const PROFILE_KEY = 'relic_profile_v1';
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw ? JSON.parse(raw) : { name:'', bio:'', photo:null };
+  } catch(e) { return { name:'', bio:'', photo:null }; }
+}
+
+function saveProfile() {
+  const profile = {
+    name: document.getElementById('profile-name').value,
+    bio: document.getElementById('profile-bio').value,
+    photo: document.getElementById('profile-photo-display').querySelector('img')?.src || null
+  };
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+function handleProfilePhoto(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('profile-photo-display').innerHTML = `<img src="${e.target.result}" alt="Profile">`;
+    saveProfile();
+  };
+  reader.readAsDataURL(file);
+}
+
+function buildProfile() {
+  const profile = loadProfile();
+  document.getElementById('profile-name').value = profile.name || '';
+  document.getElementById('profile-bio').value = profile.bio || '';
+  if (profile.photo) document.getElementById('profile-photo-display').innerHTML = `<img src="${profile.photo}" alt="Profile">`;
+  const mems = Object.values(db);
+  const totalDist = mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
+  const totalElev = mems.reduce((s,m)=>s+(m.elevation||0),0);
+  const withStory = mems.filter(m=>m.note).length;
+  const withPhotos = mems.filter(m=>m.photos?.length).length;
+  document.getElementById('profile-stats-row').innerHTML = [
+    { val: mems.length, label: 'Moments' },
+    { val: Math.round(totalDist).toLocaleString()+' km', label: 'Distance' },
+    { val: Math.round(totalElev/1000)+'k m', label: 'Elevation' },
+    { val: withStory+' / '+withPhotos, label: 'Stories / Photos' },
+  ].map(s=>`<div class="profile-stat"><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
+  const byYearMonth = {};
+  mems.forEach(m => {
+    if (!m.date) return;
+    const y = m.date.substring(0,4);
+    const mo = parseInt(m.date.substring(5,7))-1;
+    if (!byYearMonth[y]) byYearMonth[y] = Array(12).fill(null).map(()=>[]);
+    byYearMonth[y][mo].push(m);
+  });
+  const MONTHS = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  document.getElementById('profile-timeline').innerHTML = Object.entries(byYearMonth)
+    .sort((a,b)=>b[0].localeCompare(a[0])).map(([year, months]) => `
+    <div class="pt-year-row">
+      <div class="pt-year-label">${year}</div>
+      <div class="pt-year-months">
+        ${months.map((acts, mi) => `
+          <div class="pt-month" title="${acts.length} activities">
+            <div class="pt-month-dots">
+              ${acts.slice(0,6).map(a=>`<div class="pt-dot" style="background:${getColor(a.type)}"></div>`).join('')}
+            </div>
+            <div class="pt-month-label">${MONTHS[mi]}</div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
 function switchView(view) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
