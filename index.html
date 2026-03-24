@@ -1336,17 +1336,15 @@ function initMapLayers() {
     map.addSource('tracks', { type: 'geojson', data: tracksGeoJSON, tolerance: 0.5, buffer: 0 });
     map.addLayer({
       id: 'tracks-layer', type: 'line', source: 'tracks',
-      minzoom: 7,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
         'line-color': ['get', 'color'],
-        'line-width': ['interpolate', ['linear'], ['zoom'], 7, 1.5, 11, 2.5, 14, 3.5],
-        'line-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.6, 10, 0.85]
+        'line-width': ['interpolate', ['linear'], ['zoom'], 2, 0.8, 6, 1.5, 10, 2.5, 14, 3.5],
+        'line-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.3, 6, 0.55, 9, 0.85]
       }
     });
     map.addLayer({
       id: 'tracks-highlight', type: 'line', source: 'tracks',
-      minzoom: 7,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       filter: ['==', ['get', 'id'], ''],
       paint: { 'line-color': ['get', 'color'], 'line-width': 5, 'line-opacity': 1 }
@@ -1362,29 +1360,7 @@ function initMapLayers() {
     map.on('mouseleave', 'tracks-layer', () => map.getCanvas().style.cursor = '');
   }
 
-  // Start-point dots layer (visible when zoomed out)
-  if (!map.getSource('startpoints')) {
-    map.addSource('startpoints', { type: 'geojson', data: clusterGeoJSON });
-    map.addLayer({
-      id: 'startpoints-layer', type: 'circle', source: 'startpoints',
-      maxzoom: 7,
-      paint: {
-        'circle-color': ['get', 'color'],
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 2, 2.5, 6, 4.5],
-        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 2, 0.6, 6, 0.85],
-        'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 2, 0.5, 6, 1],
-        'circle-stroke-color': 'rgba(255,255,255,0.5)'
-      }
-    });
-    map.on('click', 'startpoints-layer', e => {
-      const id = e.features[0].properties.id;
-      showDetail(id);
-    });
-    map.on('mouseenter', 'startpoints-layer', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'startpoints-layer', () => map.getCanvas().style.cursor = '');
-  } else {
-    map.getSource('startpoints').setData(clusterGeoJSON);
-  }
+
 
   // Preload satellite source invisibly for instant toggle
   if (!map.getSource('satellite')) {
@@ -1892,9 +1868,7 @@ function updateTypeColor(typeKey, color) {
   if (map.getSource('tracks')) {
     map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
   }
-  if (map.getSource('startpoints')) {
-    map.getSource('startpoints').setData(buildClusterGeoJSON(filteredMemories));
-  }
+
   const saved = JSON.parse(localStorage.getItem(COLORS_KEY)||'{}');
   saved[typeKey] = color;
   localStorage.setItem(COLORS_KEY, JSON.stringify(saved));
