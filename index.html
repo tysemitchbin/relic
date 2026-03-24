@@ -2183,26 +2183,45 @@ function openFeedPreview(memId) {
 
     const miniMap = new mapboxgl.Map({
       container: mapEl,
-      style: satelliteOn ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/outdoors-v12',
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
       center: [centerLng, centerLat],
       zoom: 11,
+      pitch: 60,
+      bearing: -20,
       interactive: false,
-      attributionControl: false
+      attributionControl: false,
+      antialias: true
     });
     window._feedPreviewMap = miniMap;
 
     miniMap.on('load', () => {
-      // Fit to track bounds
-      miniMap.fitBounds([[minLng,minLat],[maxLng,maxLat]], { padding: 24, animate: false });
+      // Add terrain
+      miniMap.addSource('preview-dem', {
+        type: 'raster-dem',
+        url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+        tileSize: 512, maxzoom: 14
+      });
+      miniMap.setTerrain({ source: 'preview-dem', exaggeration: 2.0 });
+
+      // Fit to track bounds with tilt
+      miniMap.fitBounds([[minLng,minLat],[maxLng,maxLat]], {
+        padding: 40, animate: false, pitch: 60, bearing: -20
+      });
 
       miniMap.addSource('preview-track', {
         type: 'geojson',
         data: { type:'Feature', geometry:{ type:'LineString', coordinates:coords } }
       });
+      // Glow effect — wide faint line under sharp line
+      miniMap.addLayer({
+        id: 'preview-track-glow', type: 'line', source: 'preview-track',
+        layout: { 'line-join':'round', 'line-cap':'round' },
+        paint: { 'line-color': color, 'line-width': 8, 'line-opacity': 0.3 }
+      });
       miniMap.addLayer({
         id: 'preview-track-line', type: 'line', source: 'preview-track',
         layout: { 'line-join':'round', 'line-cap':'round' },
-        paint: { 'line-color': color, 'line-width': 3, 'line-opacity': 1 }
+        paint: { 'line-color': '#ffffff', 'line-width': 2.5, 'line-opacity': 0.95 }
       });
     });
   } else {
