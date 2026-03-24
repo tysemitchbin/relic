@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relic — Your Life, Mapped</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<style>
+  :root {
+    --ink: #1a1814;
+    --paper: #f5f0e8;
+    --paper2: #ede8df;
+    --warm: #c8b89a;
+    --accent: #8b4513;
+    --accent2: #c0392b;
+    --muted: #8a8278;
+    --border: #d4cdc2;
+    --panel-w: 340px;
+
+    --run: #c0392b;
+    --ride: #2563eb;
+    --hike: #16a34a;
+    --walk: #7c3aed;
+    --alpine: #e11d48;
+    --nordic: #0891b2;
+    --backcountry: #6d28d9;
+    --flight: #d97706;
+    --drive: #374151;
+    --other: #92400e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--ink);
+    color: var(--ink);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: stretch;
+    height: 52px;
+    background: var(--paper);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .wordmark {
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    border-right: 1px solid var(--border);
+    gap: 10px;
+    text-decoration: none;
+  }
+
+  .wordmark-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .wordmark-year {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  .header-stats {
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 32px;
+  }
+
+  .hstat {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .hstat-val {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 0.5px;
+  }
+
+  .hstat-label {
+    font-size: 8px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+  }
+
+  .btn-ghost {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── MAP ── */
+  #map {
+    position: absolute;
+    top: 52px; left: 0; right: 0; bottom: 0;
+  }
+
+  /* ── FILTER PANEL ── */
+  #filter-panel {
+    position: absolute;
+    top: 52px;
+    left: 0;
+    width: var(--panel-w);
+    height: calc(100vh - 52px);
+    background: var(--paper);
+    border-right: 1px solid var(--border);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(0);
+    transition: transform 0.3s ease;
+  }
+
+  #filter-panel.collapsed {
+    transform: translateX(calc(-1 * var(--panel-w)));
+  }
+
+  .panel-toggle {
+    position: absolute;
+    top: 50%;
+    right: -32px;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 64px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-left: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--muted);
+    writing-mode: vertical-rl;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .panel-section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-section-title {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* Search */
+  .search-wrap {
+    position: relative;
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--paper2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  /* Type filters */
+  .type-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .type-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    transition: all 0.15s;
+    text-align: left;
+  }
+
+  .type-chip.active {
+    background: var(--paper2);
+    color: var(--ink);
+    border-color: var(--ink);
+  }
+
+  .type-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Year filter */
+  .year-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .year-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .year-btn.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  /* Distance filter */
+  .range-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .range-input {
+    width: 80px;
+    background: var(--paper2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 6px 8px;
+    outline: none;
+  }
+
+  .range-input:focus { border-color: var(--accent); }
+  .range-sep { font-size: 9px; color: var(--muted); }
+
+  /* Activity list */
+  #activity-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .activity-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .activity-item:hover { background: var(--paper2); }
+  .activity-item.selected { background: var(--paper2); border-left: 2px solid var(--accent); padding-left: 18px; }
+
+  .activity-type-bar {
+    width: 3px;
+    height: 36px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .activity-info { flex: 1; min-width: 0; }
+
+  .activity-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+  }
+
+  .activity-meta {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .activity-dist {
+    font-size: 11px;
+    color: var(--ink);
+    font-weight: 500;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  /* ── DETAIL PANEL ── */
+  #detail-panel {
+    position: absolute;
+    top: 52px;
+    right: 0;
+    width: 320px;
+    height: calc(100vh - 52px);
+    background: var(--paper);
+    border-left: 1px solid var(--border);
+    z-index: 50;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  #detail-panel.open {
+    transform: translateX(0);
+  }
+
+  .detail-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+
+  .detail-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .detail-type-label {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .detail-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 6px;
+    padding-right: 24px;
+  }
+
+  .detail-date {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .detail-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dstat {
+    background: var(--paper);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .dstat-val {
+    font-size: 18px;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .dstat-label {
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .detail-rows {
+    padding: 16px 20px;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+  }
+
+  .detail-row:last-child { border-bottom: none; }
+  .dr-key { color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; font-size: 9px; }
+  .dr-val { color: var(--ink); font-weight: 500; }
+
+  .detail-coords {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    font-style: italic;
+  }
+
+  /* ── LOADING ── */
+  #loading {
+    position: absolute;
+    inset: 0;
+    background: var(--ink);
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .loading-wordmark {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 48px;
+    font-weight: 300;
+    letter-spacing: 16px;
+    text-transform: uppercase;
+    color: var(--paper);
+    opacity: 0;
+    animation: fadeUp 1s ease 0.2s forwards;
+  }
+
+  .loading-sub {
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--warm);
+    opacity: 0;
+    animation: fadeUp 1s ease 0.5s forwards;
+  }
+
+  .loading-msg {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    opacity: 0;
+    animation: fadeUp 1s ease 0.8s forwards;
+  }
+
+  .loading-bar {
+    width: 200px;
+    height: 1px;
+    background: #333;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeUp 1s ease 0.8s forwards;
+  }
+
+  .loading-fill {
+    height: 100%;
+    background: var(--warm);
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── MAP CONTROLS ── */
+  .map-controls {
+    position: absolute;
+    bottom: 32px;
+    right: 20px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .map-btn {
+    width: 36px;
+    height: 36px;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .map-btn:hover { background: var(--paper2); }
+  .map-btn.active { background: var(--ink); color: var(--paper); }
+
+  /* coordinate display */
+  .coord-display {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: var(--paper);
+    background: rgba(26,24,20,0.7);
+    padding: 4px 10px;
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: var(--paper); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* upload modal */
+  #upload-modal {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(26,24,20,0.8);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #upload-modal.open { display: flex; }
+
+  .modal-box {
+    background: var(--paper);
+    border: 1px solid var(--border);
+    padding: 32px;
+    width: 400px;
+    max-width: 90vw;
+  }
+
+  .modal-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 24px;
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .modal-sub {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .drop-zone {
+    border: 1px dashed var(--border);
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    margin-bottom: 16px;
+  }
+
+  .drop-zone:hover { border-color: var(--accent); }
+  .drop-zone.drag-over { border-color: var(--accent); background: var(--paper2); }
+
+  .drop-text {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .modal-input {
+    width: 100%;
+    background: var(--paper2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 12px;
+    outline: none;
+    margin-bottom: 8px;
+  }
+
+  .modal-select {
+    width: 100%;
+    background: var(--paper2);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 8px 12px;
+    outline: none;
+    margin-bottom: 16px;
+    cursor: pointer;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .btn-primary {
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-primary:hover { opacity: 0.8; }
+
+  .result-count {
+    font-size: 9px;
+    color: var(--muted);
+    padding: 8px 20px;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="loading-wordmark">Relic</div>
+  <div class="loading-sub">Your life, mapped</div>
+  <div class="loading-msg" id="loading-msg">Connecting to archive...</div>
+  <div class="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="wordmark">
+    <div>
+      <div class="wordmark-text">Relic</div>
+      <div class="wordmark-year">EST. 2024</div>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="hstat">
+      <div class="hstat-val" id="h-activities">—</div>
+      <div class="hstat-label">Moments</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="h-distance">—</div>
+      <div class="hstat-label">Kilometres</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="h-elevation">—</div>
+      <div class="hstat-label">Elevation</div>
+    </div>
+    <div class="hstat">
+      <div class="hstat-val" id="h-countries">—</div>
+      <div class="hstat-label">Regions</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn-ghost" onclick="openUpload()">+ Import GPX</button>
+    <button class="btn-ghost" id="terrain-btn" onclick="toggleTerrain()">3D Terrain</button>
+  </div>
+</div>
+
+<!-- FILTER PANEL -->
+<div id="filter-panel">
+  <div class="panel-toggle" onclick="togglePanel()">Filter</div>
+
+  <div class="panel-section">
+    <div class="panel-section-title">Search</div>
+    <input class="search-input" type="text" id="search" placeholder="Search moments...">
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-section-title">Activity Type</div>
+    <div class="type-grid" id="type-grid"></div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-section-title">Year</div>
+    <div class="year-grid" id="year-grid"></div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-section-title">Distance (km)</div>
+    <div class="range-row">
+      <input class="range-input" type="number" id="dist-min" placeholder="Min">
+      <span class="range-sep">—</span>
+      <input class="range-input" type="number" id="dist-max" placeholder="Max">
+    </div>
+  </div>
+
+  <div class="result-count" id="result-count"></div>
+  <div id="activity-list"></div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="detail-panel">
+  <div class="detail-header">
+    <button class="detail-close" onclick="closeDetail()">×</button>
+    <div class="detail-type-label" id="d-type"></div>
+    <div class="detail-name" id="d-name"></div>
+    <div class="detail-date" id="d-date"></div>
+  </div>
+  <div class="detail-stats" id="d-stats"></div>
+  <div class="detail-rows" id="d-rows"></div>
+  <div class="detail-coords" id="d-coords"></div>
+</div>
+
+<!-- MAP -->
+<div id="map"></div>
+
+<!-- MAP CONTROLS -->
+<div class="map-controls">
+  <button class="map-btn" onclick="map.easeTo({pitch: 0, bearing: 0})" title="Reset view">⊙</button>
+  <button class="map-btn" onclick="map.zoomIn()" title="Zoom in">+</button>
+  <button class="map-btn" onclick="map.zoomOut()" title="Zoom out">−</button>
+</div>
+
+<div class="coord-display" id="coord-display"></div>
+
+<!-- UPLOAD MODAL -->
+<div id="upload-modal">
+  <div class="modal-box">
+    <div class="modal-title">Import a Memory</div>
+    <div class="modal-sub">GPX tracks — flights, drives, hikes, anything</div>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('gpx-file').click()">
+      <div class="drop-text">Drop GPX file here or click to browse</div>
+      <input type="file" id="gpx-file" accept=".gpx" style="display:none" onchange="handleGPXFile(this)">
+    </div>
+    <input class="modal-input" type="text" id="import-name" placeholder="Name this memory...">
+    <select class="modal-select" id="import-type">
+      <option value="Run">Run</option>
+      <option value="Ride">Ride</option>
+      <option value="Hike">Hike</option>
+      <option value="Walk">Walk</option>
+      <option value="AlpineSki">Alpine Ski</option>
+      <option value="NordicSki">Nordic Ski</option>
+      <option value="BackcountrySki">Backcountry Ski</option>
+      <option value="Flight">Flight</option>
+      <option value="Drive">Drive</option>
+      <option value="Other">Other</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeUpload()">Cancel</button>
+      <button class="btn-primary" onclick="importGPX()">Add to Archive</button>
+    </div>
+  </div>
+</div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoidHlzZW1pdGNoYmluIiwiYSI6ImNtbjRydWtnZTAzY3gydHNjem0xOGxqNjYifQ.ru655EBUq1NbxeL27mqqnQ';
+
+const STRAVA_CLIENT_ID = '215759';
+const STRAVA_CLIENT_SECRET = '659b2ee168b3e3b4e7a265cf7d57c4544986e0de';
+const STRAVA_REFRESH_TOKEN = '7c6aaaa84a30e39abf62060cf51d2cbfdca52a3b';
+
+const TYPE_CONFIG = {
+  Run:           { label: 'Run',          color: '#c0392b' },
+  Ride:          { label: 'Ride',         color: '#2563eb' },
+  Hike:          { label: 'Hike',         color: '#16a34a' },
+  Walk:          { label: 'Walk',         color: '#7c3aed' },
+  Alpine:        { label: 'Alpine Ski',   color: '#e11d48' },
+  Nordic:        { label: 'Nordic Ski',   color: '#0891b2' },
+  Backcountry:   { label: 'Backcountry',  color: '#6d28d9' },
+  Flight:        { label: 'Flight',       color: '#d97706' },
+  Drive:         { label: 'Drive',        color: '#374151' },
+  Other:         { label: 'Other',        color: '#92400e' },
+};
+
+const TYPE_MAP = {
+  Run: 'Run', TrailRun: 'Run', VirtualRun: 'Run',
+  Ride: 'Ride', VirtualRide: 'Ride', MountainBikeRide: 'Ride',
+  Hike: 'Hike',
+  Walk: 'Walk',
+  AlpineSki: 'Alpine',
+  NordicSki: 'Nordic',
+  BackcountrySki: 'Backcountry',
+  Flight: 'Flight',
+  Drive: 'Drive',
+};
+
+let map, terrainOn = false;
+let allActivities = [], filteredActivities = [];
+let activeTypes = new Set(Object.keys(TYPE_CONFIG));
+let activeYears = new Set();
+let selectedId = null;
+let pendingGPX = null;
+
+// ── STRAVA AUTH ──
+async function getAccessToken() {
+  const params = new URLSearchParams({
+    client_id: STRAVA_CLIENT_ID,
+    client_secret: STRAVA_CLIENT_SECRET,
+    refresh_token: STRAVA_REFRESH_TOKEN,
+    grant_type: 'refresh_token'
+  });
+  const res = await fetch('https://www.strava.com/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error('Auth failed');
+  return data.access_token;
+}
+
+async function fetchActivities(token) {
+  let page = 1, all = [];
+  while (true) {
+    const res = await fetch(
+      `https://www.strava.com/api/v3/athlete/activities?per_page=100&page=${page}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = await res.json();
+    if (!data.length) break;
+    all = all.concat(data);
+    page++;
+  }
+  return all;
+}
+
+// ── HELPERS ──
+function getGroup(type) { return TYPE_MAP[type] || 'Other'; }
+function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#92400e'; }
+
+function formatDist(m) {
+  if (!m) return '—';
+  return (m / 1000).toFixed(1) + ' km';
+}
+
+function formatDuration(s) {
+  if (!s) return '—';
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function formatDate(str) {
+  if (!str) return '—';
+  return new Date(str).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function formatPace(mps, type) {
+  if (!mps) return '—';
+  const group = getGroup(type);
+  if (group === 'Ride') return (mps * 3.6).toFixed(1) + ' km/h';
+  const secPerKm = 1000 / mps;
+  const m = Math.floor(secPerKm / 60), s = Math.floor(secPerKm % 60);
+  return `${m}:${s.toString().padStart(2,'0')} /km`;
+}
+
+// ── DECODE POLYLINE ──
+function decodePolyline(encoded) {
+  const pts = []; let i = 0, lat = 0, lng = 0;
+  while (i < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : result >> 1;
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : result >> 1;
+    pts.push([lng / 1e5, lat / 1e5]);
+  }
+  return pts;
+}
+
+// ── MAP INIT ──
+function initMap() {
+  map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/light-v11',
+    center: [10.4, 63.4],
+    zoom: 5,
+    pitch: 45,
+    bearing: -10,
+    antialias: true
+  });
+
+  map.on('load', async () => {
+    // Add terrain source
+    map.addSource('mapbox-dem', {
+      type: 'raster-dem',
+      url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+      tileSize: 512,
+      maxzoom: 14
+    });
+
+    map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+    terrainOn = true;
+    document.getElementById('terrain-btn').classList.add('active');
+
+    map.addLayer({
+      id: 'sky',
+      type: 'sky',
+      paint: {
+        'sky-type': 'atmosphere',
+        'sky-atmosphere-sun': [0.0, 90.0],
+        'sky-atmosphere-sun-intensity': 15
+      }
+    });
+
+    setProgress(10);
+    setMsg('Authenticating with Strava...');
+
+    try {
+      const token = await getAccessToken();
+      setProgress(25);
+      setMsg('Loading your archive...');
+      const activities = await fetchActivities(token);
+      setProgress(70);
+      setMsg('Rendering tracks...');
+      await processActivities(activities);
+      setProgress(100);
+      setTimeout(() => {
+        document.getElementById('loading').style.opacity = '0';
+        document.getElementById('loading').style.transition = 'opacity 0.6s ease';
+        setTimeout(() => document.getElementById('loading').style.display = 'none', 600);
+      }, 300);
+    } catch(e) {
+      setMsg('Error: ' + e.message);
+      console.error(e);
+    }
+  });
+
+  // Coordinate display on mousemove
+  map.on('mousemove', e => {
+    const { lng, lat } = e.lngLat;
+    document.getElementById('coord-display').textContent =
+      `${lat.toFixed(4)}°N  ${lng.toFixed(4)}°E`;
+  });
+}
+
+async function processActivities(activities) {
+  allActivities = activities;
+
+  // Build year set
+  const years = new Set();
+  activities.forEach(a => {
+    if (a.start_date_local) years.add(a.start_date_local.substring(0,4));
+  });
+  [...years].sort().reverse().forEach(y => activeYears.add(y));
+
+  // Stats
+  const totalDist = activities.reduce((s,a) => s + (a.distance||0), 0) / 1000;
+  const totalElev = activities.reduce((s,a) => s + (a.total_elevation_gain||0), 0);
+  document.getElementById('h-activities').textContent = activities.length.toLocaleString();
+  document.getElementById('h-distance').textContent = Math.round(totalDist).toLocaleString();
+  document.getElementById('h-elevation').textContent = Math.round(totalElev/1000) + 'k m';
+  document.getElementById('h-countries').textContent = years.size;
+
+  // Add tracks to map
+  activities.forEach(a => {
+    if (!a.map?.summary_polyline) return;
+    const coords = decodePolyline(a.map.summary_polyline);
+    if (coords.length < 2) return;
+
+    const id = `track-${a.id}`;
+    map.addSource(id, {
+      type: 'geojson',
+      data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }
+    });
+
+    map.addLayer({
+      id: id,
+      type: 'line',
+      source: id,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': getColor(a.type),
+        'line-width': 2,
+        'line-opacity': 0.75
+      }
+    });
+
+    map.on('click', id, () => showDetail(a));
+    map.on('mouseenter', id, () => {
+      map.getCanvas().style.cursor = 'pointer';
+      map.setPaintProperty(id, 'line-width', 4);
+      map.setPaintProperty(id, 'line-opacity', 1);
+    });
+    map.on('mouseleave', id, () => {
+      map.getCanvas().style.cursor = '';
+      if (selectedId !== a.id) {
+        map.setPaintProperty(id, 'line-width', 2);
+        map.setPaintProperty(id, 'line-opacity', 0.75);
+      }
+    });
+  });
+
+  buildFilters(years);
+  applyFilters();
+}
+
+// ── FILTERS ──
+function buildFilters(years) {
+  // Type grid
+  const grid = document.getElementById('type-grid');
+  grid.innerHTML = '';
+  Object.entries(TYPE_CONFIG).forEach(([key, cfg]) => {
+    const btn = document.createElement('button');
+    btn.className = 'type-chip active';
+    btn.dataset.type = key;
+    btn.innerHTML = `<div class="type-dot" style="background:${cfg.color}"></div>${cfg.label}`;
+    btn.onclick = () => {
+      if (activeTypes.has(key)) { activeTypes.delete(key); btn.classList.remove('active'); }
+      else { activeTypes.add(key); btn.classList.add('active'); }
+      applyFilters();
+    };
+    grid.appendChild(btn);
+  });
+
+  // Year grid
+  const ygrid = document.getElementById('year-grid');
+  ygrid.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.className = 'year-btn active';
+  allBtn.textContent = 'All';
+  allBtn.onclick = () => {
+    [...years].forEach(y => activeYears.add(y));
+    document.querySelectorAll('.year-btn').forEach(b => b.classList.add('active'));
+    applyFilters();
+  };
+  ygrid.appendChild(allBtn);
+
+  [...years].sort().reverse().forEach(y => {
+    const btn = document.createElement('button');
+    btn.className = 'year-btn active';
+    btn.textContent = y;
+    btn.onclick = () => {
+      if (activeYears.has(y)) { activeYears.delete(y); btn.classList.remove('active'); }
+      else { activeYears.add(y); btn.classList.add('active'); }
+      applyFilters();
+    };
+    ygrid.appendChild(btn);
+  });
+
+  // Input listeners
+  document.getElementById('search').addEventListener('input', applyFilters);
+  document.getElementById('dist-min').addEventListener('input', applyFilters);
+  document.getElementById('dist-max').addEventListener('input', applyFilters);
+}
+
+function applyFilters() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const distMin = parseFloat(document.getElementById('dist-min').value) || 0;
+  const distMax = parseFloat(document.getElementById('dist-max').value) || Infinity;
+
+  filteredActivities = allActivities.filter(a => {
+    const group = getGroup(a.type);
+    const year = a.start_date_local?.substring(0,4);
+    const dist = (a.distance || 0) / 1000;
+    return activeTypes.has(group)
+      && activeYears.has(year)
+      && dist >= distMin && dist <= distMax
+      && a.name.toLowerCase().includes(search);
+  });
+
+  // Show/hide map layers
+  allActivities.forEach(a => {
+    const id = `track-${a.id}`;
+    if (!map.getLayer(id)) return;
+    const visible = filteredActivities.find(f => f.id === a.id);
+    map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+  });
+
+  document.getElementById('result-count').textContent =
+    `${filteredActivities.length} of ${allActivities.length} moments`;
+
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('activity-list');
+  list.innerHTML = '';
+
+  filteredActivities.slice(0, 200).forEach(a => {
+    const group = getGroup(a.type);
+    const color = TYPE_CONFIG[group]?.color || '#92400e';
+    const date = a.start_date_local ? new Date(a.start_date_local) : null;
+    const dateStr = date ? date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric'}) : '—';
+
+    const item = document.createElement('div');
+    item.className = 'activity-item' + (a.id === selectedId ? ' selected' : '');
+    item.innerHTML = `
+      <div class="activity-type-bar" style="background:${color}"></div>
+      <div class="activity-info">
+        <div class="activity-name">${a.name}</div>
+        <div class="activity-meta">
+          <span>${dateStr}</span>
+          <span>${TYPE_CONFIG[group]?.label || a.type}</span>
+        </div>
+      </div>
+      <div class="activity-dist">${formatDist(a.distance)}</div>
+    `;
+    item.onclick = () => {
+      showDetail(a);
+      // Fly to track
+      if (a.start_latlng) {
+        map.flyTo({ center: [a.start_latlng[1], a.start_latlng[0]], zoom: 13, pitch: 50, duration: 1200 });
+      }
+    };
+    list.appendChild(item);
+  });
+}
+
+// ── DETAIL ──
+function showDetail(activity) {
+  selectedId = activity.id;
+  renderList();
+
+  const group = getGroup(activity.type);
+  const color = TYPE_CONFIG[group]?.color || '#92400e';
+
+  document.getElementById('d-type').textContent = TYPE_CONFIG[group]?.label || activity.type;
+  document.getElementById('d-type').style.color = color;
+  document.getElementById('d-name').textContent = activity.name;
+  document.getElementById('d-date').textContent = formatDate(activity.start_date_local);
+
+  // Big stats
+  const stats = [
+    { val: formatDist(activity.distance), label: 'Distance' },
+    { val: formatDuration(activity.moving_time), label: 'Moving Time' },
+    { val: activity.total_elevation_gain ? activity.total_elevation_gain + ' m' : '—', label: 'Elevation' },
+    { val: formatPace(activity.average_speed, activity.type), label: 'Avg Pace' },
+  ];
+  document.getElementById('d-stats').innerHTML = stats.map(s =>
+    `<div class="dstat"><div class="dstat-val">${s.val}</div><div class="dstat-label">${s.label}</div></div>`
+  ).join('');
+
+  // Detail rows
+  const rows = [
+    ['Avg Heart Rate', activity.average_heartrate ? activity.average_heartrate + ' bpm' : '—'],
+    ['Max Heart Rate', activity.max_heartrate ? activity.max_heartrate + ' bpm' : '—'],
+    ['Calories', activity.calories || '—'],
+    ['Suffer Score', activity.suffer_score || '—'],
+    ['Kudos', activity.kudos_count ?? '—'],
+    ['Device', activity.device_name || '—'],
+    ['Commute', activity.commute ? 'Yes' : 'No'],
+  ];
+  document.getElementById('d-rows').innerHTML = rows.map(([k,v]) =>
+    `<div class="detail-row"><span class="dr-key">${k}</span><span class="dr-val">${v}</span></div>`
+  ).join('');
+
+  // Coords
+  if (activity.start_latlng) {
+    document.getElementById('d-coords').textContent =
+      `${activity.start_latlng[0].toFixed(5)}°N  ${activity.start_latlng[1].toFixed(5)}°E`;
+  }
+
+  // Highlight track
+  allActivities.forEach(a => {
+    const id = `track-${a.id}`;
+    if (!map.getLayer(id)) return;
+    if (a.id === activity.id) {
+      map.setPaintProperty(id, 'line-width', 4);
+      map.setPaintProperty(id, 'line-opacity', 1);
+    } else {
+      map.setPaintProperty(id, 'line-width', 1.5);
+      map.setPaintProperty(id, 'line-opacity', 0.3);
+    }
+  });
+
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail() {
+  selectedId = null;
+  document.getElementById('detail-panel').classList.remove('open');
+  renderList();
+  allActivities.forEach(a => {
+    const id = `track-${a.id}`;
+    if (!map.getLayer(id)) return;
+    const visible = filteredActivities.find(f => f.id === a.id);
+    if (visible) {
+      map.setPaintProperty(id, 'line-width', 2);
+      map.setPaintProperty(id, 'line-opacity', 0.75);
+    }
+  });
+}
+
+// ── TERRAIN TOGGLE ──
+function toggleTerrain() {
+  terrainOn = !terrainOn;
+  map.setTerrain(terrainOn ? { source: 'mapbox-dem', exaggeration: 1.5 } : null);
+  document.getElementById('terrain-btn').classList.toggle('active', terrainOn);
+  map.easeTo({ pitch: terrainOn ? 45 : 0, duration: 800 });
+}
+
+// ── PANEL TOGGLE ──
+function togglePanel() {
+  document.getElementById('filter-panel').classList.toggle('collapsed');
+}
+
+// ── GPX IMPORT ──
+function openUpload() { document.getElementById('upload-modal').classList.add('open'); }
+function closeUpload() { document.getElementById('upload-modal').classList.remove('open'); pendingGPX = null; }
+
+function handleGPXFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('import-name').value = file.name.replace('.gpx','');
+  const reader = new FileReader();
+  reader.onload = e => { pendingGPX = e.target.result; };
+  reader.readAsText(file);
+}
+
+function parseGPX(gpxText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(gpxText, 'text/xml');
+  const trkpts = doc.querySelectorAll('trkpt');
+  const coords = [];
+  trkpts.forEach(pt => {
+    const lat = parseFloat(pt.getAttribute('lat'));
+    const lon = parseFloat(pt.getAttribute('lon'));
+    if (!isNaN(lat) && !isNaN(lon)) coords.push([lon, lat]);
+  });
+  return coords;
+}
+
+function importGPX() {
+  if (!pendingGPX) { alert('Please select a GPX file first.'); return; }
+  const name = document.getElementById('import-name').value || 'Imported Track';
+  const type = document.getElementById('import-type').value;
+  const coords = parseGPX(pendingGPX);
+  if (!coords.length) { alert('Could not parse GPX file.'); return; }
+
+  const fakeActivity = {
+    id: Date.now(),
+    name, type,
+    start_date_local: new Date().toISOString(),
+    distance: 0,
+    moving_time: 0,
+    total_elevation_gain: 0,
+    start_latlng: [coords[0][1], coords[0][0]],
+    map: { summary_polyline: null },
+    _gpxCoords: coords
+  };
+
+  const id = `track-${fakeActivity.id}`;
+  map.addSource(id, {
+    type: 'geojson',
+    data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }
+  });
+  map.addLayer({
+    id, type: 'line', source: id,
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: { 'line-color': getColor(type), 'line-width': 2, 'line-opacity': 0.8 }
+  });
+
+  map.on('click', id, () => showDetail(fakeActivity));
+
+  allActivities.unshift(fakeActivity);
+  map.flyTo({ center: coords[0], zoom: 11, pitch: 50, duration: 1200 });
+  closeUpload();
+  applyFilters();
+}
+
+// ── LOADING HELPERS ──
+function setProgress(pct) { document.getElementById('loading-fill').style.width = pct + '%'; }
+function setMsg(msg) { document.getElementById('loading-msg').textContent = msg; }
+
+// ── DRAG & DROP ──
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    document.getElementById('import-name').value = file.name.replace('.gpx','');
+    const reader = new FileReader();
+    reader.onload = ev => { pendingGPX = ev.target.result; };
+    reader.readAsText(file);
+  }
+});
+
+window.toggleTerrain = toggleTerrain;
+window.togglePanel = togglePanel;
+window.closeDetail = closeDetail;
+window.openUpload = openUpload;
+window.closeUpload = closeUpload;
+window.handleGPXFile = handleGPXFile;
+window.importGPX = importGPX;
+
+initMap();
+</script>
+</body>
+</html>
