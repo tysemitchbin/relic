@@ -1075,15 +1075,15 @@ function initMapLayers() {
   if (map.getSource('tracks')) {
     map.getSource('tracks').setData(tracksGeoJSON);
   } else {
-    map.addSource('tracks', { type: 'geojson', data: tracksGeoJSON });
+    map.addSource('tracks', { type: 'geojson', data: tracksGeoJSON, tolerance: 0.5, buffer: 0 });
     map.addLayer({
       id: 'tracks-layer', type: 'line', source: 'tracks',
       minzoom: 7,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
         'line-color': ['get', 'color'],
-        'line-width': 2.5,
-        'line-opacity': 0.85
+        'line-width': ['interpolate', ['linear'], ['zoom'], 7, 1.5, 11, 2.5, 14, 3.5],
+        'line-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.6, 10, 0.85]
       }
     });
     map.addLayer({
@@ -1169,6 +1169,14 @@ function initMapLayers() {
     map.on('mouseleave', 'cluster-circles', () => map.getCanvas().style.cursor = '');
     map.on('mouseenter', 'cluster-single', () => map.getCanvas().style.cursor = 'pointer');
     map.on('mouseleave', 'cluster-single', () => map.getCanvas().style.cursor = '');
+  }
+
+  // Preload satellite source invisibly for instant toggle
+  if (!map.getSource('satellite')) {
+    map.addSource('satellite', { type: 'raster', url: 'mapbox://mapbox.satellite', tileSize: 256 });
+    map.addLayer({ id: 'satellite-layer', type: 'raster', source: 'satellite',
+      paint: { 'raster-opacity': 1 } }, 'tracks-layer');
+    map.setLayoutProperty('satellite-layer', 'visibility', 'none');
   }
 }
 
@@ -1624,14 +1632,35 @@ function toggleTerrain() {
 
 function toggleSatellite() {
   satelliteOn = !satelliteOn;
-  map.setStyle(satelliteOn ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/outdoors-v12');
   document.getElementById('satellite-btn').classList.toggle('active', satelliteOn);
-  map.once('style.load', () => {
-    addTerrainSource();
-    if (terrainOn) map.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
-    initMapLayers();
-    applyFilters();
-  });
+  if (satelliteOn) {
+    if (!map.getSource('satellite')) {
+      map.addSource('satellite', {
+        type: 'raster',
+        url: 'mapbox://mapbox.satellite',
+        tileSize: 256
+      });
+      map.addLayer({ id: 'satellite-layer', type: 'raster', source: 'satellite', paint: { 'raster-opacity': 1 } }, 'tracks-layer');
+    } else {
+      map.setLayoutProperty('satellite-layer', 'visibility', 'visible');
+    }
+    // Hide vector road/label layers for cleaner satellite look
+    getSatelliteToggleLayers().forEach(id => {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+    });
+  } else {
+    if (map.getLayer('satellite-layer')) map.setLayoutProperty('satellite-layer', 'visibility', 'none');
+    getSatelliteToggleLayers().forEach(id => {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible');
+    });
+  }
+}
+
+function getSatelliteToggleLayers() {
+  // Get all non-relic background layers to hide when satellite is on
+  return map.getStyle().layers
+    .filter(l => !['tracks-layer','tracks-highlight','cluster-circles','cluster-count','cluster-single','satellite-layer','sky'].includes(l.id))
+    .map(l => l.id);
 }
 
 function updateTypeColor(typeKey, color) {
