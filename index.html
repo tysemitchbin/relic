@@ -2206,12 +2206,15 @@ function openFeedPreview(memId) {
       window._feedPreviewMap = null;
     }
 
+    const isFlat = (mem.elevation || 0) < 100;
+    const previewPitch = isFlat ? 30 : 55;
+
     const miniMap = new mapboxgl.Map({
       container: mapEl,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      style: 'mapbox://styles/mapbox/outdoors-v12',
       center: [centerLng, centerLat],
       zoom: 11,
-      pitch: 55,
+      pitch: previewPitch,
       bearing: 0,
       interactive: false,
       attributionControl: false,
@@ -2220,28 +2223,22 @@ function openFeedPreview(memId) {
     window._feedPreviewMap = miniMap;
 
     miniMap.on('load', () => {
-      // Add terrain
-      miniMap.addSource('preview-dem', {
-        type: 'raster-dem',
-        url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
-        tileSize: 512, maxzoom: 14
-      });
-      miniMap.setTerrain({ source: 'preview-dem', exaggeration: 2.0 });
+      // Add terrain for hilly activities
+      if (!isFlat) {
+        miniMap.addSource('preview-dem', {
+          type: 'raster-dem',
+          url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          tileSize: 512, maxzoom: 14
+        });
+        miniMap.setTerrain({ source: 'preview-dem', exaggeration: 1.5 });
+      }
 
-      // Hide noisy labels, keep only essential ones
-      const hideLayers = ['poi-label', 'transit-label', 'road-label', 'road-number-shield',
-        'motorway-junction', 'waterway-label', 'natural-point-label', 'airport-label',
-        'settlement-subdivision-label', 'state-label', 'country-label', 'continent-label'];
-      hideLayers.forEach(id => {
-        if (miniMap.getLayer(id)) miniMap.setLayoutProperty(id, 'visibility', 'none');
-      });
+      // Bearing: face north for flat activities, track direction for hilly
+      const trackBearing = isFlat ? 0 : calcTrackBearing(coords);
 
-      // Calculate optimal bearing from track direction
-      const trackBearing = calcTrackBearing(coords);
-
-      // Fit to track bounds with tilt facing into the terrain
+      // Fit to track bounds
       miniMap.fitBounds([[minLng,minLat],[maxLng,maxLat]], {
-        padding: 40, animate: false, pitch: 55, bearing: trackBearing
+        padding: 40, animate: false, pitch: previewPitch, bearing: trackBearing
       });
 
       miniMap.addSource('preview-track', {
@@ -2252,12 +2249,12 @@ function openFeedPreview(memId) {
       miniMap.addLayer({
         id: 'preview-track-glow', type: 'line', source: 'preview-track',
         layout: { 'line-join':'round', 'line-cap':'round' },
-        paint: { 'line-color': color, 'line-width': 8, 'line-opacity': 0.3 }
+        paint: { 'line-color': color, 'line-width': 7, 'line-opacity': 0.25 }
       });
       miniMap.addLayer({
         id: 'preview-track-line', type: 'line', source: 'preview-track',
         layout: { 'line-join':'round', 'line-cap':'round' },
-        paint: { 'line-color': '#ffffff', 'line-width': 2.5, 'line-opacity': 0.95 }
+        paint: { 'line-color': color, 'line-width': 2.5, 'line-opacity': 0.9 }
       });
     });
   } else {
