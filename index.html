@@ -593,6 +593,208 @@ body {
 }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ── FEED ── */
+.feed-controls {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--paper); border-bottom: 1px solid var(--border);
+  padding: 10px 20px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+}
+.feed-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.feed-filter-btn {
+  padding: 4px 12px; border: 1px solid var(--border);
+  background: transparent; font-family: 'JetBrains Mono', monospace;
+  font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); cursor: pointer; transition: all 0.15s;
+}
+.feed-filter-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.feed-type-filters { display: flex; gap: 4px; flex-wrap: wrap; }
+.feed-type-chip {
+  padding: 3px 8px; border: 1px solid var(--border);
+  background: transparent; font-family: 'JetBrains Mono', monospace;
+  font-size: 7px; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--muted); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 4px;
+}
+.feed-type-chip.active { color: var(--ink); border-color: currentColor; }
+.honeycomb-wrap {
+  flex: 1; overflow-y: auto; padding: 20px;
+  background: var(--paper2);
+}
+.honeycomb {
+  display: flex; flex-wrap: wrap;
+  gap: 3px;
+}
+/* Hexagon cells */
+.hex-cell {
+  width: 160px; height: 184px;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: transform 0.2s, filter 0.2s;
+  margin-bottom: -46px;
+  flex-shrink: 0;
+}
+.hex-cell:nth-child(even) { margin-top: 92px; }
+.hex-cell:hover { transform: scale(1.05); filter: brightness(1.1); z-index: 2; }
+.hex-bg { position: absolute; inset: 0; }
+.hex-img { width: 100%; height: 100%; object-fit: cover; }
+.hex-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(26,24,20,0.85) 0%, rgba(26,24,20,0.1) 60%);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 16px 12px 24px;
+}
+.hex-map { position: absolute; inset: 0; }
+.hex-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px; font-weight: 500; color: white;
+  line-height: 1.2; margin-bottom: 3px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hex-meta { font-size: 8px; color: rgba(255,255,255,0.7); letter-spacing: 0.5px; }
+.hex-mood { position: absolute; top: 12px; right: 12px; font-size: 14px; }
+
+/* ── CALENDAR ── */
+#calendar-view {
+  flex-direction: column; background: var(--paper); overflow: hidden;
+}
+.calendar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.cal-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px; font-weight: 400; letter-spacing: 3px; text-transform: uppercase;
+}
+.cal-nav {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  font-size: 14px; width: 32px; height: 32px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.cal-nav:hover { border-color: var(--accent); color: var(--accent); }
+.calendar-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.cal-weekdays {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.cal-weekday {
+  text-align: center; padding: 8px 0;
+  font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+.cal-weekday:last-child { border-right: none; }
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  flex: 1; overflow-y: auto;
+}
+.cal-day {
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  padding: 6px; min-height: 80px; cursor: pointer; transition: background 0.1s;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.cal-day:nth-child(7n) { border-right: none; }
+.cal-day:hover { background: var(--paper2); }
+.cal-day.other-month { opacity: 0.3; }
+.cal-day.today { background: var(--paper2); }
+.cal-day.has-activity { cursor: pointer; }
+.cal-day-num {
+  font-size: 10px; color: var(--muted); font-weight: 500;
+  margin-bottom: 2px;
+}
+.cal-day.today .cal-day-num { color: var(--accent); font-weight: 700; }
+.cal-dots { display: flex; flex-wrap: wrap; gap: 2px; }
+.cal-dot { width: 7px; height: 7px; border-radius: 50%; }
+.cal-activity-pill {
+  font-size: 7px; padding: 1px 4px; letter-spacing: 0.3px;
+  color: white; border-radius: 0; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.calendar-detail {
+  border-top: 1px solid var(--border); padding: 12px 20px;
+  min-height: 60px; max-height: 120px; overflow-y: auto;
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start;
+  flex-shrink: 0; background: var(--paper);
+}
+.cal-detail-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: var(--ink); cursor: pointer;
+  padding: 4px 8px; border: 1px solid var(--border); transition: background 0.1s;
+}
+.cal-detail-item:hover { background: var(--paper2); }
+.cal-detail-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── PROFILE ── */
+#profile-view { background: var(--paper); overflow-y: auto; }
+.profile-wrap { max-width: 800px; margin: 0 auto; padding: 40px; }
+.profile-hero {
+  display: flex; gap: 32px; align-items: flex-start;
+  margin-bottom: 40px; padding-bottom: 40px;
+  border-bottom: 1px solid var(--border);
+}
+.profile-photo-wrap { cursor: pointer; flex-shrink: 0; }
+.profile-photo {
+  width: 120px; height: 120px; border-radius: 50%;
+  background: var(--paper2); border: 1px solid var(--border);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 6px;
+}
+.profile-photo img { width: 100%; height: 100%; object-fit: cover; }
+.profile-photo-placeholder { font-size: 32px; color: var(--muted); }
+.profile-photo-hint { font-size: 7px; color: var(--muted); letter-spacing: 1px; text-align: center; text-transform: uppercase; }
+.profile-info { flex: 1; }
+.profile-name-input {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 36px; font-weight: 400; color: var(--ink);
+  background: transparent; border: none; border-bottom: 1px solid transparent;
+  outline: none; width: 100%; margin-bottom: 12px;
+  transition: border-color 0.15s;
+}
+.profile-name-input:focus { border-bottom-color: var(--accent); }
+.profile-bio-input {
+  width: 100%; min-height: 60px;
+  background: transparent; border: none; border-bottom: 1px solid transparent;
+  color: var(--muted); font-family: 'Cormorant Garamond', serif;
+  font-size: 15px; line-height: 1.6; outline: none; resize: none;
+  transition: border-color 0.15s;
+}
+.profile-bio-input:focus { border-bottom-color: var(--border); }
+.profile-stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: var(--border); margin-bottom: 40px;
+}
+.profile-stat {
+  background: var(--paper2); padding: 20px 16px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.profile-stat-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 28px; font-weight: 400; color: var(--ink);
+}
+.profile-stat-label { font-size: 7px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+.profile-section-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--ink); margin-bottom: 16px;
+  border-bottom: 1px solid var(--border); padding-bottom: 8px;
+}
+.profile-timeline { display: flex; flex-direction: column; gap: 0; }
+.pt-year-row {
+  display: flex; align-items: stretch; border-bottom: 1px solid var(--border);
+}
+.pt-year-label {
+  width: 50px; flex-shrink: 0; display: flex; align-items: center;
+  font-size: 11px; font-weight: 500; color: var(--muted); padding: 12px 0;
+}
+.pt-year-months { flex: 1; display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; padding: 8px 0; }
+.pt-month {
+  display: flex; flex-direction: column; gap: 2px; align-items: center;
+  padding: 4px 2px; border-radius: 2px; cursor: pointer; transition: background 0.1s;
+}
+.pt-month:hover { background: var(--paper2); }
+.pt-month-dots { display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; min-height: 16px; }
+.pt-dot { width: 5px; height: 5px; border-radius: 50%; }
+.pt-month-label { font-size: 6px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: var(--paper); }
@@ -627,7 +829,10 @@ body {
     </div>
     <div class="header-nav">
       <button class="nav-btn active" id="nav-map" onclick="switchView('map')">Map</button>
+      <button class="nav-btn" id="nav-feed" onclick="switchView('feed')">Feed</button>
+      <button class="nav-btn" id="nav-calendar" onclick="switchView('calendar')">Calendar</button>
       <button class="nav-btn" id="nav-stats" onclick="switchView('stats')">Archive</button>
+      <button class="nav-btn" id="nav-profile" onclick="switchView('profile')">Profile</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
       <button class="nav-btn" id="nav-sync" onclick="forceSync()">↺ Sync</button>
     </div>
@@ -742,6 +947,59 @@ body {
         <div class="type-breakdown" id="type-breakdown"></div>
         <div class="stats-section-title">Year by Year</div>
         <div class="year-timeline" id="year-timeline"></div>
+      </div>
+    </div>
+
+    <!-- FEED VIEW -->
+    <div class="view" id="feed-view">
+      <div class="feed-controls">
+        <div class="feed-filters">
+          <button class="feed-filter-btn active" data-sort="recent" onclick="setFeedSort('recent')">Recent</button>
+          <button class="feed-filter-btn" data-sort="distance" onclick="setFeedSort('distance')">Distance</button>
+          <button class="feed-filter-btn" data-sort="elevation" onclick="setFeedSort('elevation')">Elevation</button>
+          <button class="feed-filter-btn" data-sort="story" onclick="setFeedSort('story')">Has Story</button>
+          <button class="feed-filter-btn" data-sort="photos" onclick="setFeedSort('photos')">Has Photos</button>
+        </div>
+        <div class="feed-type-filters" id="feed-type-filters"></div>
+      </div>
+      <div class="honeycomb-wrap">
+        <div class="honeycomb" id="honeycomb"></div>
+      </div>
+    </div>
+
+    <!-- CALENDAR VIEW -->
+    <div class="view" id="calendar-view">
+      <div class="calendar-header">
+        <button class="cal-nav" onclick="calNav(-1)">←</button>
+        <div class="cal-title" id="cal-title"></div>
+        <button class="cal-nav" onclick="calNav(1)">→</button>
+      </div>
+      <div class="calendar-body" id="calendar-body"></div>
+      <div class="calendar-detail" id="calendar-detail"></div>
+    </div>
+
+    <!-- PROFILE VIEW -->
+    <div class="view" id="profile-view">
+      <div class="profile-wrap">
+        <div class="profile-hero">
+          <div class="profile-photo-wrap" onclick="document.getElementById('profile-photo-input').click()">
+            <div class="profile-photo" id="profile-photo-display">
+              <div class="profile-photo-placeholder">+</div>
+            </div>
+            <div class="profile-photo-hint">Click to change</div>
+            <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handleProfilePhoto(this)">
+          </div>
+          <div class="profile-info">
+            <input class="profile-name-input" id="profile-name" placeholder="Your Name" oninput="saveProfile()" value="">
+            <textarea class="profile-bio-input" id="profile-bio" placeholder="A short bio — who you are, where you've been..." oninput="saveProfile()"></textarea>
+            <div class="profile-location" id="profile-location-display"></div>
+          </div>
+        </div>
+
+        <div class="profile-stats-row" id="profile-stats-row"></div>
+
+        <div class="profile-section-title">Year by Year</div>
+        <div class="profile-timeline" id="profile-timeline"></div>
       </div>
     </div>
 
@@ -1104,72 +1362,43 @@ function initMapLayers() {
     map.on('mouseleave', 'tracks-layer', () => map.getCanvas().style.cursor = '');
   }
 
-  // Cluster layer (shown when zoomed out)
-  if (map.getSource('clusters')) {
-    map.getSource('clusters').setData(clusterGeoJSON);
-  } else {
+  // Cluster source (used for clustering logic, invisible layers)
+  if (!map.getSource('clusters')) {
     map.addSource('clusters', {
       type: 'geojson', data: clusterGeoJSON,
-      cluster: true, clusterMaxZoom: 7, clusterRadius: 40
-    });
-
-    map.addLayer({
-      id: 'cluster-circles', type: 'circle', source: 'clusters',
-      maxzoom: 7,
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': '#1a1814',
-        'circle-radius': ['step', ['get', 'point_count'], 14, 10, 20, 50, 26],
-        'circle-opacity': 0.85,
-        'circle-stroke-width': 1,
-        'circle-stroke-color': '#d4cdc2'
+      cluster: true, clusterMaxZoom: 7, clusterRadius: 50,
+      clusterProperties: {
+        'colors': ['concat', ['concat', ['get', 'color'], ',']]
       }
     });
 
+    // Invisible layer just to make clusters queryable
     map.addLayer({
-      id: 'cluster-count', type: 'symbol', source: 'clusters',
+      id: 'cluster-hit', type: 'circle', source: 'clusters',
       maxzoom: 7,
-      filter: ['has', 'point_count'],
-      layout: {
-        'text-field': '{point_count_abbreviated}',
-        'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-        'text-size': 11
-      },
-      paint: { 'text-color': '#f5f0e8' }
+      paint: { 'circle-radius': 30, 'circle-opacity': 0 }
     });
 
-    map.addLayer({
-      id: 'cluster-single', type: 'circle', source: 'clusters',
-      maxzoom: 7,
-      filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-color': ['get', 'color'],
-        'circle-radius': 5,
-        'circle-opacity': 0.85,
-        'circle-stroke-width': 1,
-        'circle-stroke-color': '#ffffff'
+    map.on('click', 'cluster-hit', e => {
+      const features = map.queryRenderedFeatures(e.point, { layers: ['cluster-hit'] });
+      if (!features.length) return;
+      const f = features[0];
+      if (f.properties.cluster) {
+        map.getSource('clusters').getClusterExpansionZoom(f.properties.cluster_id, (err, zoom) => {
+          if (!err) map.easeTo({ center: f.geometry.coordinates, zoom: zoom + 1, duration: 500 });
+        });
+      } else {
+        showDetail(f.properties.id);
       }
     });
-
-    map.on('click', 'cluster-circles', e => {
-      const features = map.queryRenderedFeatures(e.point, { layers: ['cluster-circles'] });
-      const clusterId = features[0].properties.cluster_id;
-      map.getSource('clusters').getClusterExpansionZoom(clusterId, (err, zoom) => {
-        if (err) return;
-        map.easeTo({ center: features[0].geometry.coordinates, zoom, duration: 500 });
-      });
-    });
-
-    map.on('click', 'cluster-single', e => {
-      const id = e.features[0].properties.id;
-      showDetail(id);
-    });
-
-    map.on('mouseenter', 'cluster-circles', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'cluster-circles', () => map.getCanvas().style.cursor = '');
-    map.on('mouseenter', 'cluster-single', () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', 'cluster-single', () => map.getCanvas().style.cursor = '');
+    map.on('mouseenter', 'cluster-hit', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'cluster-hit', () => map.getCanvas().style.cursor = '');
+  } else {
+    map.getSource('clusters').setData(clusterGeoJSON);
   }
+
+  // Render constellation markers
+  renderConstellations();
 
   // Preload satellite source invisibly for instant toggle
   if (!map.getSource('satellite')) {
@@ -1179,6 +1408,21 @@ function initMapLayers() {
     map.setLayoutProperty('satellite-layer', 'visibility', 'none');
   }
 }
+
+// Listen for zoom changes to show/hide constellations vs tracks
+map.on('zoomend', () => {
+  const zoom = map.getZoom();
+  if (zoom >= 7) {
+    constellationMarkers.forEach(m => m.remove());
+    constellationMarkers = [];
+  } else {
+    renderConstellations();
+  }
+});
+
+map.on('moveend', () => {
+  if (map.getZoom() < 7) renderConstellations();
+});
 
 function updateTrackHighlight(memId) {
   if (!map.getLayer('tracks-highlight')) return;
@@ -1260,6 +1504,7 @@ function applyFilters() {
   }
   if (map.getSource('clusters')) {
     map.getSource('clusters').setData(buildClusterGeoJSON(filteredMemories));
+    setTimeout(() => { if (map.getZoom() < 7) renderConstellations(); }, 300);
   }
 
   document.getElementById('result-count').textContent = `${filteredMemories.length} of ${allMemories.length} moments`;
@@ -1803,6 +2048,10 @@ function switchView(view) {
   document.getElementById(`${view}-view`).classList.add('active');
   document.getElementById(`nav-${view}`)?.classList.add('active');
   if (view==='stats') buildStats();
+  if (view==='feed') buildFeed();
+  if (view==='calendar') buildCalendar();
+  if (view==='profile') buildProfile();
+  if (view==='map') { setTimeout(()=>{ if(map) map.resize(); }, 50); }
 }
 
 function forceSync() {
@@ -1825,8 +2074,450 @@ document.addEventListener('keydown', e=>{
   if (e.key==='Escape') { closeDetail(); closeLightbox(); closeImport(); }
 });
 
+// ── CONSTELLATION CLUSTERS ──
+let constellationMarkers = [];
+
+function renderConstellations() {
+  // Clear existing
+  constellationMarkers.forEach(m => m.remove());
+  constellationMarkers = [];
+
+  const zoom = map.getZoom();
+  if (zoom >= 7) return; // tracks visible, no clusters needed
+
+  const features = map.querySourceFeatures('clusters');
+  const seen = new Set();
+
+  features.forEach(f => {
+    const key = f.properties.cluster_id || f.properties.id;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    const coords = f.geometry.coordinates;
+    const isCluster = f.properties.cluster;
+
+    if (isCluster) {
+      const colorsRaw = f.properties.colors || '';
+      const colors = colorsRaw.split(',').filter(c => c && c.startsWith('#'));
+      const count = f.properties.point_count || 1;
+      const marker = createConstellationMarker(coords, colors, count, f.properties.cluster_id);
+      constellationMarkers.push(marker);
+    } else {
+      const marker = createSingleDotMarker(coords, f.properties.color, f.properties.id);
+      constellationMarkers.push(marker);
+    }
+  });
+}
+
+function createConstellationMarker(coords, colors, count, clusterId) {
+  const size = Math.min(60, 28 + Math.sqrt(count) * 3);
+  const dots = Math.min(colors.length, 12);
+  const seed = coords[0] * 1000;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size * 2; canvas.height = size * 2;
+  const ctx = canvas.getContext('2d');
+
+  // Draw dots in constellation pattern
+  const uniqueColors = [...new Set(colors)];
+  for (let i = 0; i < dots; i++) {
+    const color = uniqueColors[i % uniqueColors.length];
+    // Pseudo-random but deterministic position
+    const angle = (seed * (i + 1) * 137.5) % 360 * Math.PI / 180;
+    const radius = (size * 0.3) + (((seed * i * 31) % 100) / 100) * size * 0.55;
+    const x = size + Math.cos(angle) * radius;
+    const y = size + Math.sin(angle) * radius;
+    const dotSize = 1.5 + ((seed * i * 17) % 10) / 10 * 2;
+
+    ctx.beginPath();
+    ctx.arc(x, y, dotSize, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.7 + ((seed * i * 7) % 30) / 100;
+    ctx.fill();
+  }
+
+  // Draw faint connecting lines between nearby dots (constellation effect)
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = '#8a8278';
+  ctx.lineWidth = 0.5;
+  const dotPositions = [];
+  for (let i = 0; i < dots; i++) {
+    const angle = (seed * (i + 1) * 137.5) % 360 * Math.PI / 180;
+    const radius = (size * 0.3) + (((seed * i * 31) % 100) / 100) * size * 0.55;
+    dotPositions.push([size + Math.cos(angle) * radius, size + Math.sin(angle) * radius]);
+  }
+  // Connect closest pairs
+  for (let i = 0; i < dotPositions.length; i++) {
+    for (let j = i + 1; j < dotPositions.length; j++) {
+      const dx = dotPositions[i][0] - dotPositions[j][0];
+      const dy = dotPositions[i][1] - dotPositions[j][1];
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < size * 0.6) {
+        ctx.beginPath();
+        ctx.moveTo(dotPositions[i][0], dotPositions[i][1]);
+        ctx.lineTo(dotPositions[j][0], dotPositions[j][1]);
+        ctx.stroke();
+      }
+    }
+  }
+
+  const el = document.createElement('div');
+  el.style.cssText = `width:${size*2}px;height:${size*2}px;cursor:pointer;`;
+  el.appendChild(canvas);
+  el.onclick = () => {
+    map.getSource('clusters').getClusterExpansionZoom(clusterId, (err, zoom) => {
+      if (!err) map.easeTo({ center: coords, zoom: zoom + 1, duration: 500 });
+    });
+  };
+
+  const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+    .setLngLat(coords).addTo(map);
+  return marker;
+}
+
+function createSingleDotMarker(coords, color, memId) {
+  const el = document.createElement('div');
+  el.style.cssText = `width:8px;height:8px;border-radius:50%;background:${color};opacity:0.85;cursor:pointer;border:1px solid rgba(255,255,255,0.6);`;
+  el.onclick = () => showDetail(memId);
+  const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+    .setLngLat(coords).addTo(map);
+  return marker;
+}
+
+// ════════════════════════════════════════════════
+// FEED — HONEYCOMB
+// ════════════════════════════════════════════════
+let feedSort = 'recent';
+let feedActiveTypes = new Set(Object.keys(TYPE_CONFIG));
+
+function buildFeed() {
+  buildFeedTypeFilters();
+  renderHoneycomb();
+}
+
+function buildFeedTypeFilters() {
+  const container = document.getElementById('feed-type-filters');
+  container.innerHTML = '';
+  Object.entries(TYPE_CONFIG).forEach(([key, cfg]) => {
+    const btn = document.createElement('button');
+    btn.className = 'feed-type-chip active'; btn.dataset.type = key;
+    btn.style.color = cfg.color; btn.style.borderColor = cfg.color;
+    btn.innerHTML = `<div class="type-dot" style="background:${cfg.color}"></div>${cfg.label}`;
+    btn.onclick = () => {
+      feedActiveTypes.has(key) ? feedActiveTypes.delete(key) : feedActiveTypes.add(key);
+      btn.classList.toggle('active');
+      renderHoneycomb();
+    };
+    container.appendChild(btn);
+  });
+}
+
+function setFeedSort(sort) {
+  feedSort = sort;
+  document.querySelectorAll('.feed-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === sort));
+  renderHoneycomb();
+}
+
+function getFeedMemories() {
+  let mems = Object.values(db).filter(m => feedActiveTypes.has(getGroup(m.type)));
+  if (feedSort === 'recent') mems.sort((a,b) => new Date(b.date) - new Date(a.date));
+  else if (feedSort === 'distance') mems.sort((a,b) => (b.distance||0) - (a.distance||0));
+  else if (feedSort === 'elevation') mems.sort((a,b) => (b.elevation||0) - (a.elevation||0));
+  else if (feedSort === 'story') mems = mems.filter(m => m.note).sort((a,b) => new Date(b.date) - new Date(a.date));
+  else if (feedSort === 'photos') mems = mems.filter(m => m.photos?.length).sort((a,b) => new Date(b.date) - new Date(a.date));
+  return mems;
+}
+
+function renderHoneycomb() {
+  const container = document.getElementById('honeycomb');
+  container.innerHTML = '';
+  const mems = getFeedMemories();
+
+  mems.forEach((mem, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'hex-cell';
+
+    const color = mem.customColor || getColor(mem.type);
+    const date = mem.date ? new Date(mem.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
+    const dist = mem.distance ? (mem.distance/1000).toFixed(1)+' km' : '';
+    const mood = MOODS.find(m => m.id === mem.mood);
+
+    if (mem.photos?.length) {
+      // Photo hex
+      cell.innerHTML = `
+        <div class="hex-bg"><img class="hex-img" src="${mem.photos[0].dataUrl}" alt=""></div>
+        <div class="hex-overlay">
+          <div class="hex-name">${mem.name}</div>
+          <div class="hex-meta">${date}${dist?' · '+dist:''}</div>
+        </div>
+        ${mood ? `<div class="hex-mood">${mood.emoji}</div>` : ''}`;
+    } else {
+      // Color + mini map hex
+      const coords = mem.coords || (mem._polyline ? decodePolyline(mem._polyline) : null);
+      cell.innerHTML = `
+        <div class="hex-bg" style="background:${color}20">
+          ${coords ? `<canvas class="hex-map" id="hexmap-${mem.id}" width="160" height="184"></canvas>` : ''}
+          <div style="position:absolute;inset:0;background:linear-gradient(135deg,${color}40,${color}15)"></div>
+        </div>
+        <div class="hex-overlay">
+          <div class="hex-name">${mem.name}</div>
+          <div class="hex-meta">${date}${dist?' · '+dist:''}</div>
+        </div>
+        ${mood ? `<div class="hex-mood">${mood.emoji}</div>` : ''}`;
+    }
+
+    cell.onclick = () => {
+      switchView('map');
+      setTimeout(() => {
+        showDetail(mem.id);
+        if (mem.startLat) map.flyTo({ center:[mem.startLng,mem.startLat], zoom:13, pitch:terrainOn?50:0, duration:1000 });
+      }, 100);
+    };
+
+    container.appendChild(cell);
+
+    // Draw mini map on canvas
+    if (!mem.photos?.length) {
+      const coords = mem.coords || (mem._polyline ? decodePolyline(mem._polyline) : null);
+      if (coords?.length >= 2) {
+        requestAnimationFrame(() => drawMiniMap(mem.id, coords, color));
+      }
+    }
+  });
+}
+
+function drawMiniMap(memId, coords, color) {
+  const canvas = document.getElementById(`hexmap-${memId}`);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 160, H = 184;
+
+  // Find bounds
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  coords.forEach(([lng, lat]) => { minX=Math.min(minX,lng); maxX=Math.max(maxX,lng); minY=Math.min(minY,lat); maxY=Math.max(maxY,lat); });
+  const pad = 24;
+  const scaleX = (W - pad*2) / (maxX - minX || 1);
+  const scaleY = (H - pad*2) / (maxY - minY || 1);
+  const scale = Math.min(scaleX, scaleY);
+  const offX = (W - (maxX-minX)*scale) / 2;
+  const offY = (H - (maxY-minY)*scale) / 2;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha = 0.9;
+
+  coords.forEach(([lng, lat], i) => {
+    const x = offX + (lng - minX) * scale;
+    const y = H - offY - (lat - minY) * scale;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Start dot
+  if (coords.length > 0) {
+    const [lng, lat] = coords[0];
+    const x = offX + (lng - minX) * scale;
+    const y = H - offY - (lat - minY) * scale;
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.globalAlpha = 1; ctx.fill();
+  }
+}
+
+// ════════════════════════════════════════════════
+// CALENDAR
+// ════════════════════════════════════════════════
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+function buildCalendar() {
+  document.getElementById('cal-title').textContent =
+    new Date(calYear, calMonth).toLocaleDateString('en-GB',{month:'long',year:'numeric'}).toUpperCase();
+
+  const body = document.getElementById('calendar-body');
+  body.innerHTML = '';
+
+  // Weekday headers
+  const weekdays = document.createElement('div'); weekdays.className = 'cal-weekdays';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d => {
+    const el = document.createElement('div'); el.className = 'cal-weekday'; el.textContent = d;
+    weekdays.appendChild(el);
+  });
+  body.appendChild(weekdays);
+
+  // Grid
+  const grid = document.createElement('div'); grid.className = 'cal-grid';
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth+1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7; // Monday start
+  const today = new Date();
+
+  // Build activity lookup by date
+  const byDate = {};
+  Object.values(db).forEach(m => {
+    if (!m.date) return;
+    const key = m.date.substring(0,10);
+    if (!byDate[key]) byDate[key] = [];
+    byDate[key].push(m);
+  });
+
+  // Previous month padding
+  const prevLast = new Date(calYear, calMonth, 0).getDate();
+  for (let i = startDow - 1; i >= 0; i--) {
+    const cell = document.createElement('div'); cell.className = 'cal-day other-month';
+    cell.innerHTML = `<div class="cal-day-num">${prevLast - i}</div>`;
+    grid.appendChild(cell);
+  }
+
+  // Current month
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const dateKey = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const acts = byDate[dateKey] || [];
+    const isToday = today.getFullYear()===calYear && today.getMonth()===calMonth && today.getDate()===d;
+
+    const cell = document.createElement('div');
+    cell.className = 'cal-day' + (isToday?' today':'') + (acts.length?' has-activity':'');
+    cell.innerHTML = `<div class="cal-day-num">${d}</div>
+      <div class="cal-dots">${acts.slice(0,6).map(a =>
+        `<div class="cal-dot" style="background:${getColor(a.type)}" title="${a.name}"></div>`
+      ).join('')}</div>`;
+
+    if (acts.length) {
+      cell.onclick = () => showCalendarDetail(acts);
+    }
+    grid.appendChild(cell);
+  }
+
+  // Next month padding
+  const endDow = (lastDay.getDay() + 6) % 7;
+  for (let i = 1; i < 7 - endDow; i++) {
+    const cell = document.createElement('div'); cell.className = 'cal-day other-month';
+    cell.innerHTML = `<div class="cal-day-num">${i}</div>`;
+    grid.appendChild(cell);
+  }
+
+  body.appendChild(grid);
+  document.getElementById('calendar-detail').innerHTML = '<span style="font-size:9px;color:var(--muted);letter-spacing:1px">Click a day to see activities</span>';
+}
+
+function showCalendarDetail(acts) {
+  document.getElementById('calendar-detail').innerHTML = acts.map(a => `
+    <div class="cal-detail-item" onclick="goToActivity('${a.id}')">
+      <div class="cal-detail-dot" style="background:${getColor(a.type)}"></div>
+      <span>${a.name}</span>
+      ${a.distance?`<span style="color:var(--muted);font-size:8px">${(a.distance/1000).toFixed(1)} km</span>`:''}
+    </div>`).join('');
+}
+
+function goToActivity(id) {
+  switchView('map');
+  setTimeout(() => {
+    const mem = db[id];
+    showDetail(id);
+    if (mem?.startLat) map.flyTo({ center:[mem.startLng,mem.startLat], zoom:13, pitch:terrainOn?50:0, duration:1000 });
+  }, 150);
+}
+
+function calNav(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  buildCalendar();
+}
+
+// ════════════════════════════════════════════════
+// PROFILE
+// ════════════════════════════════════════════════
+const PROFILE_KEY = 'relic_profile_v1';
+
+function loadProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_KEY);
+    return raw ? JSON.parse(raw) : { name: '', bio: '', photo: null };
+  } catch(e) { return { name:'', bio:'', photo:null }; }
+}
+
+function saveProfile() {
+  const profile = {
+    name: document.getElementById('profile-name').value,
+    bio: document.getElementById('profile-bio').value,
+    photo: document.getElementById('profile-photo-display').querySelector('img')?.src || null
+  };
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+function handleProfilePhoto(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const display = document.getElementById('profile-photo-display');
+    display.innerHTML = `<img src="${e.target.result}" alt="Profile">`;
+    saveProfile();
+  };
+  reader.readAsDataURL(file);
+}
+
+function buildProfile() {
+  const profile = loadProfile();
+  document.getElementById('profile-name').value = profile.name || '';
+  document.getElementById('profile-bio').value = profile.bio || '';
+  if (profile.photo) {
+    document.getElementById('profile-photo-display').innerHTML = `<img src="${profile.photo}" alt="Profile">`;
+  }
+
+  const mems = Object.values(db);
+  const totalDist = mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
+  const totalElev = mems.reduce((s,m)=>s+(m.elevation||0),0);
+  const withStory = mems.filter(m=>m.note).length;
+  const withPhotos = mems.filter(m=>m.photos?.length).length;
+
+  document.getElementById('profile-stats-row').innerHTML = [
+    { val: mems.length, label: 'Moments' },
+    { val: Math.round(totalDist).toLocaleString()+' km', label: 'Distance' },
+    { val: Math.round(totalElev/1000)+'k m', label: 'Elevation' },
+    { val: withStory + ' / ' + withPhotos, label: 'Stories / Photos' },
+  ].map(s=>`<div class="profile-stat"><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
+
+  // Year timeline
+  const byYearMonth = {};
+  mems.forEach(m => {
+    if (!m.date) return;
+    const y = m.date.substring(0,4);
+    const mo = parseInt(m.date.substring(5,7)) - 1;
+    if (!byYearMonth[y]) byYearMonth[y] = Array(12).fill(null).map(()=>[]);
+    byYearMonth[y][mo].push(m);
+  });
+
+  const MONTHS = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  document.getElementById('profile-timeline').innerHTML = Object.entries(byYearMonth)
+    .sort((a,b)=>b[0].localeCompare(a[0])).map(([year, months]) => `
+    <div class="pt-year-row">
+      <div class="pt-year-label">${year}</div>
+      <div class="pt-year-months">
+        ${months.map((acts, mi) => `
+          <div class="pt-month" title="${acts.length} activities in ${new Date(0,mi).toLocaleString('default',{month:'long'})} ${year}">
+            <div class="pt-month-dots">
+              ${acts.slice(0,6).map(a=>`<div class="pt-dot" style="background:${getColor(a.type)}"></div>`).join('')}
+            </div>
+            <div class="pt-month-label">${MONTHS[mi]}</div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// ── UPDATE switchView TO TRIGGER BUILDS ──
+const _origSwitchView = switchView;
+// Override defined below
+
 // Expose globals
-window.toggleTerrain=toggleTerrain; window.updateTrackHighlight=updateTrackHighlight; window.toggleSatellite=toggleSatellite;
+window.toggleTerrain=toggleTerrain; window.updateTrackHighlight=updateTrackHighlight;
+window.setFeedSort=setFeedSort; window.calNav=calNav; window.goToActivity=goToActivity;
+window.handleProfilePhoto=handleProfilePhoto; window.saveProfile=saveProfile;
+window.showCalendarDetail=showCalendarDetail; window.toggleSatellite=toggleSatellite;
 window.togglePanel=togglePanel; window.switchView=switchView;
 window.closeDetail=closeDetail; window.openImport=openImport; window.closeImport=closeImport;
 window.handleGPXSelect=handleGPXSelect; window.doImport=doImport;
