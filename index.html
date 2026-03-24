@@ -597,9 +597,15 @@ body {
 .feed-controls {
   position: sticky; top: 0; z-index: 10;
   background: var(--paper); border-bottom: 1px solid var(--border);
-  padding: 10px 20px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+  padding: 8px 16px; flex-shrink: 0;
 }
-.feed-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.feed-filter-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.feed-divider {
+  width: 1px; height: 16px; background: var(--border); flex-shrink: 0;
+}
+.feed-filters { display: flex; gap: 4px; }
 .feed-filter-btn {
   padding: 4px 12px; border: 1px solid var(--border);
   background: transparent; font-family: 'JetBrains Mono', monospace;
@@ -618,27 +624,31 @@ body {
 
 /* Honeycomb grid */
 .honeycomb-wrap {
-  flex: 1; overflow-y: auto; padding: 32px 20px;
+  flex: 1; overflow-y: auto; padding: 20px 20px 60px;
   background: var(--paper2);
 }
 .honeycomb {
-  --hex-w: 150px;
-  --hex-h: 130px; /* = hex-w * sin(60°) ≈ 0.866 */
-  --hex-gap: 4px;
-  display: flex;
-  flex-wrap: wrap;
-  width: calc(var(--hex-w) * 4 + var(--hex-gap) * 3 + var(--hex-w) * 0.5);
+  --s: 140px; /* hex width */
+  --m: 3px;   /* gap */
+  --r: calc(var(--s) * 1.1547 / 2); /* circumradius */
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--s));
+  grid-auto-rows: calc(var(--s) * 0.5774); /* tan30 * s */
+  gap: var(--m) calc(var(--m) * 2);
+  width: 100%;
+}
+.hex-row-spacer {
+  grid-column: 1 / -1;
+  height: 0;
 }
 /* Hexagon cells */
 .hex-cell {
-  width: var(--hex-w);
-  height: calc(var(--hex-w) * 1.1547); /* 2/sqrt(3) */
+  grid-row: span 2;
+  width: var(--s);
+  height: calc(var(--s) * 1.1547);
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   cursor: pointer; position: relative; overflow: hidden;
   transition: transform 0.2s, filter 0.2s;
-  margin-right: var(--hex-gap);
-  margin-bottom: calc(var(--hex-w) * -0.2885 + var(--hex-gap));
-  flex-shrink: 0;
 }
 .hex-cell:hover { transform: scale(1.04); filter: brightness(1.08); z-index: 2; }
 .hex-bg { position: absolute; inset: 0; }
@@ -1052,14 +1062,17 @@ body {
         </div>
       </div>
       <div class="feed-controls">
-        <div class="feed-filters">
-          <button class="feed-filter-btn active" data-sort="recent" onclick="setFeedSort('recent')">Recent</button>
-          <button class="feed-filter-btn" data-sort="distance" onclick="setFeedSort('distance')">Distance</button>
-          <button class="feed-filter-btn" data-sort="elevation" onclick="setFeedSort('elevation')">Elevation</button>
-          <button class="feed-filter-btn" data-sort="story" onclick="setFeedSort('story')">Has Story</button>
-          <button class="feed-filter-btn" data-sort="photos" onclick="setFeedSort('photos')">Has Photos</button>
+        <div class="feed-filter-row">
+          <div class="feed-filters">
+            <button class="feed-filter-btn active" data-sort="recent" onclick="setFeedSort('recent')">Recent</button>
+            <button class="feed-filter-btn" data-sort="distance" onclick="setFeedSort('distance')">Distance</button>
+            <button class="feed-filter-btn" data-sort="elevation" onclick="setFeedSort('elevation')">Elevation</button>
+            <button class="feed-filter-btn" data-sort="story" onclick="setFeedSort('story')">Story</button>
+            <button class="feed-filter-btn" data-sort="photos" onclick="setFeedSort('photos')">Photos</button>
+          </div>
+          <div class="feed-divider"></div>
+          <div class="feed-type-filters" id="feed-type-filters"></div>
         </div>
-        <div class="feed-type-filters" id="feed-type-filters"></div>
       </div>
       <div class="honeycomb-wrap">
         <div class="honeycomb" id="honeycomb"></div>
@@ -2236,17 +2249,15 @@ function renderHoneycomb() {
   const container = document.getElementById('honeycomb');
   container.innerHTML = '';
   const mems = getFeedMemories();
-
-  // We need 4 per row, with every other row offset by half a hex
-  // Inject invisible spacers at start of odd rows
   const COLS = 4;
+
   mems.forEach((mem, idx) => {
     const col = idx % COLS;
     const row = Math.floor(idx / COLS);
-    // Insert half-hex spacer at start of odd rows
+    // On odd rows, first cell gets margin-left of half hex to create offset
     if (col === 0 && row % 2 === 1) {
       const spacer = document.createElement('div');
-      spacer.style.cssText = 'width:calc(var(--hex-w) * 0.5 + var(--hex-gap) * 0.5);flex-shrink:0;';
+      spacer.style.cssText = `width:calc(var(--s) / 2 + var(--m)); height:calc(var(--s) * 1.1547); grid-row: span 2; flex-shrink:0;`;
       container.appendChild(spacer);
     }
     const cell = document.createElement('div');
