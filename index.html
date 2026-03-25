@@ -318,31 +318,55 @@ overflow: hidden;
 #detail-panel.open { transform: translateX(0); }
 
 .detail-header {
-padding: 18px 18px 14px;
+padding: 14px 16px 12px;
 border-bottom: 1px solid var(--border);
 flex-shrink: 0;
-position: relative;
+}
+.detail-header-actions {
+display: flex; align-items: center; gap: 5px;
+justify-content: flex-end; margin-bottom: 10px;
 }
 .detail-close {
-position: absolute; top: 14px; right: 14px;
 background: none; border: none;
-font-size: 16px; color: var(--muted); cursor: pointer;
+font-size: 18px; color: var(--muted); cursor: pointer; line-height: 1; padding: 0 0 0 2px;
 }
+.detail-close:hover { color: var(--ink); }
+.detail-action-btn {
+background: none; border: 1px solid var(--border);
+font-family: 'JetBrains Mono', monospace;
+font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+color: var(--muted); cursor: pointer; padding: 4px 8px; transition: all 0.15s;
+}
+.detail-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+.detail-action-btn.delete:hover { border-color: #c0392b; color: #c0392b; }
 .detail-type-row {
-display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
 }
-.detail-type-dot { width: 8px; height: 8px; border-radius: 50%; }
-.detail-type-label { font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.detail-type-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; position: relative; cursor: pointer; transition: transform 0.15s; }
+.detail-type-dot:hover { transform: scale(1.25); }
+.detail-type-select {
+background: transparent; border: none;
+font-family: 'JetBrains Mono', monospace;
+font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase;
+color: var(--muted); cursor: pointer; outline: none; padding: 0;
+}
+.detail-type-select:hover, .detail-type-select:focus { color: var(--ink); }
 .detail-name-input {
-font-family: ‘Cormorant Garamond’, serif;
+font-family: 'Cormorant Garamond', serif;
 font-size: 20px; font-weight: 500; line-height: 1.2;
 color: var(--ink); background: transparent; border: none;
-outline: none; width: 100%; padding-right: 24px;
+outline: none; width: 100%;
 border-bottom: 1px solid transparent;
 transition: border-color 0.15s;
 }
 .detail-name-input:focus { border-bottom-color: var(--accent); }
-.detail-date { font-size: 8px; color: var(--muted); letter-spacing: 1px; margin-top: 5px; }
+.detail-date-input {
+background: transparent; border: none; outline: none;
+font-family: 'JetBrains Mono', monospace;
+font-size: 8px; color: var(--muted); letter-spacing: 1px;
+margin-top: 6px; cursor: pointer; padding: 0; display: block;
+}
+.detail-date-input:hover, .detail-date-input:focus { color: var(--ink); }
 
 .detail-body { flex: 1; overflow-y: auto; }
 
@@ -1177,13 +1201,19 @@ align-items: center; justify-content: center;
   <!-- Detail Panel -->
   <div id="detail-panel">
     <div class="detail-header">
-      <button class="detail-close" onclick="closeDetail()">×</button>
+      <div class="detail-header-actions">
+        <button class="detail-action-btn" onclick="openDetailColorPicker()" title="Change color" id="d-color-btn">◉</button>
+        <button class="detail-action-btn delete" onclick="deleteActivity()" title="Delete">✕ Delete</button>
+        <button class="detail-close" onclick="closeDetail()">×</button>
+      </div>
       <div class="detail-type-row">
-        <div class="detail-type-dot" id="d-type-dot"></div>
-        <div class="detail-type-label" id="d-type-label"></div>
+        <div class="detail-type-dot" id="d-type-dot" style="cursor:pointer;position:relative;">
+          <input type="color" id="d-color-input" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;border:none;padding:0;" oninput="onColorEdit(this.value)" title="Change color">
+        </div>
+        <select class="detail-type-select" id="d-type-select" onchange="onTypeEdit()"></select>
       </div>
       <input class="detail-name-input" id="d-name-input" placeholder="Name this memory..." oninput="onNameEdit()">
-      <div class="detail-date" id="d-date"></div>
+      <input class="detail-date-input" id="d-date-input" type="date" onchange="onDateEdit()">
     </div>
 
     <div class="detail-body" id="detail-body">
@@ -1222,9 +1252,15 @@ align-items: center; justify-content: center;
   <div class="map-controls">
     <button class="map-btn" id="terrain-btn" onclick="toggleTerrain()" title="Toggle 3D">3D</button>
     <button class="map-btn" id="satellite-btn" onclick="toggleSatellite()" title="Satellite">⊞</button>
-    <button class="map-btn" onclick="map.easeTo({pitch:0,bearing:0,duration:800})" title="Reset view">⊙</button>
+    <button class="map-btn" onclick="map.easeTo({pitch:0,bearing:0,duration:800})" title="Point North">N</button>
+    <button class="map-btn" id="color-track-btn" onclick="openTrackColorPicker()" title="Change track color" style="font-size:14px">◉</button>
     <button class="map-btn" onclick="map.zoomIn()" title="Zoom in">+</button>
     <button class="map-btn" onclick="map.zoomOut()" title="Zoom out">−</button>
+  </div>
+  <!-- Track color picker popup -->
+  <div id="track-color-popup" style="display:none;position:absolute;bottom:200px;right:56px;background:var(--paper);border:1px solid var(--border);padding:12px 14px;z-index:200;min-width:160px;">
+    <div style="font-size:7px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Track Color</div>
+    <div id="track-color-popup-body"></div>
   </div>
   <div class="coord-bar" id="coord-bar"></div>
 </div>
@@ -1830,10 +1866,21 @@ function showDetail(memId) {
   const color = mem.customColor || TYPE_CONFIG[group]?.color || '#92400e';
 
   document.getElementById('d-type-dot').style.background = color;
-  document.getElementById('d-type-label').textContent = TYPE_CONFIG[group]?.label || mem.type;
+  document.getElementById('d-color-input').value = color;
+
+  // Populate type selector
+  const typeSelect = document.getElementById('d-type-select');
+  typeSelect.innerHTML = Object.entries(TYPE_CONFIG).map(([k,cfg]) =>
+    `<option value="${k}" ${k===group?'selected':''}>${cfg.label}</option>`
+  ).join('');
+
   document.getElementById('d-name-input').value = mem.name;
-  document.getElementById('d-date').textContent = mem.date
-    ? new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—';
+
+  // Date input (YYYY-MM-DD format)
+  const dateInput = document.getElementById('d-date-input');
+  if (mem.date) {
+    dateInput.value = mem.date.substring(0,10);
+  }
 
   // Stats grid
   document.getElementById('d-stats').innerHTML = [
@@ -1897,6 +1944,82 @@ function onNoteEdit() {
   if (!selectedId) return;
   db[selectedId].note = document.getElementById('d-note').value;
   scheduleSave();
+}
+
+function onTypeEdit() {
+  if (!selectedId) return;
+  const newGroup = document.getElementById('d-type-select').value;
+  // Map group key back to a base type string
+  db[selectedId].type = TYPE_CONFIG[newGroup]?.types[0] || newGroup;
+  const color = db[selectedId].customColor || TYPE_CONFIG[newGroup]?.color || '#92400e';
+  document.getElementById('d-type-dot').style.background = color;
+  document.getElementById('d-color-input').value = color;
+  // Refresh map
+  if (map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  scheduleSave();
+}
+
+function onDateEdit() {
+  if (!selectedId) return;
+  const val = document.getElementById('d-date-input').value;
+  if (val) db[selectedId].date = val + 'T12:00:00Z';
+  scheduleSave();
+}
+
+function onColorEdit(color) {
+  if (!selectedId) return;
+  db[selectedId].customColor = color;
+  document.getElementById('d-type-dot').style.background = color;
+  // Refresh map tracks
+  if (map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  updateTrackHighlight(selectedId);
+  scheduleSave();
+}
+
+function deleteActivity() {
+  if (!selectedId) return;
+  const mem = db[selectedId];
+  if (!confirm(`Delete "${mem.name}"? This cannot be undone.`)) return;
+  delete db[selectedId];
+  saveDB();
+  allMemories = allMemories.filter(m => m.id !== selectedId);
+  closeDetail();
+  applyFilters();
+  buildStats();
+}
+
+function openTrackColorPicker() {
+  if (!selectedId) {
+    // No activity selected — show a note
+    const popup = document.getElementById('track-color-popup');
+    const body = document.getElementById('track-color-popup-body');
+    body.innerHTML = '<div style="font-size:9px;color:var(--muted);">Select an activity first</div>';
+    popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
+  const mem = db[selectedId];
+  const color = mem.customColor || getColor(mem.type);
+  const popup = document.getElementById('track-color-popup');
+  const body = document.getElementById('track-color-popup-body');
+  body.innerHTML = `
+    <div style="font-size:9px;color:var(--muted);margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${mem.name}</div>
+    <input type="color" value="${color}" style="width:100%;height:32px;border:1px solid var(--border);cursor:pointer;background:none;"
+      oninput="onColorEdit(this.value)">
+    <button onclick="resetTrackColor()" style="margin-top:8px;width:100%;background:none;border:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:5px;cursor:pointer;">Reset to Default</button>
+  `;
+  popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+}
+
+function resetTrackColor() {
+  if (!selectedId) return;
+  delete db[selectedId].customColor;
+  const color = getColor(db[selectedId].type);
+  document.getElementById('d-type-dot').style.background = color;
+  document.getElementById('d-color-input').value = color;
+  if (map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  updateTrackHighlight(selectedId);
+  scheduleSave();
+  document.getElementById('track-color-popup').style.display = 'none';
 }
 
 function setMood(memId, moodId, btn) {
@@ -2905,7 +3028,16 @@ dz.addEventListener('drop', e=>{
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e=>{
-  if (e.key==='Escape') { closeDetail(); closeLightbox(); closeImport(); closeMobileMenu(); }
+  if (e.key==='Escape') { closeDetail(); closeLightbox(); closeImport(); closeMobileMenu(); document.getElementById('track-color-popup').style.display='none'; }
+});
+
+// Close track color popup when clicking outside
+document.addEventListener('click', e=>{
+  const popup = document.getElementById('track-color-popup');
+  const btn = document.getElementById('color-track-btn');
+  if (popup && btn && !popup.contains(e.target) && !btn.contains(e.target)) {
+    popup.style.display = 'none';
+  }
 });
 
  window.toggleSatellite=toggleSatellite;
@@ -2944,6 +3076,12 @@ _r('onNoteEdit', onNoteEdit);
 _r('updateTypeColor', updateTypeColor);
 _r('forceSync', forceSync);
 _r('updateTrackHighlight', updateTrackHighlight);
+_r('deleteActivity', deleteActivity);
+_r('onTypeEdit', onTypeEdit);
+_r('onDateEdit', onDateEdit);
+_r('onColorEdit', onColorEdit);
+_r('openTrackColorPicker', openTrackColorPicker);
+_r('resetTrackColor', resetTrackColor);
 _r('setFeedSort', setFeedSort);
 _r('closeFeedPreview', closeFeedPreview);
 _r('goToActivityFromPreview', goToActivityFromPreview);
