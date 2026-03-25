@@ -201,22 +201,22 @@ cursor: pointer; font-size: 9px; color: var(--muted);
 writing-mode: vertical-rl; letter-spacing: 2px; text-transform: uppercase;
 }
 .panel-section {
-padding: 14px 18px;
+padding: 10px 14px;
 border-bottom: 1px solid var(--border);
 flex-shrink: 0;
 }
 .section-title {
 font-size: 7px; letter-spacing: 2px;
 text-transform: uppercase; color: var(--muted);
-margin-bottom: 10px;
+margin-bottom: 7px;
 }
 .search-input {
 width: 100%;
-background: var(--paper2); border: 1px solid var(--border);
+background: transparent; border: none; border-bottom: 1px solid var(--border);
 color: var(--ink); font-family: ‘JetBrains Mono’, monospace;
-font-size: 11px; padding: 7px 10px; outline: none;
+font-size: 11px; padding: 5px 2px; outline: none;
 }
-.search-input:focus { border-color: var(--accent); }
+.search-input:focus { border-bottom-color: var(--accent); }
 .search-input::placeholder { color: var(--muted); }
 .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .type-chip {
@@ -229,8 +229,14 @@ color: var(--muted); transition: all 0.15s; text-align: left;
 }
 .type-chip:hover { background: var(--paper2); color: var(--ink); }
 .type-chip.active { background: var(--paper2); color: var(--ink); border-color: transparent; }
-.type-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; opacity: 0.5; transition: opacity 0.15s; }
+.type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; opacity: 0.45; transition: opacity 0.15s; cursor: pointer; }
 .type-chip.active .type-dot { opacity: 1; }
+.type-dot-wrap { position: relative; flex-shrink: 0; width: 8px; height: 8px; }
+.type-color-input {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  width: 100%; height: 100%; border: none; padding: 0;
+}
+.type-dot-wrap:hover .type-dot { transform: scale(1.4); }
 .year-grid { display: flex; flex-wrap: wrap; gap: 3px; }
 .year-btn {
 padding: 3px 6px; border: 1px solid var(--border);
@@ -239,12 +245,13 @@ font-size: 8px; letter-spacing: 0.5px; color: var(--muted); cursor: pointer;
 transition: all 0.15s;
 }
 .year-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.range-row { display: flex; gap: 6px; align-items: center; }
+.range-row { display: flex; gap: 8px; align-items: center; }
 .range-input {
-width: 75px; background: var(--paper2); border: 1px solid var(--border);
+flex: 1; background: transparent; border: none; border-bottom: 1px solid var(--border);
 color: var(--ink); font-family: ‘JetBrains Mono’, monospace;
-font-size: 10px; padding: 5px 8px; outline: none;
+font-size: 10px; padding: 4px 2px; outline: none;
 }
+.range-input:focus { border-bottom-color: var(--accent); }
 .range-sep { font-size: 9px; color: var(--muted); }
 
 /* Color settings — compact rows */
@@ -268,27 +275,27 @@ width: 100%; height: 100%; border: none; padding: 0;
 
 /* Activity list */
 .result-count {
-font-size: 8px; color: var(--muted); padding: 7px 18px;
+font-size: 8px; color: var(--muted); padding: 6px 14px;
 letter-spacing: 0.5px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
 #activity-list { flex: 1; overflow-y: auto; }
 .activity-item {
-padding: 10px 18px; border-bottom: 1px solid var(--border);
+padding: 8px 14px; border-bottom: 1px solid var(--border);
 cursor: pointer; transition: background 0.1s;
-display: flex; gap: 8px; align-items: flex-start;
+display: flex; gap: 10px; align-items: center;
 }
 .activity-item:hover { background: var(--paper2); }
-.activity-item.selected { background: var(--paper2); border-left: 2px solid var(--accent); padding-left: 16px; }
-.ai-bar { width: 3px; min-height: 32px; border-radius: 2px; flex-shrink: 0; margin-top: 2px; }
+.activity-item.selected { background: var(--paper2); border-left: 2px solid var(--accent); padding-left: 12px; }
+.ai-bar { width: 2px; height: 28px; border-radius: 2px; flex-shrink: 0; }
 .ai-info { flex: 1; min-width: 0; }
 .ai-name {
 font-family: ‘Cormorant Garamond’, serif;
-font-size: 13px; font-weight: 500; color: var(--ink);
-white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;
+font-size: 12px; font-weight: 500; color: var(--ink);
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 1px;
 }
-.ai-meta { font-size: 8px; color: var(--muted); letter-spacing: 0.5px; display: flex; gap: 6px; }
+.ai-meta { font-size: 7px; color: var(--muted); letter-spacing: 0.3px; display: flex; gap: 4px; }
 .ai-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
-.ai-dist { font-size: 10px; color: var(--ink); font-weight: 500; white-space: nowrap; }
+.ai-dist { font-size: 9px; color: var(--muted); font-weight: 500; white-space: nowrap; }
 .ai-badges { display: flex; gap: 3px; }
 .ai-badge {
 font-size: 7px; padding: 1px 4px;
@@ -1137,12 +1144,11 @@ align-items: center; justify-content: center;
     <div class="panel-toggle" onclick="togglePanel()">Filter</div>
 
     <div class="panel-section">
-      <div class="section-title">Search</div>
       <input class="search-input" type="text" id="search" placeholder="Search memories...">
     </div>
 
     <div class="panel-section">
-      <div class="section-title">Type</div>
+      <div class="section-title">Activity Type</div>
       <div class="type-grid" id="type-grid"></div>
     </div>
 
@@ -1154,14 +1160,13 @@ align-items: center; justify-content: center;
     <div class="panel-section">
       <div class="section-title">Distance (km)</div>
       <div class="range-row">
-        <input class="range-input" type="number" id="dist-min" placeholder="Min">
+        <input class="range-input" type="number" id="dist-min" placeholder="Min km">
         <span class="range-sep">—</span>
-        <input class="range-input" type="number" id="dist-max" placeholder="Max">
+        <input class="range-input" type="number" id="dist-max" placeholder="Max km">
       </div>
     </div>
 
-    <div class="panel-section">
-      <div class="section-title">Track Colors</div>
+    <div class="panel-section" id="color-section" style="display:none">
       <div id="color-settings"></div>
     </div>
 
@@ -1725,7 +1730,7 @@ function buildFilters(years) {
   Object.entries(TYPE_CONFIG).forEach(([key, cfg]) => {
     const btn = document.createElement('button');
     btn.className = 'type-chip active'; btn.dataset.type = key;
-    btn.innerHTML = `<div class="type-dot" style="background:${cfg.color}"></div>${cfg.label}`;
+    btn.innerHTML = `<div class="type-dot-wrap"><div class="type-dot" id="swatch-${key}" style="background:${cfg.color}"></div><input type="color" class="type-color-input" value="${cfg.color}" title="Change color" oninput="updateTypeColor('${key}',this.value)" onclick="event.stopPropagation()"></div>${cfg.label}`;
     btn.onclick = () => { activeTypes.has(key)?activeTypes.delete(key):activeTypes.add(key); btn.classList.toggle('active'); applyFilters(); };
     grid.appendChild(btn);
   });
@@ -1752,13 +1757,7 @@ function buildFilters(years) {
 }
 
 function buildColorSettings() {
-  const container = document.getElementById('color-settings');
-  container.innerHTML = '';
-  Object.entries(TYPE_CONFIG).forEach(([key, cfg]) => {
-    const row = document.createElement('div'); row.className = 'color-row';
-    row.innerHTML = `<div class="color-row-left"><div class="color-swatch" id="swatch-${key}" style="background:${cfg.color}"><input type="color" value="${cfg.color}" oninput="updateTypeColor('${key}',this.value)"></div>${cfg.label}</div>`;
-    container.appendChild(row);
-  });
+  // Color pickers are now embedded in type chips
 }
 
 function applyFilters() {
