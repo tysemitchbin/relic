@@ -1588,12 +1588,21 @@ function initMap() {
         const stravaActivities = await fetchStravaActivities(token);
         setProgress(65);
 
-        // Merge into DB preserving user edits
+        // Preserve all non-Strava entries (KML imports, manual imports etc.)
+        const nonStrava = {};
+        Object.entries(db).forEach(([id, mem]) => {
+          if (!id.startsWith('strava_')) nonStrava[id] = mem;
+        });
+
+        // Merge Strava activities, preserving user edits on existing entries
         stravaActivities.forEach(a => {
           const mem = stravaToMemory(a);
           const existing = db[mem.id] || {};
-          db[mem.id] = { ...mem, note: existing.note||'', mood: existing.mood||null, photos: existing.photos||[] };
+          db[mem.id] = { ...mem, note: existing.note||'', mood: existing.mood||null, photos: existing.photos||[], customColor: existing.customColor||undefined };
         });
+
+        // Re-apply non-Strava entries so they are never lost during sync
+        Object.assign(db, nonStrava);
         saveDB();
         localStorage.setItem(CACHE_TS_KEY, Date.now().toString());
       } catch(e) {
