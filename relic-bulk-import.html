@@ -360,8 +360,8 @@ body {
       </div>
       <div>
         <div class="config-label">Apps Script URL</div>
-        <input class="config-input" type="text" id="https://script.google.com/macros/s/AKfycbxAkRJ2RS5FXn0FIFVOiE308v6R0DahduGqMqwaDmAcfpGSIClp5f5sLKocFGBqF_KgDQ/exec"
-          value="https://script.google.com/macros/s/AKfycbxAkRJ2RS5FXn0FIFVOiE308v6R0DahduGqMqwaDmAcfpGSIClp5f5sLKocFGBqF_KgDQ/exec"
+        <input class="config-input" type="text" id="https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec"
+          value="https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec"
           placeholder="Your Apps Script Web App URL">
       </div>
     </div>
@@ -610,7 +610,7 @@ function renderPreview() {
 // SEND TO APPS SCRIPT
 // ════════════════════════════════════════
 async function sendToAppsScript() {
-  const url = document.getElementById('https://script.google.com/macros/s/AKfycbxAkRJ2RS5FXn0FIFVOiE308v6R0DahduGqMqwaDmAcfpGSIClp5f5sLKocFGBqF_KgDQ/exec').value.trim();
+  const url = document.getElementById('https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec').value.trim();
   if (!url) {
     showStatus('Please enter your Apps Script URL.', 'error');
     return;
