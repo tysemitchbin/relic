@@ -474,7 +474,7 @@ async function sendToAppsScript() {
       });
       sent += batch.length;
       // Small pause between batches to avoid hammering Apps Script
-      if (b < batches.length - 1) await new Promise(r => setTimeout(r, 1500));
+      if (b < batches.length - 1) await new Promise(r => setTimeout(r, 4000));
     } catch(err) {
       showStatus(`Error on batch ${b + 1}: ${err.message}`, 'error');
       btn.disabled = false;
