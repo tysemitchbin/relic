@@ -961,6 +961,21 @@ async function backgroundSyncFromDrive() {
   } catch(e) { console.warn('Background sync failed:', e); }
 }
 
+// Persist imported entries to Drive JSON via Apps Script POST
+async function persistToDrive(entries) {
+  if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return;
+  const arr = Array.isArray(entries) ? entries : [entries];
+  try {
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(arr),
+      mode: 'no-cors'
+    });
+    console.log('Persisted ' + arr.length + ' entries to Drive');
+  } catch(e) { console.warn('Drive persist failed:', e); }
+}
+
 // ════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════
@@ -1578,6 +1593,7 @@ async function doImport() {
   const progress = document.getElementById('import-progress');
   btn.disabled = true;
   let imported = 0;
+  const importedEntries = [];
 
   for(let fi=0; fi<pendingFiles.length; fi++) {
     const file = pendingFiles[fi];
@@ -1596,9 +1612,11 @@ async function doImport() {
       db[id]={id,name,type,date:date+'T12:00:00Z',source:'import',coords,distance:dist,duration:0,elevation:0,
         startLat:coords[0][1],startLng:coords[0][0],note:'',mood:null,photos:[]};
       imported++;
+      importedEntries.push(db[id]);
     } catch(e) { console.warn('Import failed for', file.name, e); }
   }
   saveDB();
+  if(importedEntries.length) persistToDrive(importedEntries);
   progress.textContent = `Done! Imported ${imported} of ${pendingFiles.length} files.`;
   btn.disabled = false;
   allMemories = Object.values(db).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -1695,7 +1713,7 @@ const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
-_r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('handlePhotoUpload',handlePhotoUpload);
+_r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('persistToDrive',persistToDrive);_r('handlePhotoUpload',handlePhotoUpload);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
 _r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
