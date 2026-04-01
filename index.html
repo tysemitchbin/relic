@@ -18,7 +18,7 @@
     #map-tools { pointer-events: none; }
     #map-tools * { pointer-events: auto; }
     /* Unified tools-panel definitions */
-    #tools-panel { width: 220px; overflow-y: auto; }
+    #tools-panel { width: 220px; overflow-y: hidden; }
     #tools-panel:not(.open) { max-height: 0 !important; padding: 0; overflow: hidden; border: none; }
     /* Mobile adjustments: wider panel and limited height */
     @media (max-width: 600px) {
@@ -183,23 +183,36 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 /* Expandable tools panel */
 #tools-panel {
   background: var(--paper); border: 1px solid var(--border); padding: 0;
-  max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease;
-  width: 240px;
+  max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+  width: 220px;
 }
-#tools-panel.open { max-height: 500px; padding: 12px; }
-.tp-section { margin-bottom: 10px; }
-.tp-section:last-child { margin-bottom: 0; }
-.tp-title { font-size: 7px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-.tp-type-grid { display: flex; flex-direction: column; gap: 2px; }
+#tools-panel.open { max-height: 420px; }
+
+/* Tab bar */
+.tp-tabs { display: flex; border-bottom: 1px solid var(--border); }
+.tp-tab {
+  flex: 1; padding: 7px 4px; font-family: 'JetBrains Mono', monospace;
+  font-size: 7px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--muted); background: none; border: none; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s;
+}
+.tp-tab:hover { color: var(--ink); }
+.tp-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+
+/* Tab content */
+.tp-pane { display: none; padding: 10px; overflow-y: auto; max-height: 360px; }
+.tp-pane.active { display: block; }
+
+.tp-type-grid { display: flex; flex-direction: column; gap: 1px; }
 .tp-type-row {
-  display: flex; align-items: center; gap: 8px; padding: 3px 6px; cursor: pointer; transition: background 0.1s;
+  display: flex; align-items: center; gap: 8px; padding: 4px 4px; cursor: pointer; transition: background 0.1s;
 }
 .tp-type-row:hover { background: var(--paper2); }
 .tp-type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .tp-type-label { font-size: 8px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink); flex: 1; }
 .tp-type-toggle {
   width: 28px; height: 16px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--paper2); position: relative; cursor: pointer; transition: background 0.15s;
+  background: var(--paper2); position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0;
 }
 .tp-type-toggle.on { background: var(--ink); border-color: var(--ink); }
 .tp-type-toggle::after {
@@ -208,13 +221,14 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 }
 .tp-type-toggle.on::after { transform: translateX(12px); }
 
-.tp-color-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.tp-color-row { display: flex; align-items: center; gap: 10px; padding: 5px 4px; border-bottom: 1px solid var(--border); }
+.tp-color-row:last-child { border-bottom: none; }
 .tp-color-swatch {
-  width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1);
-  cursor: pointer; position: relative; overflow: hidden;
+  width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.12);
+  cursor: pointer; position: relative; overflow: hidden; flex-shrink: 0;
 }
-.tp-color-swatch input[type="color"] { position: absolute; inset: -4px; opacity: 0; cursor: pointer; width: 24px; height: 24px; }
-.tp-color-label { font-size: 8px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+.tp-color-swatch input[type="color"] { position: absolute; inset: -4px; opacity: 0; cursor: pointer; width: 28px; height: 28px; }
+.tp-color-label { font-size: 8px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--ink); flex: 1; }
 
 .coord-bar {
   position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
@@ -1123,17 +1137,26 @@ function toggleSidebar() {
 // ════════════════════════════════════════
 function buildToolsPanel() {
   const panel = document.getElementById('tools-panel');
-  let html = '<div class="tp-section"><div class="tp-title">Activity Types</div><div class="tp-type-grid">';
+
+  let html = `<div class="tp-tabs">
+    <button class="tp-tab active" id="tp-tab-types" onclick="switchToolsTab('types')">Types</button>
+    <button class="tp-tab" id="tp-tab-colors" onclick="switchToolsTab('colors')">Colors</button>
+  </div>`;
+
+  // Types pane
+  html += '<div class="tp-pane active" id="tp-pane-types"><div class="tp-type-grid">';
   Object.entries(TYPE_CONFIG).forEach(([key,cfg]) => {
     const on = activeTypes.has(key);
     html += `<div class="tp-type-row" onclick="toggleType('${key}',this)">
-      <div class="tp-type-dot" style="background:${cfg.color}"></div>
+      <div class="tp-type-dot" id="dot-${key}" style="background:${cfg.color}"></div>
       <div class="tp-type-label">${cfg.label}</div>
       <div class="tp-type-toggle ${on?'on':''}" id="toggle-${key}"></div>
     </div>`;
   });
   html += '</div></div>';
-  html += '<div class="tp-section"><div class="tp-title">Track Colors</div>';
+
+  // Colors pane
+  html += '<div class="tp-pane" id="tp-pane-colors">';
   Object.entries(TYPE_CONFIG).forEach(([key,cfg]) => {
     html += `<div class="tp-color-row">
       <div class="tp-color-swatch" id="swatch-${key}" style="background:${cfg.color}">
@@ -1143,7 +1166,15 @@ function buildToolsPanel() {
     </div>`;
   });
   html += '</div>';
+
   panel.innerHTML = html;
+}
+
+function switchToolsTab(tab) {
+  ['types','colors'].forEach(t => {
+    document.getElementById(`tp-tab-${t}`)?.classList.toggle('active', t===tab);
+    document.getElementById(`tp-pane-${t}`)?.classList.toggle('active', t===tab);
+  });
 }
 
 function toggleType(key, row) {
@@ -1185,6 +1216,7 @@ function getSatelliteToggleLayers() {
 function updateTypeColor(typeKey, color) {
   TYPE_CONFIG[typeKey].color = color;
   const sw = document.getElementById(`swatch-${typeKey}`); if(sw) sw.style.background=color;
+  const dot = document.getElementById(`dot-${typeKey}`); if(dot) dot.style.background=color;
   if(map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
   const saved = JSON.parse(localStorage.getItem(COLORS_KEY)||'{}'); saved[typeKey]=color; localStorage.setItem(COLORS_KEY,JSON.stringify(saved));
 }
@@ -1725,7 +1757,7 @@ _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r
 _r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
-_r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);_r('toggleType',toggleType);
+_r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);_r('toggleType',toggleType);_r('switchToolsTab',switchToolsTab);
 _r('setProfileSort',setProfileSort);_r('showHeatmapDay',showHeatmapDay);_r('removeImportFile',removeImportFile);
 _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
 
