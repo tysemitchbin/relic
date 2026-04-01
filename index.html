@@ -909,7 +909,10 @@ const TYPE_CONFIG = {
   Other: { label:'Other', color:'#92400e', types:[] },
 };
 
-function getGroup(type) { for (const [k,cfg] of Object.entries(TYPE_CONFIG)) { if (cfg.types.includes(type)) return k; } return 'Other'; }
+// Reverse lookup: Strava type string → TYPE_CONFIG key, built once at startup
+const TYPE_GROUP_MAP = {};
+Object.entries(TYPE_CONFIG).forEach(([k,cfg]) => cfg.types.forEach(t => { TYPE_GROUP_MAP[t] = k; }));
+function getGroup(type) { return TYPE_GROUP_MAP[type] || 'Other'; }
 function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#92400e'; }
 
 // ════════════════════════════════════════
@@ -919,7 +922,7 @@ const DB_KEY = 'relic_db_v1';
 const COLORS_KEY = 'relic_colors_v1';
 const CACHE_TS_KEY = 'relic_sync_ts';
 const DRIVE_SYNC_TS_KEY = 'relic_drive_sync_ts';
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwJTvhnM0C5TUPra-o9ZfkMGoQxGDOhdcOYf7uieqDAHl4wM926bAM1qfs_sprDhFRX/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx_PliomgZNLBaBBgQaWVIPu7P03n_AzUhvMBGFvCN_TNZ_XVGErerN-w6u88JAZzwD1w/exec';
 
 let db = {}, map, terrainOn = false, satelliteOn = false;
 let allMemories = [], filteredMemories = [];
@@ -928,6 +931,17 @@ let activeYears = new Set();
 let selectedId = null, saveTimer = null;
 let sidebarSort = 'recent';
 let profileSort = 'recent';
+let statsBuilt = false;
+
+// Decoded coord cache — populated lazily, cleared on Drive sync
+const coordCache = {};
+function getCoords(mem) {
+  if(coordCache[mem.id]) return coordCache[mem.id];
+  let c = mem.coords || (mem._polyline ? decodePolyline(mem._polyline) : null);
+  if(c && c.length >= 2) coordCache[mem.id] = c;
+  return c || null;
+}
+function clearCoordCache() { Object.keys(coordCache).forEach(k => delete coordCache[k]); }
 
 function loadDB() { try { const r = localStorage.getItem(DB_KEY); db = r ? JSON.parse(r) : {}; } catch(e) { db = {}; } }
 function saveDB() {
@@ -975,25 +989,38 @@ async function backgroundSyncFromDrive() {
     if((meta.lastUpdated||0)>lastSync) {
       const data = await fetchDriveData();
       const n = mergeFromDrive(data);
+      clearCoordCache();
       saveDB(); localStorage.setItem(DRIVE_SYNC_TS_KEY, Date.now().toString());
-      if(n>0) { allMemories=Object.values(db).sort((a,b)=>new Date(b.date)-new Date(a.date)); updateHeaderStats(); applyFilters(); buildStats(); }
+      if(n>0) { allMemories=Object.values(db).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1); updateHeaderStats(); applyFilters(); statsBuilt=false; }
     }
   } catch(e) { console.warn('Background sync failed:', e); }
 }
 
 // Persist imported entries to Drive JSON via Apps Script POST
+// Uses a real fetch (not no-cors) so we can confirm success, then re-syncs from Drive
 async function persistToDrive(entries) {
-  if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return;
+  if(!APPS_SCRIPT_URL) return { ok: false };
   const arr = Array.isArray(entries) ? entries : [entries];
   try {
-    await fetch(APPS_SCRIPT_URL, {
+    const res = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(arr),
-      mode: 'no-cors'
+      body: JSON.stringify(arr)
     });
-    console.log('Persisted ' + arr.length + ' entries to Drive');
-  } catch(e) { console.warn('Drive persist failed:', e); }
+    const json = await res.json();
+    if(json.status === 'ok') {
+      console.log('Drive persist confirmed: ' + json.added + ' added, ' + json.skipped + ' skipped');
+      // Mark Drive as updated so next sync pulls fresh data
+      localStorage.removeItem(DRIVE_SYNC_TS_KEY);
+      return { ok: true, added: json.added, skipped: json.skipped };
+    } else {
+      console.warn('Drive persist returned error:', json.message);
+      return { ok: false };
+    }
+  } catch(e) {
+    console.warn('Drive persist failed:', e);
+    return { ok: false };
+  }
 }
 
 // ════════════════════════════════════════
@@ -1034,16 +1061,17 @@ function addTerrainSource() {
 }
 
 async function renderAll() {
-  allMemories = Object.values(db).sort((a,b) => new Date(b.date) - new Date(a.date));
+  allMemories = Object.values(db).sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
   initMapLayers();
   const years = new Set(allMemories.map(m=>m.date?.substring(0,4)).filter(Boolean));
   [...years].sort().forEach(y=>activeYears.add(y));
-  updateHeaderStats(); buildToolsPanel(); applyFilters(); buildStats();
+  updateHeaderStats(); buildToolsPanel(); applyFilters();
+  statsBuilt = false; // reset so Archive rebuilds with fresh data
 }
 
 function buildTracksGeoJSON(memories) {
   return { type:'FeatureCollection', features: memories.map(mem=>{
-    let coords=mem.coords; if(!coords&&mem._polyline) coords=decodePolyline(mem._polyline);
+    const coords = getCoords(mem);
     if(!coords||coords.length<2) return null;
     return { type:'Feature', properties:{id:mem.id,color:mem.customColor||getColor(mem.type)}, geometry:{type:'LineString',coordinates:coords} };
   }).filter(Boolean) };
@@ -1090,8 +1118,8 @@ function applyFilters() {
     const year = m.date?.substring(0,4);
     return activeTypes.has(group) && activeYears.has(year) && m.name.toLowerCase().includes(search);
   });
-  // Sort
-  if(sidebarSort==='recent') filteredMemories.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  // Sort — use string comparison for dates (ISO format sorts correctly) to avoid Date construction
+  if(sidebarSort==='recent') filteredMemories.sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
   else if(sidebarSort==='name') filteredMemories.sort((a,b)=>a.name.localeCompare(b.name));
   else if(sidebarSort==='distance') filteredMemories.sort((a,b)=>(b.distance||0)-(a.distance||0));
   else if(sidebarSort==='elevation') filteredMemories.sort((a,b)=>(b.elevation||0)-(a.elevation||0));
@@ -1299,14 +1327,14 @@ function buildFeed() {
   const container = document.getElementById('feed-container');
   container.innerHTML = '';
   const profile = loadProfile();
-  const mems = Object.values(db).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const mems = Object.values(db).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
 
   mems.slice(0,100).forEach(mem => {
     const color = mem.customColor||getColor(mem.type);
     const group = getGroup(mem.type);
     const date = mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
     const mood = MOODS.find(m=>m.id===mem.mood);
-    const coords = mem.coords||(mem._polyline?decodePolyline(mem._polyline):null);
+    const coords = getCoords(mem);
 
     let card = document.createElement('div'); card.className='feed-card';
     let html = `<div class="fc-header">
@@ -1370,11 +1398,23 @@ function drawFeedMap(memId, coords, color) {
 // ════════════════════════════════════════
 function buildStats() {
   const mems=Object.values(db); if(!mems.length)return;
-  const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
-  const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
-  const years=new Set(mems.map(m=>m.date?.substring(0,4)).filter(Boolean));
-  const withNotes=mems.filter(m=>m.note).length, withPhotos=mems.filter(m=>m.photos?.length).length;
-  const evDist=Math.round(totalDist/40075*100)/100;
+
+  // Single pass over all memories for all aggregates
+  let totalDist=0, totalElev=0, withNotes=0, withPhotos=0;
+  const years=new Set(), byType={}, byYear={}, counts={};
+  mems.forEach(m => {
+    totalDist += m.distance||0;
+    totalElev += m.elevation||0;
+    if(m.note) withNotes++;
+    if(m.photos?.length) withPhotos++;
+    const y = m.date?.substring(0,4);
+    if(y) { years.add(y); byYear[y]=(byYear[y]||0)+1; }
+    const g = getGroup(m.type);
+    byType[g] = (byType[g]||0) + (m.distance||0)/1000;
+    if(m.date) { const key=m.date.substring(0,10); counts[key]=(counts[key]||0)+1; }
+  });
+  totalDist /= 1000;
+  const evDist = Math.round(totalDist/40075*100)/100;
 
   document.getElementById('stats-sub').textContent=`${mems.length} memories across ${years.size} years`;
   document.getElementById('stats-grid').innerHTML=[
@@ -1385,8 +1425,6 @@ function buildStats() {
   ].map(s=>`<div class="stat-card"><div class="stat-card-val">${s.val}</div><div class="stat-card-label">${s.label}</div><div class="stat-card-sub">${s.sub}</div></div>`).join('');
 
   // Type breakdown
-  const byType={};
-  mems.forEach(m=>{const g=getGroup(m.type);byType[g]=(byType[g]||0)+(m.distance||0)/1000;});
   const maxDist=Math.max(...Object.values(byType));
   document.getElementById('type-breakdown').innerHTML=Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([key,dist])=>`
     <div class="tb-row"><div class="tb-label">${TYPE_CONFIG[key]?.label||key}</div>
@@ -1394,24 +1432,19 @@ function buildStats() {
     <div class="tb-val">${Math.round(dist).toLocaleString()} km</div></div>`).join('');
 
   // Year timeline
-  const byYear={};
-  mems.forEach(m=>{const y=m.date?.substring(0,4);if(y)byYear[y]=(byYear[y]||0)+1;});
   const maxYear=Math.max(...Object.values(byYear));
   document.getElementById('year-timeline').innerHTML=Object.entries(byYear).sort((a,b)=>b[0].localeCompare(a[0])).map(([year,count])=>`
     <div class="yt-row"><div class="yt-year">${year}</div>
     <div class="yt-bar-wrap"><div class="yt-bar" style="width:${(count/maxYear*100).toFixed(1)}%;background:var(--accent)"><span class="yt-bar-label">${count} moments</span></div></div>
     <div class="yt-count">${count}</div></div>`).join('');
 
-  // Heatmap
-  buildHeatmap(mems);
+  // Heatmap — pass pre-computed daily counts
+  buildHeatmap(counts);
 }
 
-function buildHeatmap(mems) {
+function buildHeatmap(counts) {
   const container = document.getElementById('heatmap-container');
   container.innerHTML = '';
-  // Count activities per day
-  const counts = {};
-  mems.forEach(m => { if(!m.date) return; const key=m.date.substring(0,10); counts[key]=(counts[key]||0)+1; });
 
   // Show last 12 months
   const today = new Date();
@@ -1568,7 +1601,7 @@ function renderProfileHoneycomb() {
         <div class="hex-overlay"><div class="hex-name">${mem.name}</div><div class="hex-meta">${date}${dist?' · '+dist:''}</div></div>
         ${mood?`<div class="hex-mood">${mood.emoji}</div>`:''}`;
     } else {
-      const coords=mem.coords||(mem._polyline?decodePolyline(mem._polyline):null);
+      const coords = getCoords(mem);
       cell.innerHTML=`<div class="hex-bg" style="background:${color}20">
         ${coords?`<canvas class="hex-map" id="phex-${mem.id}" width="160" height="184"></canvas>`:''}
         <div style="position:absolute;inset:0;background:linear-gradient(135deg,${color}40,${color}15)"></div></div>
@@ -1579,7 +1612,7 @@ function renderProfileHoneycomb() {
     cell.style.left=x+'px'; cell.style.top=y+'px'; cell.style.width=HEX_W+'px'; cell.style.height=HEX_H+'px';
     container.appendChild(cell);
     if(!mem.photos?.length){
-      const coords=mem.coords||(mem._polyline?decodePolyline(mem._polyline):null);
+      const coords = getCoords(mem);
       if(coords?.length>=2) requestAnimationFrame(()=>drawMiniMap(mem.id, coords, color, 'phex-'));
     }
   });
@@ -1635,37 +1668,64 @@ async function doImport() {
 
   for(let fi=0; fi<pendingFiles.length; fi++) {
     const file = pendingFiles[fi];
-    progress.textContent = `Importing ${fi+1} of ${pendingFiles.length}: ${file.name}`;
+    progress.textContent = `Parsing ${fi+1} of ${pendingFiles.length}: ${file.name}`;
     try {
       const text = await file.text();
       const isKML = file.name.toLowerCase().endsWith('.kml');
       const coords = isKML ? parseKML(text) : parseGPX(text);
-      if(coords.length<2) { progress.textContent=`Skipped ${file.name} (no coords)`; continue; }
-      const name = file.name.replace(/\.(gpx|kml)$/i,'');
-      // Try to get date from file content or use file modified date
-      let date = extractDateFromFile(text, isKML) || new Date().toISOString().substring(0,10);
-      let dist=0;
-      for(let i=1;i<coords.length;i++) dist+=haversine(coords[i-1][1],coords[i-1][0],coords[i][1],coords[i][0]);
-      const id=`import_${Date.now()}_${fi}`;
-      db[id]={id,name,type,date:date+'T12:00:00Z',source:'import',coords,distance:dist,duration:0,elevation:0,
-        startLat:coords[0][1],startLng:coords[0][0],note:'',mood:null,photos:[]};
+      if(coords.length < 2) { progress.textContent = `Skipped ${file.name} (no coords)`; continue; }
+      const name = file.name.replace(/\.(gpx|kml)$/i, '');
+      const date = extractDateFromFile(text, isKML) || new Date().toISOString().substring(0, 10);
+      let dist = 0;
+      for(let i=1; i<coords.length; i++) dist += haversine(coords[i-1][1], coords[i-1][0], coords[i][1], coords[i][0]);
+
+      // Stable content-hash ID — re-importing the same file won't create duplicates
+      const id = stableImportId(name, coords);
+
+      // Skip if already in local db
+      if(db[id]) { progress.textContent = `Skipped ${file.name} (already imported)`; continue; }
+
+      // Encode coords as polyline — same format as Strava entries
+      const polyline = encodePolyline(coords);
+
+      const entry = {
+        id, name, type, date: date + 'T12:00:00Z', source: 'import',
+        stravaId: null, coords: null, _polyline: polyline,
+        distance: dist, duration: 0, elevation: 0,
+        avgHR: null, maxHR: null, calories: null, avgSpeed: null,
+        startLat: coords[0][1], startLng: coords[0][0],
+        note: '', mood: null, photos: [], customColor: null
+      };
+      db[id] = entry;
       imported++;
-      importedEntries.push(db[id]);
+      importedEntries.push(entry);
     } catch(e) { console.warn('Import failed for', file.name, e); }
   }
+
   saveDB();
-  if(importedEntries.length) persistToDrive(importedEntries);
-  progress.textContent = `Done! Imported ${imported} of ${pendingFiles.length} files.`;
-  btn.disabled = false;
-  allMemories = Object.values(db).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const years = new Set(allMemories.map(m=>m.date?.substring(0,4)).filter(Boolean));
-  [...years].forEach(y=>activeYears.add(y));
+  allMemories = Object.values(db).sort((a,b) => new Date(b.date) - new Date(a.date));
+  const years = new Set(allMemories.map(m => m.date?.substring(0,4)).filter(Boolean));
+  [...years].forEach(y => activeYears.add(y));
   initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
-  if(imported>0 && db[Object.keys(db).pop()]?.startLat) {
-    const last = db[Object.keys(db).pop()];
-    map.flyTo({center:[last.startLng,last.startLat],zoom:11,duration:1000});
+
+  if(importedEntries.length) {
+    progress.textContent = `Sending ${importedEntries.length} to Drive...`;
+    const result = await persistToDrive(importedEntries);
+    if(result.ok) {
+      progress.textContent = `Done! ${imported} imported, confirmed in Drive.`;
+    } else {
+      progress.textContent = `Imported ${imported} locally — Drive sync pending (will retry on next load).`;
+    }
+  } else {
+    progress.textContent = imported === 0 ? 'Nothing new to import.' : `Done! ${imported} imported.`;
   }
-  setTimeout(()=>{ closeImport(); }, 1500);
+
+  btn.disabled = false;
+  if(imported > 0) {
+    const first = importedEntries[0];
+    if(first?.startLat) map.flyTo({ center:[first.startLng, first.startLat], zoom:11, duration:1000 });
+  }
+  setTimeout(() => { closeImport(); }, 2000);
 }
 
 function extractDateFromFile(text, isKML) {
@@ -1702,6 +1762,8 @@ function haversine(lat1,lon1,lat2,lon2){const R=6371000,dLat=(lat2-lat1)*Math.PI
 function formatDur(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?`${h}h ${m}m`:`${m}m`;}
 function formatPace(mps,type){if(!mps)return'—';const g=getGroup(type);if(g==='Ride'||g==='Flight'||g==='Drive')return(mps*3.6).toFixed(1)+' km/h';const spk=1000/mps,mi=Math.floor(spk/60),si=Math.floor(spk%60);return`${mi}:${si.toString().padStart(2,'0')} /km`;}
 function decodePolyline(encoded){const pts=[];let i=0,lat=0,lng=0;while(i<encoded.length){let b,shift=0,result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lat+=(result&1)?~(result>>1):(result>>1);shift=0;result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lng+=(result&1)?~(result>>1):(result>>1);pts.push([lng/1e5,lat/1e5]);}return pts;}
+function encodePolyline(coords){let out='',lat=0,lng=0;const enc=v=>{v=v<0?~(v<<1):(v<<1);while(v>=0x20){out+=String.fromCharCode((0x20|(v&0x1f))+63);v>>=5;}out+=String.fromCharCode(v+63);};coords.forEach(([lo,la])=>{const ila=Math.round(la*1e5),ilo=Math.round(lo*1e5);enc(ila-lat);lat=ila;enc(ilo-lng);lng=ilo;});return out;}
+function stableImportId(name,coords){let raw=name+'|'+(coords[0]?coords[0].map(v=>v.toFixed(4)).join(','):'')+'|'+(coords[Math.floor(coords.length/2)]?coords[Math.floor(coords.length/2)].map(v=>v.toFixed(4)).join(','):'')+'|'+coords.length;let h=0;for(let i=0;i<raw.length;i++){h=Math.imul(31,h)+raw.charCodeAt(i)|0;}return'import_'+Math.abs(h).toString(36);}
 function setStatus(msg){document.getElementById('loading-status').textContent=msg;}
 function setProgress(pct){document.getElementById('loading-fill').style.width=pct+'%';}
 
@@ -1716,7 +1778,7 @@ function switchView(view) {
   document.getElementById(`${view}-view`).classList.add('active');
   document.getElementById(`nav-${view}`)?.classList.add('active');
   document.querySelectorAll('.mobile-menu-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  if(view==='stats') buildStats();
+  if(view==='stats') { if(!statsBuilt) { buildStats(); statsBuilt=true; } }
   if(view==='feed') buildFeed();
   if(view==='profile') buildProfile();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
