@@ -591,6 +591,43 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   .story-modal-right { max-height: 40vh; }
 }
 
+/* ── PROFILE STORY CARDS ── */
+.profile-stories-section { margin-bottom: 28px; }
+.profile-stories-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  border-bottom: 1px solid var(--border); padding-bottom: 8px;
+}
+.profile-stories-title { font-family: 'Cormorant Garamond', serif; font-size: 18px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink); }
+.profile-stories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.story-card {
+  background: var(--paper2); border: 1px solid var(--border); cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.15s; overflow: hidden;
+}
+.story-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,0.08); transform: translateY(-2px); }
+.story-card-map { width: 100%; height: 100px; background: var(--paper3); position: relative; overflow: hidden; }
+.story-card-map canvas { width: 100%; height: 100%; }
+.story-card-body { padding: 12px 14px; }
+.story-card-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; color: var(--ink); line-height: 1.2; margin-bottom: 4px; }
+.story-card-meta { font-size: 8px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 8px; }
+.story-card-stats { display: flex; gap: 12px; }
+.story-card-stat { display: flex; flex-direction: column; gap: 1px; }
+.story-card-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 500; color: var(--ink); }
+.story-card-stat-label { font-size: 6px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.story-card-types { display: flex; gap: 3px; margin-top: 6px; }
+.story-card-type-dot { width: 6px; height: 6px; border-radius: 50%; }
+.story-card-badge {
+  position: absolute; top: 8px; left: 8px; font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
+  background: rgba(26,24,20,0.7); color: var(--paper); padding: 2px 8px;
+}
+.story-card-actions { display: flex; gap: 4px; margin-top: 8px; }
+.story-card-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 3px 8px; border: 1px solid var(--border); background: transparent;
+  color: var(--muted); cursor: pointer; transition: all 0.15s;
+}
+.story-card-btn:hover { border-color: var(--accent); color: var(--accent); }
+.story-card-btn.danger:hover { border-color: #c0392b; color: #c0392b; }
+
 /* ── HAMBURGER / MOBILE ── */
 .hamburger {
   display: none; background: none; border: none; padding: 0 16px; cursor: pointer;
@@ -933,6 +970,12 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           </div>
         </div>
         <div class="profile-stats-row" id="profile-stats-row"></div>
+        <div class="profile-stories-section" id="profile-stories-section" style="display:none">
+          <div class="profile-stories-header">
+            <div class="profile-stories-title">Stories</div>
+          </div>
+          <div class="profile-stories-grid" id="profile-stories-grid"></div>
+        </div>
         <div class="profile-grid-header">
           <div class="profile-grid-title">Moments</div>
           <div class="profile-grid-sort">
@@ -1757,14 +1800,16 @@ function buildProfile() {
   document.getElementById('profile-bio').value=profile.bio||'';
   if(profile.photo) document.getElementById('profile-photo-display').innerHTML=`<img src="${profile.photo}" alt="Profile">`;
   const mems=getMoments();
+  const stories=getStories();
   const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
   const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
-  const withStory=mems.filter(m=>m.note).length, withPhotos=mems.filter(m=>m.photos?.length).length;
+  const withNotes=mems.filter(m=>m.note).length, withPhotos=mems.filter(m=>m.photos?.length).length;
   document.getElementById('profile-stats-row').innerHTML=[
     {val:mems.length,label:'Moments'},{val:Math.round(totalDist).toLocaleString()+' km',label:'Distance'},
-    {val:Math.round(totalElev/1000)+'k m',label:'Elevation'},{val:withStory+' / '+withPhotos,label:'Stories / Photos'},
+    {val:Math.round(totalElev/1000)+'k m',label:'Elevation'},{val:stories.length+' / '+withNotes,label:'Stories / Notes'},
   ].map(s=>`<div class="profile-stat"><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
 
+  renderProfileStories();
   renderProfileHoneycomb();
 }
 
@@ -1772,6 +1817,160 @@ function setProfileSort(sort) {
   profileSort = sort;
   document.querySelectorAll('.pg-sort-btn').forEach(b=>b.classList.toggle('active',b.dataset.sort===sort));
   renderProfileHoneycomb();
+}
+
+function renderProfileStories() {
+  const section = document.getElementById('profile-stories-section');
+  const grid = document.getElementById('profile-stories-grid');
+  const stories = getStories();
+
+  if (stories.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  grid.innerHTML = '';
+
+  stories.sort((a, b) => (b.lastModified || b.createdAt || '') > (a.lastModified || a.createdAt || '') ? 1 : -1);
+
+  stories.forEach(story => {
+    computeStoryStats(story);
+    const dateRange = story.dateStart && story.dateEnd
+      ? new Date(story.dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' — ' + new Date(story.dateEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+      : '';
+    const dist = story._totalDistance > 0 ? (story._totalDistance / 1000).toFixed(1) + ' km' : '—';
+    const elev = story._totalElevation > 0 ? Math.round(story._totalElevation) + ' m' : '—';
+    const dur = story._totalDuration > 0 ? formatDur(story._totalDuration) : '—';
+    const typeKeys = Object.keys(story._typeBreakdown || {});
+
+    const card = document.createElement('div');
+    card.className = 'story-card';
+
+    let mapHtml = '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>';
+    mapHtml += '<div class="story-card-badge">' + (story._momentCount || 0) + ' moments</div></div>';
+
+    card.innerHTML = mapHtml +
+      '<div class="story-card-body">' +
+        '<div class="story-card-title">' + (story.title || 'Untitled') + '</div>' +
+        '<div class="story-card-meta">' + dateRange + '</div>' +
+        '<div class="story-card-stats">' +
+          '<div class="story-card-stat"><div class="story-card-stat-val">' + dist + '</div><div class="story-card-stat-label">Distance</div></div>' +
+          '<div class="story-card-stat"><div class="story-card-stat-val">' + elev + '</div><div class="story-card-stat-label">Elevation</div></div>' +
+          '<div class="story-card-stat"><div class="story-card-stat-val">' + dur + '</div><div class="story-card-stat-label">Time</div></div>' +
+        '</div>' +
+        '<div class="story-card-types">' + typeKeys.map(k => '<div class="story-card-type-dot" style="background:' + (TYPE_CONFIG[k]?.color || '#92400e') + '" title="' + (TYPE_CONFIG[k]?.label || k) + '"></div>').join('') + '</div>' +
+        '<div class="story-card-actions">' +
+          '<button class="story-card-btn" onclick="event.stopPropagation();openStoryModal(\'' + story.id + '\')">Edit</button>' +
+          '<button class="story-card-btn" onclick="event.stopPropagation();viewStoryOnMap(\'' + story.id + '\')">Map</button>' +
+          '<button class="story-card-btn danger" onclick="event.stopPropagation();deleteStory(\'' + story.id + '\')">Delete</button>' +
+        '</div>' +
+      '</div>';
+
+    card.onclick = function() { viewStoryOnMap(story.id); };
+    grid.appendChild(card);
+
+    // Draw multi-track mini map
+    requestAnimationFrame(function() { drawStoryCardMap(story); });
+  });
+}
+
+function drawStoryCardMap(story) {
+  const canvas = document.getElementById('sc-map-' + story.id);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = '#f5f0e8';
+  ctx.fillRect(0, 0, W, H);
+
+  // Collect all coords from child moments
+  const tracks = [];
+  (story.momentIds || []).forEach(function(id) {
+    const m = db[id];
+    if (!m || isStory(m)) return;
+    const c = getCoords(m);
+    if (c && c.length >= 2) tracks.push({ coords: c, color: m.customColor || getColor(m.type) });
+  });
+
+  if (tracks.length === 0) return;
+
+  // Find global bounds
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  tracks.forEach(function(t) {
+    t.coords.forEach(function(p) {
+      minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
+      minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
+    });
+  });
+
+  var pad = 20;
+  var scaleX = (W - pad * 2) / (maxX - minX || 1);
+  var scaleY = (H - pad * 2) / (maxY - minY || 1);
+  var scale = Math.min(scaleX, scaleY);
+  var offX = (W - (maxX - minX) * scale) / 2;
+  var offY = (H - (maxY - minY) * scale) / 2;
+
+  // Draw each track
+  tracks.forEach(function(t) {
+    ctx.beginPath();
+    ctx.strokeStyle = t.color;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.8;
+    t.coords.forEach(function(p, i) {
+      var x = offX + (p[0] - minX) * scale;
+      var y = H - offY - (p[1] - minY) * scale;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+}
+
+function viewStoryOnMap(storyId) {
+  const story = db[storyId];
+  if (!story || !isStory(story)) return;
+
+  switchView('map');
+  setTimeout(function() {
+    // Highlight all member tracks
+    const ids = story.momentIds || [];
+    if (ids.length === 0) return;
+
+    // Build filter: match any of the story's moment IDs
+    var matchFilter = ['any'];
+    ids.forEach(function(id) { matchFilter.push(['==', ['get', 'id'], id]); });
+
+    if (map.getLayer('tracks-highlight')) {
+      map.setFilter('tracks-highlight', matchFilter);
+      map.setPaintProperty('tracks-layer', 'line-opacity', ['case', matchFilter.slice(0), 1, 0.15]);
+      map.setPaintProperty('tracks-layer', 'line-width', ['case', matchFilter.slice(0), 4, 1]);
+    }
+
+    // Fit bounds to all member tracks
+    var bounds = new mapboxgl.LngLatBounds();
+    var hasBounds = false;
+    ids.forEach(function(id) {
+      var m = db[id];
+      if (!m || isStory(m)) return;
+      var c = getCoords(m);
+      if (c && c.length >= 2) {
+        c.forEach(function(p) { bounds.extend(p); });
+        hasBounds = true;
+      }
+    });
+    if (hasBounds) {
+      map.fitBounds(bounds, { padding: 60, duration: 1200, maxZoom: 14 });
+    }
+
+    selectedId = storyId;
+  }, 200);
+}
+
+function deleteStory(storyId) {
+  if (!confirm('Delete this story? The moments inside will not be affected.')) return;
+  delete db[storyId];
+  saveDB();
+  allStories = getStories();
+  statsBuilt = false;
+  if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
 }
 
 function renderProfileHoneycomb() {
@@ -2272,6 +2471,8 @@ _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeS
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
+_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
+_r('deleteStory',deleteStory);_r('drawStoryCardMap',drawStoryCardMap);
 
 initMap();
 </script>
