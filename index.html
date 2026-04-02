@@ -925,13 +925,48 @@ const DRIVE_SYNC_TS_KEY = 'relic_drive_sync_ts';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec';
 
 let db = {}, map, terrainOn = false, satelliteOn = false;
-let allMemories = [], filteredMemories = [];
+let allMemories = [], filteredMemories = [], allStories = [];
 let activeTypes = new Set(Object.keys(TYPE_CONFIG));
 let activeYears = new Set();
 let selectedId = null, saveTimer = null;
 let sidebarSort = 'recent';
 let profileSort = 'recent';
 let statsBuilt = false;
+
+// Story helpers
+function isStory(obj) { return obj && obj.type === 'story'; }
+function getMoments() { return Object.values(db).filter(o => !isStory(o)); }
+function getStories() { return Object.values(db).filter(o => isStory(o)); }
+function computeStoryStats(story) {
+  let dist = 0, elev = 0, dur = 0, types = {};
+  (story.momentIds || []).forEach(id => {
+    const m = db[id];
+    if (!m || isStory(m)) return;
+    dist += m.distance || 0;
+    elev += m.elevation || 0;
+    dur += m.duration || 0;
+    const g = getGroup(m.type);
+    types[g] = (types[g] || 0) + 1;
+  });
+  story._totalDistance = dist;
+  story._totalElevation = elev;
+  story._totalDuration = dur;
+  story._momentCount = (story.momentIds || []).filter(id => db[id] && !isStory(db[id])).length;
+  story._typeBreakdown = types;
+  // Derive date range from child moments
+  const dates = (story.momentIds || []).map(id => db[id]?.date).filter(Boolean).sort();
+  if (dates.length) {
+    story.dateStart = dates[0].substring(0, 10);
+    story.dateEnd = dates[dates.length - 1].substring(0, 10);
+  }
+  return story;
+}
+function stableStoryId(title) {
+  const raw = 'story|' + title + '|' + Date.now();
+  let h = 0;
+  for (let i = 0; i < raw.length; i++) { h = Math.imul(31, h) + raw.charCodeAt(i) | 0; }
+  return 'story_' + Math.abs(h).toString(36);
+}
 
 // Decoded coord cache — populated lazily, cleared on Drive sync
 const coordCache = {};
@@ -947,7 +982,10 @@ function loadDB() { try { const r = localStorage.getItem(DB_KEY); db = r ? JSON.
 function saveDB() {
   try {
     const lean = {};
-    Object.entries(db).forEach(([id, mem]) => { lean[id] = { ...mem }; delete lean[id].coords; });
+    Object.entries(db).forEach(([id, obj]) => {
+      lean[id] = { ...obj };
+      if (!isStory(obj)) delete lean[id].coords; // strip coords from moments only
+    });
     localStorage.setItem(DB_KEY, JSON.stringify(lean));
   } catch(e) { console.warn('Storage full', e); }
 }
@@ -972,12 +1010,23 @@ async function fetchDriveMeta() { const r = await fetch(`${APPS_SCRIPT_URL}?acti
 async function fetchDriveData() { const r = await fetch(`${APPS_SCRIPT_URL}?action=data`,{cache:'no-store'}); if(!r.ok) throw new Error('Data fetch failed'); return r.json(); }
 function mergeFromDrive(driveData) {
   let n=0;
-  Object.entries(driveData).forEach(([id,mem])=>{
+  Object.entries(driveData).forEach(([id,obj])=>{
     const e=db[id]||{};
-    db[id]={...mem, note:e.note||mem.note||'', mood:e.mood??mem.mood??null,
-      photos:e.photos?.length?e.photos:(mem.photos||[]), customColor:e.customColor||mem.customColor||null,
-      name:e._nameEdited?e.name:(mem.name||e.name)};
-    if(!e.id) n++;
+    if(isStory(obj)) {
+      // Story merge: preserve local narrative/mood edits
+      db[id]={...obj,
+        narrative: e.narrative || obj.narrative || '',
+        mood: e.mood ?? obj.mood ?? null,
+        title: e._titleEdited ? e.title : (obj.title || e.title),
+        coverPhoto: e.coverPhoto || obj.coverPhoto || null};
+      if(!e.id) n++;
+    } else {
+      // Moment merge: existing logic
+      db[id]={...obj, note:e.note||obj.note||'', mood:e.mood??obj.mood??null,
+        photos:e.photos?.length?e.photos:(obj.photos||[]), customColor:e.customColor||obj.customColor||null,
+        name:e._nameEdited?e.name:(obj.name||e.name)};
+      if(!e.id) n++;
+    }
   });
   return n;
 }
@@ -991,7 +1040,7 @@ async function backgroundSyncFromDrive() {
       const n = mergeFromDrive(data);
       clearCoordCache();
       saveDB(); localStorage.setItem(DRIVE_SYNC_TS_KEY, Date.now().toString());
-      if(n>0) { allMemories=Object.values(db).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1); updateHeaderStats(); applyFilters(); statsBuilt=false; }
+      if(n>0) { allMemories=getMoments().sort((a,b)=>(b.date||'')>(a.date||'')?1:-1); allStories=getStories(); updateHeaderStats(); applyFilters(); statsBuilt=false; }
     }
   } catch(e) { console.warn('Background sync failed:', e); }
 }
@@ -1061,7 +1110,9 @@ function addTerrainSource() {
 }
 
 async function renderAll() {
-  allMemories = Object.values(db).sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  allStories = getStories();
+  allStories.forEach(s => computeStoryStats(s));
   initMapLayers();
   const years = new Set(allMemories.map(m=>m.date?.substring(0,4)).filter(Boolean));
   [...years].sort().forEach(y=>activeYears.add(y));
@@ -1327,7 +1378,7 @@ function buildFeed() {
   const container = document.getElementById('feed-container');
   container.innerHTML = '';
   const profile = loadProfile();
-  const mems = Object.values(db).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
+  const mems = getMoments().sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
 
   mems.slice(0,100).forEach(mem => {
     const color = mem.customColor||getColor(mem.type);
@@ -1397,7 +1448,7 @@ function drawFeedMap(memId, coords, color) {
 // STATS / ARCHIVE
 // ════════════════════════════════════════
 function buildStats() {
-  const mems=Object.values(db); if(!mems.length)return;
+  const mems=getMoments(); if(!mems.length)return;
 
   // Single pass over all memories for all aggregates
   let totalDist=0, totalElev=0, withNotes=0, withPhotos=0;
@@ -1504,7 +1555,7 @@ function buildHeatmap(counts) {
 }
 
 function showHeatmapDay(dateKey) {
-  const acts = Object.values(db).filter(m=>m.date?.substring(0,10)===dateKey);
+  const acts = getMoments().filter(m=>m.date?.substring(0,10)===dateKey);
   if(acts.length===0) return;
   if(acts.length===1) { goToActivity(acts[0].id); return; }
   // Multiple — show first one
@@ -1512,7 +1563,7 @@ function showHeatmapDay(dateKey) {
 }
 
 function updateHeaderStats() {
-  const mems=Object.values(db);
+  const mems=getMoments();
   const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
   const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
   const years=new Set(mems.map(m=>m.date?.substring(0,4)).filter(Boolean));
@@ -1550,7 +1601,7 @@ function buildProfile() {
   document.getElementById('profile-name').value=profile.name||'';
   document.getElementById('profile-bio').value=profile.bio||'';
   if(profile.photo) document.getElementById('profile-photo-display').innerHTML=`<img src="${profile.photo}" alt="Profile">`;
-  const mems=Object.values(db);
+  const mems=getMoments();
   const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
   const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
   const withStory=mems.filter(m=>m.note).length, withPhotos=mems.filter(m=>m.photos?.length).length;
@@ -1571,7 +1622,7 @@ function setProfileSort(sort) {
 function renderProfileHoneycomb() {
   const container = document.getElementById('profile-honeycomb');
   container.innerHTML = '';
-  let mems = Object.values(db);
+  let mems = getMoments();
   if(profileSort==='recent') mems.sort((a,b)=>new Date(b.date)-new Date(a.date));
   else if(profileSort==='distance') mems.sort((a,b)=>(b.distance||0)-(a.distance||0));
   else if(profileSort==='photos') mems=mems.filter(m=>m.photos?.length).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -1703,7 +1754,8 @@ async function doImport() {
   }
 
   saveDB();
-  allMemories = Object.values(db).sort((a,b) => new Date(b.date) - new Date(a.date));
+  allMemories = getMoments().sort((a,b) => new Date(b.date) - new Date(a.date));
+  allStories = getStories();
   const years = new Set(allMemories.map(m => m.date?.substring(0,4)).filter(Boolean));
   [...years].forEach(y => activeYears.add(y));
   initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
@@ -1822,6 +1874,8 @@ _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobil
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);_r('toggleType',toggleType);_r('switchToolsTab',switchToolsTab);
 _r('setProfileSort',setProfileSort);_r('showHeatmapDay',showHeatmapDay);_r('removeImportFile',removeImportFile);
 _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
+_r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
+_r('computeStoryStats',computeStoryStats);_r('stableStoryId',stableStoryId);
 
 initMap();
 </script>
