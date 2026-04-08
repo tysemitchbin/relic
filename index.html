@@ -947,7 +947,18 @@ function loadDB() { try { const r = localStorage.getItem(DB_KEY); db = r ? JSON.
 function saveDB() {
   try {
     const lean = {};
-    Object.entries(db).forEach(([id, mem]) => { lean[id] = { ...mem }; delete lean[id].coords; delete lean[id]._polyline; delete lean[id].splits; delete lean[id].segmentEfforts; });
+    Object.entries(db).forEach(([id, obj]) => {
+      lean[id] = { ...obj };
+      if (!isStory(obj)) {
+        if (lean[id].coords && lean[id].coords.length >= 2 && !lean[id]._polyline) {
+          lean[id]._polyline = encodePolyline(lean[id].coords);
+        }
+        delete lean[id].coords;
+      }
+      delete lean[id]._polyline;
+      delete lean[id].splits;
+      delete lean[id].segmentEfforts;
+    });
     localStorage.setItem(DB_KEY, JSON.stringify(lean));
   } catch(e) { console.warn('Storage full', e); }
 }
