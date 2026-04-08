@@ -947,18 +947,7 @@ function loadDB() { try { const r = localStorage.getItem(DB_KEY); db = r ? JSON.
 function saveDB() {
   try {
     const lean = {};
-    Object.entries(db).forEach(([id, obj]) => {
-      lean[id] = { ...obj };
-      if (!isStory(obj)) {
-        if (lean[id].coords && lean[id].coords.length >= 2 && !lean[id]._polyline) {
-          lean[id]._polyline = encodePolyline(lean[id].coords);
-        }
-        delete lean[id].coords;
-      }
-      delete lean[id]._polyline;
-      delete lean[id].splits;
-      delete lean[id].segmentEfforts;
-    });
+    Object.entries(db).forEach(([id, mem]) => { lean[id] = { ...mem }; delete lean[id].coords; delete lean[id]._polyline; delete lean[id].splits; delete lean[id].segmentEfforts; });
     localStorage.setItem(DB_KEY, JSON.stringify(lean));
   } catch(e) { console.warn('Storage full', e); }
 }
@@ -995,15 +984,13 @@ function mergeFromDrive(driveData) {
 async function backgroundSyncFromDrive() {
   if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return;
   try {
-    const meta = await fetchDriveMeta();
-    const lastSync = parseInt(localStorage.getItem(DRIVE_SYNC_TS_KEY)||'0');
-    if((meta.lastUpdated||0)>lastSync) {
-      const data = await fetchDriveData();
-      const n = mergeFromDrive(data);
-      clearCoordCache();
-      saveDB(); localStorage.setItem(DRIVE_SYNC_TS_KEY, Date.now().toString());
-      if(n>0) { allMemories=Object.values(db).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1); updateHeaderStats(); applyFilters(); statsBuilt=false; }
-    }
+    const data = await fetchDriveData();
+    const n = mergeFromDrive(data);
+    clearCoordCache();
+    saveDB(); localStorage.setItem(DRIVE_SYNC_TS_KEY, Date.now().toString());
+    // Always re-render: even if n===0, Drive data restores polylines stripped from cache
+    allMemories=Object.values(db).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
+    updateHeaderStats(); applyFilters(); statsBuilt=false;
   } catch(e) { console.warn('Background sync failed:', e); }
 }
 
