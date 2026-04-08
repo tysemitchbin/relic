@@ -308,15 +308,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .strava-link:hover { background: var(--accent); color: var(--paper); }
 .save-indicator { font-size: 8px; color: var(--muted); letter-spacing: 1px; padding: 8px 18px; border-top: 1px solid var(--border); flex-shrink: 0; text-align: right; min-height: 28px; }
 
-/* ── ACTIVITY CHARTS ── */
-.d-charts-loading { font-size: 8px; color: var(--muted); letter-spacing: 1px; padding: 4px 0; }
-.d-charts-wrap { display: flex; flex-direction: column; gap: 10px; }
-.d-chart-card { background: var(--paper2); border: 1px solid var(--border); padding: 10px 12px 8px; }
-.d-chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.d-chart-title { font-size: 7px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
-.d-chart-value { font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 500; color: var(--ink); }
-.d-chart-canvas { width: 100%; height: 80px; display: block; }
-
 /* Lightbox */
 #lightbox { display: none; position: fixed; inset: 0; background: rgba(26,24,20,0.95); z-index: 9998; align-items: center; justify-content: center; }
 #lightbox.open { display: flex; }
@@ -357,13 +348,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   background: none; border: 1px solid var(--accent); padding: 4px 12px; cursor: pointer; transition: all 0.15s;
 }
 .fc-view-btn:hover { background: var(--accent); color: var(--paper); }
-
-/* Feed story card variants */
-.feed-card.story-card-feed { border-left: 3px solid var(--accent); }
-.fc-story-badge { font-size: 7px; padding: 2px 8px; letter-spacing: 1.5px; text-transform: uppercase; color: white; background: var(--accent); flex-shrink: 0; }
-.fc-story-types { display: flex; gap: 4px; padding: 4px 16px 8px; flex-wrap: wrap; }
-.fc-story-type-pill { font-size: 7px; padding: 2px 7px; letter-spacing: 0.5px; text-transform: uppercase; color: white; }
-.fc-moment-count { font-size: 8px; color: var(--muted); padding: 0 16px 8px; letter-spacing: 0.5px; }
 
 /* ── ARCHIVE VIEW ── */
 #stats-view { background: var(--paper); flex-direction: column; overflow-y: auto; padding: 40px; }
@@ -509,171 +493,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 }
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 .import-progress { font-size: 9px; color: var(--muted); margin-top: 8px; letter-spacing: 0.5px; }
-
-/* ── STORY MODAL ── */
-.story-modal { width: 780px; max-width: 95vw; padding: 0; display: flex; flex-direction: column; max-height: 85vh; }
-.story-modal-header { padding: 20px 24px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.story-modal-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
-.story-modal-left { width: 380px; border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
-.story-modal-right { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
-.story-modal-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
-
-/* Left panel: moment selector */
-.sm-filter-bar { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
-.sm-search {
-  width: 100%; background: var(--paper2); border: 1px solid var(--border);
-  color: var(--ink); font-family: 'Cormorant Garamond', serif; font-size: 13px; font-style: italic;
-  padding: 6px 10px; outline: none;
-}
-.sm-search:focus { border-color: var(--accent); }
-.sm-search::placeholder { color: var(--muted); font-style: italic; }
-.sm-filter-row { display: flex; gap: 3px; flex-wrap: wrap; }
-.sm-filter-btn {
-  padding: 3px 7px; border: 1px solid var(--border); background: transparent;
-  font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: 0.8px; text-transform: uppercase;
-  color: var(--muted); cursor: pointer; transition: all 0.15s;
-}
-.sm-filter-btn:hover { border-color: var(--accent); color: var(--accent); }
-.sm-filter-btn.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.sm-date-row { display: flex; gap: 6px; align-items: center; }
-.sm-date-input {
-  flex: 1; background: var(--paper2); border: 1px solid var(--border);
-  color: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 9px; padding: 4px 6px; outline: none;
-}
-.sm-date-input:focus { border-color: var(--accent); }
-.sm-date-sep { font-size: 8px; color: var(--muted); }
-.sm-tally { padding: 6px 14px; font-size: 8px; color: var(--muted); letter-spacing: 1px; border-bottom: 1px solid var(--border); flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; }
-.sm-select-all {
-  font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
-  color: var(--accent); background: none; border: none; cursor: pointer; padding: 2px 4px;
-}
-.sm-select-all:hover { text-decoration: underline; }
-.sm-moment-list { flex: 1; overflow-y: auto; min-height: 0; }
-.sm-moment-item {
-  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
-  border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s;
-}
-.sm-moment-item:hover { background: var(--paper2); }
-.sm-moment-item.selected { background: var(--paper3); }
-.sm-checkbox {
-  width: 16px; height: 16px; border: 1px solid var(--border); background: var(--paper);
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-  font-size: 10px; color: var(--ink); transition: all 0.1s;
-}
-.sm-moment-item.selected .sm-checkbox { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.sm-moment-info { flex: 1; min-width: 0; }
-.sm-moment-name { font-family: 'Cormorant Garamond', serif; font-size: 13px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
-.sm-moment-meta { font-size: 7px; color: var(--muted); letter-spacing: 0.5px; display: flex; gap: 6px; }
-.sm-moment-dist { font-size: 9px; color: var(--accent); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
-.sm-type-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-
-/* Right panel: story builder */
-.sm-builder { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
-.sm-label { font-size: 7px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
-.sm-title-input {
-  font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; color: var(--ink);
-  background: transparent; border: none; border-bottom: 1px solid var(--border); outline: none; width: 100%; padding: 4px 0;
-}
-.sm-title-input:focus { border-bottom-color: var(--accent); }
-.sm-title-input::placeholder { color: var(--muted); }
-.sm-narrative-input {
-  width: 100%; min-height: 80px; background: var(--paper2); border: 1px solid var(--border);
-  color: var(--ink); font-family: 'Cormorant Garamond', serif; font-size: 13px; line-height: 1.6;
-  padding: 8px 10px; outline: none; resize: vertical;
-}
-.sm-narrative-input:focus { border-color: var(--accent); }
-.sm-narrative-input::placeholder { color: var(--muted); font-style: italic; }
-.sm-selected-list { display: flex; flex-direction: column; gap: 2px; max-height: 180px; overflow-y: auto; }
-.sm-selected-chip {
-  display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--paper2); border: 1px solid var(--border);
-  font-size: 9px; color: var(--ink);
-}
-.sm-selected-chip .sm-type-dot { width: 5px; height: 5px; }
-.sm-chip-name { flex: 1; font-family: 'Cormorant Garamond', serif; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sm-chip-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 12px; padding: 0 2px; }
-.sm-chip-remove:hover { color: var(--accent); }
-.sm-stats-summary {
-  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border);
-}
-.sm-stat { background: var(--paper2); padding: 8px 10px; }
-.sm-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; color: var(--ink); }
-.sm-stat-label { font-size: 7px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
-.sm-status { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; }
-
-@media (max-width: 768px) {
-  .story-modal { width: 95vw; }
-  .story-modal-body { flex-direction: column; }
-  .story-modal-left { width: 100%; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--border); }
-  .story-modal-right { max-height: 40vh; }
-}
-
-/* ── PROFILE STORY CARDS ── */
-.profile-stories-section { margin-bottom: 28px; }
-.profile-stories-header {
-  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
-  border-bottom: 1px solid var(--border); padding-bottom: 8px;
-}
-.profile-stories-title { font-family: 'Cormorant Garamond', serif; font-size: 18px; letter-spacing: 3px; text-transform: uppercase; color: var(--ink); }
-.profile-stories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.story-card {
-  background: var(--paper2); border: 1px solid var(--border); cursor: pointer;
-  transition: box-shadow 0.15s, transform 0.15s; overflow: hidden;
-}
-.story-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,0.08); transform: translateY(-2px); }
-.story-card-map { width: 100%; height: 100px; background: var(--paper3); position: relative; overflow: hidden; }
-.story-card-map canvas { width: 100%; height: 100%; }
-.story-card-body { padding: 12px 14px; }
-.story-card-title { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 500; color: var(--ink); line-height: 1.2; margin-bottom: 4px; }
-.story-card-meta { font-size: 8px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 8px; }
-.story-card-stats { display: flex; gap: 12px; }
-.story-card-stat { display: flex; flex-direction: column; gap: 1px; }
-.story-card-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 500; color: var(--ink); }
-.story-card-stat-label { font-size: 6px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
-.story-card-types { display: flex; gap: 3px; margin-top: 6px; }
-.story-card-type-dot { width: 6px; height: 6px; border-radius: 50%; }
-.story-card-badge {
-  position: absolute; top: 8px; left: 8px; font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
-  background: rgba(26,24,20,0.7); color: var(--paper); padding: 2px 8px;
-}
-.story-card-actions { display: flex; gap: 4px; margin-top: 8px; }
-.story-card-btn {
-  font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
-  padding: 3px 8px; border: 1px solid var(--border); background: transparent;
-  color: var(--muted); cursor: pointer; transition: all 0.15s;
-}
-.story-card-btn:hover { border-color: var(--accent); color: var(--accent); }
-.story-card-btn.danger:hover { border-color: #c0392b; color: #c0392b; }
-
-/* ── STORY DETAIL (inside detail panel) ── */
-.sd-date-range { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; margin-top: 2px; }
-.sd-narrative { padding: 14px 18px; border-bottom: 1px solid var(--border); }
-.sd-narrative-text {
-  font-family: 'Cormorant Garamond', serif; font-size: 14px; line-height: 1.7;
-  color: var(--ink); white-space: pre-wrap;
-}
-.sd-narrative-input {
-  width: 100%; min-height: 80px; background: var(--paper2); border: 1px solid var(--border);
-  color: var(--ink); font-family: 'Cormorant Garamond', serif; font-size: 13px; line-height: 1.6;
-  padding: 8px 10px; outline: none; resize: vertical;
-}
-.sd-narrative-input:focus { border-color: var(--accent); }
-.sd-narrative-input::placeholder { color: var(--muted); font-style: italic; }
-.sd-moment-timeline { padding: 0; }
-.sd-moment-entry {
-  display: flex; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--border);
-  cursor: pointer; transition: background 0.1s; align-items: flex-start;
-}
-.sd-moment-entry:hover { background: var(--paper2); }
-.sd-moment-bar { width: 3px; min-height: 36px; flex-shrink: 0; margin-top: 2px; border-radius: 1px; }
-.sd-moment-info { flex: 1; min-width: 0; }
-.sd-moment-name {
-  font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 500;
-  color: var(--ink); line-height: 1.2; margin-bottom: 2px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.sd-moment-meta { font-size: 7px; color: var(--muted); letter-spacing: 0.5px; display: flex; gap: 6px; }
-.sd-moment-dist { font-size: 10px; color: var(--accent); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; align-self: center; }
-.sd-actions { padding: 14px 18px; display: flex; gap: 8px; border-bottom: 1px solid var(--border); }
 
 /* ── HAMBURGER / MOBILE ── */
 .hamburger {
@@ -948,11 +767,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         </div>
         <div class="detail-body" id="detail-body">
           <div class="detail-stats-grid" id="d-stats"></div>
-          <div class="detail-section" id="d-charts-section" style="display:none">
-            <div class="detail-section-title">Activity Data</div>
-            <div class="d-charts-loading" id="d-charts-loading">Loading streams...</div>
-            <div class="d-charts-wrap" id="d-charts-wrap"></div>
-          </div>
           <div class="detail-section">
             <div class="detail-section-title">Story</div>
             <textarea class="note-textarea" id="d-note" placeholder="Write about this memory..." oninput="onNoteEdit()"></textarea>
@@ -1022,16 +836,9 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           </div>
         </div>
         <div class="profile-stats-row" id="profile-stats-row"></div>
-        <div class="profile-stories-section" id="profile-stories-section" style="display:none">
-          <div class="profile-stories-header">
-            <div class="profile-stories-title">Stories</div>
-          </div>
-          <div class="profile-stories-grid" id="profile-stories-grid"></div>
-        </div>
         <div class="profile-grid-header">
           <div class="profile-grid-title">Moments</div>
           <div class="profile-grid-sort">
-            <button class="btn-ghost" onclick="openStoryModal()" style="padding:3px 10px;font-size:7px;margin-right:8px">+ New Story</button>
             <button class="pg-sort-btn active" data-sort="recent" onclick="setProfileSort('recent')">Recent</button>
             <button class="pg-sort-btn" data-sort="distance" onclick="setProfileSort('distance')">Distance</button>
             <button class="pg-sort-btn" data-sort="photos" onclick="setProfileSort('photos')">Photos</button>
@@ -1066,63 +873,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeImport()">Cancel</button>
       <button class="btn-primary" id="import-btn" onclick="doImport()">Add to Archive</button>
-    </div>
-  </div>
-</div>
-
-<!-- STORY MODAL -->
-<div class="modal-overlay" id="story-modal">
-  <div class="modal story-modal">
-    <div class="story-modal-header">
-      <div class="modal-title" id="story-modal-title">New Story</div>
-      <div class="modal-sub">Select moments, then build your story</div>
-    </div>
-    <div class="story-modal-body">
-      <div class="story-modal-left">
-        <div class="sm-filter-bar">
-          <input class="sm-search" type="text" id="sm-search" placeholder="Search moments..." oninput="renderStoryMomentList()">
-          <div class="sm-filter-row" id="sm-type-filters"></div>
-          <div class="sm-date-row">
-            <input class="sm-date-input" type="date" id="sm-date-from" onchange="renderStoryMomentList()">
-            <span class="sm-date-sep">to</span>
-            <input class="sm-date-input" type="date" id="sm-date-to" onchange="renderStoryMomentList()">
-          </div>
-        </div>
-        <div class="sm-tally">
-          <span id="sm-tally-text">0 selected</span>
-          <button class="sm-select-all" onclick="storySelectAllVisible()">Select All</button>
-        </div>
-        <div class="sm-moment-list" id="sm-moment-list"></div>
-      </div>
-      <div class="story-modal-right">
-        <div class="sm-builder">
-          <div>
-            <div class="sm-label">Title</div>
-            <input class="sm-title-input" type="text" id="sm-title" placeholder="Name your story..." oninput="updateStoryPreview()">
-          </div>
-          <div>
-            <div class="sm-label">Narrative</div>
-            <textarea class="sm-narrative-input" id="sm-narrative" placeholder="Write about this chapter of your life..."></textarea>
-          </div>
-          <div>
-            <div class="sm-label">Mood</div>
-            <div class="mood-row" id="sm-mood-row"></div>
-          </div>
-          <div>
-            <div class="sm-label">Selected Moments</div>
-            <div class="sm-selected-list" id="sm-selected-list"></div>
-          </div>
-          <div>
-            <div class="sm-label">Summary</div>
-            <div class="sm-stats-summary" id="sm-stats-summary"></div>
-          </div>
-          <div class="sm-status" id="sm-status"></div>
-        </div>
-      </div>
-    </div>
-    <div class="story-modal-footer">
-      <button class="btn-ghost" onclick="closeStoryModal()">Cancel</button>
-      <button class="btn-primary" id="sm-save-btn" onclick="saveStory()">Create Story</button>
     </div>
   </div>
 </div>
@@ -1175,48 +925,13 @@ const DRIVE_SYNC_TS_KEY = 'relic_drive_sync_ts';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec';
 
 let db = {}, map, terrainOn = false, satelliteOn = false;
-let allMemories = [], filteredMemories = [], allStories = [];
+let allMemories = [], filteredMemories = [];
 let activeTypes = new Set(Object.keys(TYPE_CONFIG));
 let activeYears = new Set();
 let selectedId = null, saveTimer = null;
 let sidebarSort = 'recent';
 let profileSort = 'recent';
 let statsBuilt = false;
-
-// Story helpers
-function isStory(obj) { return obj && obj.type === 'story'; }
-function getMoments() { return Object.values(db).filter(o => !isStory(o)); }
-function getStories() { return Object.values(db).filter(o => isStory(o)); }
-function computeStoryStats(story) {
-  let dist = 0, elev = 0, dur = 0, types = {};
-  (story.momentIds || []).forEach(id => {
-    const m = db[id];
-    if (!m || isStory(m)) return;
-    dist += m.distance || 0;
-    elev += m.elevation || 0;
-    dur += m.duration || 0;
-    const g = getGroup(m.type);
-    types[g] = (types[g] || 0) + 1;
-  });
-  story._totalDistance = dist;
-  story._totalElevation = elev;
-  story._totalDuration = dur;
-  story._momentCount = (story.momentIds || []).filter(id => db[id] && !isStory(db[id])).length;
-  story._typeBreakdown = types;
-  // Derive date range from child moments
-  const dates = (story.momentIds || []).map(id => db[id]?.date).filter(Boolean).sort();
-  if (dates.length) {
-    story.dateStart = dates[0].substring(0, 10);
-    story.dateEnd = dates[dates.length - 1].substring(0, 10);
-  }
-  return story;
-}
-function stableStoryId(title) {
-  const raw = 'story|' + title + '|' + Date.now();
-  let h = 0;
-  for (let i = 0; i < raw.length; i++) { h = Math.imul(31, h) + raw.charCodeAt(i) | 0; }
-  return 'story_' + Math.abs(h).toString(36);
-}
 
 // Decoded coord cache — populated lazily, cleared on Drive sync
 const coordCache = {};
@@ -1232,16 +947,7 @@ function loadDB() { try { const r = localStorage.getItem(DB_KEY); db = r ? JSON.
 function saveDB() {
   try {
     const lean = {};
-    Object.entries(db).forEach(([id, obj]) => {
-      lean[id] = { ...obj };
-      if (!isStory(obj)) {
-        // Encode raw coords into polyline before stripping (bulk import compat)
-        if (lean[id].coords && lean[id].coords.length >= 2 && !lean[id]._polyline) {
-          lean[id]._polyline = encodePolyline(lean[id].coords);
-        }
-        delete lean[id].coords;
-      }
-    });
+    Object.entries(db).forEach(([id, mem]) => { lean[id] = { ...mem }; delete lean[id].coords; delete lean[id]._polyline; delete lean[id].splits; delete lean[id].segmentEfforts; });
     localStorage.setItem(DB_KEY, JSON.stringify(lean));
   } catch(e) { console.warn('Storage full', e); }
 }
@@ -1258,20 +964,6 @@ function stravaToMemory(a) {
     calories: a.calories || null, avgSpeed: a.average_speed || null,
     startLat: a.start_latlng?.[0] || null, startLng: a.start_latlng?.[1] || null,
     note: existing.note || '', mood: existing.mood || null, photos: existing.photos || [],
-    // v0.3 — Level 1 fields
-    maxSpeed: a.max_speed || null,
-    avgCadence: a.average_cadence || null,
-    avgWatts: a.average_watts || null,
-    weightedWatts: a.weighted_average_watts || null,
-    sufferScore: a.suffer_score || null,
-    prCount: a.pr_count || null,
-    achievementCount: a.achievement_count || null,
-    elevHigh: a.elev_high || null,
-    elevLow: a.elev_low || null,
-    gearId: a.gear_id || null,
-    workoutType: a.workout_type || null,
-    commute: a.commute || false,
-    elapsedTime: a.elapsed_time || null,
   };
 }
 
@@ -1280,28 +972,12 @@ async function fetchDriveMeta() { const r = await fetch(`${APPS_SCRIPT_URL}?acti
 async function fetchDriveData() { const r = await fetch(`${APPS_SCRIPT_URL}?action=data`,{cache:'no-store'}); if(!r.ok) throw new Error('Data fetch failed'); return r.json(); }
 function mergeFromDrive(driveData) {
   let n=0;
-  Object.entries(driveData).forEach(([id,obj])=>{
+  Object.entries(driveData).forEach(([id,mem])=>{
     const e=db[id]||{};
-    if(isStory(obj)) {
-      // Story merge: preserve local narrative/mood edits
-      db[id]={...obj,
-        narrative: e.narrative || obj.narrative || '',
-        mood: e.mood ?? obj.mood ?? null,
-        title: e._titleEdited ? e.title : (obj.title || e.title),
-        coverPhoto: e.coverPhoto || obj.coverPhoto || null};
-      if(!e.id) n++;
-    } else {
-      // Moment merge: existing logic
-      db[id]={...obj, note:e.note||obj.note||'', mood:e.mood??obj.mood??null,
-        photos:e.photos?.length?e.photos:(obj.photos||[]), customColor:e.customColor||obj.customColor||null,
-        name:e._nameEdited?e.name:(obj.name||e.name)};
-      // Fix: encode raw coords into polyline if missing (bulk import compat)
-      var merged = db[id];
-      if (merged.coords && merged.coords.length >= 2 && !merged._polyline) {
-        merged._polyline = encodePolyline(merged.coords);
-      }
-      if(!e.id) n++;
-    }
+    db[id]={...mem, note:e.note||mem.note||'', mood:e.mood??mem.mood??null,
+      photos:e.photos?.length?e.photos:(mem.photos||[]), customColor:e.customColor||mem.customColor||null,
+      name:e._nameEdited?e.name:(mem.name||e.name)};
+    if(!e.id) n++;
   });
   return n;
 }
@@ -1315,7 +991,7 @@ async function backgroundSyncFromDrive() {
       const n = mergeFromDrive(data);
       clearCoordCache();
       saveDB(); localStorage.setItem(DRIVE_SYNC_TS_KEY, Date.now().toString());
-      if(n>0) { allMemories=getMoments().sort((a,b)=>(b.date||'')>(a.date||'')?1:-1); allStories=getStories(); updateHeaderStats(); applyFilters(); statsBuilt=false; }
+      if(n>0) { allMemories=Object.values(db).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1); updateHeaderStats(); applyFilters(); statsBuilt=false; }
     }
   } catch(e) { console.warn('Background sync failed:', e); }
 }
@@ -1385,9 +1061,7 @@ function addTerrainSource() {
 }
 
 async function renderAll() {
-  allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
-  allStories = getStories();
-  allStories.forEach(s => computeStoryStats(s));
+  allMemories = Object.values(db).sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
   initMapLayers();
   const years = new Set(allMemories.map(m=>m.date?.substring(0,4)).filter(Boolean));
   [...years].sort().forEach(y=>activeYears.add(y));
@@ -1579,187 +1253,29 @@ function updateTypeColor(typeKey, color) {
 // DETAIL PANEL
 // ════════════════════════════════════════
 function showDetail(memId) {
-  const obj=db[memId]; if(!obj) return; selectedId=memId; renderList();
-
-  if (isStory(obj)) { showStoryDetail(memId); return; }
-
-  const mem=obj;
+  const mem=db[memId]; if(!mem) return; selectedId=memId; renderList();
   const group=getGroup(mem.type), color=mem.customColor||TYPE_CONFIG[group]?.color||'#92400e';
   document.getElementById('d-type-dot').style.background=color;
   document.getElementById('d-type-label').textContent=TYPE_CONFIG[group]?.label||mem.type;
   document.getElementById('d-name-input').value=mem.name;
-  document.getElementById('d-name-input').oninput=onNameEdit;
   document.getElementById('d-date').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
   document.getElementById('d-stats').innerHTML=[
     {val:mem.distance?(mem.distance/1000).toFixed(1)+' km':'—',label:'Distance'},
     {val:mem.duration?formatDur(mem.duration):'—',label:'Moving Time'},
     {val:mem.elevation?mem.elevation+' m':'—',label:'Elevation'},
     {val:mem.avgSpeed?formatPace(mem.avgSpeed,mem.type):'—',label:'Pace / Speed'},
-    {val:mem.maxSpeed?(getGroup(mem.type)==='Ride'||getGroup(mem.type)==='Drive'||getGroup(mem.type)==='Flight'?(mem.maxSpeed*3.6).toFixed(1)+' km/h':formatPace(mem.maxSpeed,mem.type)):'—',label:'Max Speed'},
-    {val:mem.avgHR?mem.avgHR+' bpm':'—',label:'Avg Heart Rate'},
   ].map(s=>`<div class="dstat"><div class="dstat-val">${s.val}</div><div class="dstat-label">${s.label}</div></div>`).join('');
   document.getElementById('d-note').value=mem.note||'';
-  document.getElementById('d-note').style.display='';
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
-  // Restore detail body to moment layout (in case it was showing a story)
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(el => el.remove());
-  document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
-  document.getElementById('d-rows').style.display='';
-  document.getElementById('d-strava-link').style.display='';
-  const rows=[
-    ['Max Heart Rate',mem.maxHR?mem.maxHR+' bpm':'—'],
-    ['Cadence',mem.avgCadence?Math.round(mem.avgCadence)+(getGroup(mem.type)==='Ride'?' rpm':' spm'):'—'],
-    ['Power',mem.avgWatts?mem.avgWatts+' W'+(mem.weightedWatts?' ('+mem.weightedWatts+' NP)':''):'—'],
-    ['Relative Effort',mem.sufferScore||'—'],
-    ['Calories',mem.calories||'—'],
-    ['Elapsed Time',mem.elapsedTime?formatDur(mem.elapsedTime):'—'],
-    ['Elev High / Low',(mem.elevHigh||mem.elevLow)?((mem.elevHigh?Math.round(mem.elevHigh)+'m':'—')+' / '+(mem.elevLow?Math.round(mem.elevLow)+'m':'—')):'—'],
-    ['PRs / Achievements',(mem.prCount||mem.achievementCount)?((mem.prCount||0)+' / '+(mem.achievementCount||0)):'—'],
-    ['Gear',mem.gearId||'—'],
-    ['Source',mem.source||'—'],
-    ...(mem.startLat?[['Coordinates',`${mem.startLat.toFixed(4)}°N ${mem.startLng.toFixed(4)}°E`]]:[]),
-  ].filter(([k,v])=>v!=='—');
+  const rows=[['Avg Heart Rate',mem.avgHR?mem.avgHR+' bpm':'—'],['Max Heart Rate',mem.maxHR?mem.maxHR+' bpm':'—'],['Calories',mem.calories||'—'],['Source',mem.source||'—'],...(mem.startLat?[['Coordinates',`${mem.startLat.toFixed(4)}°N ${mem.startLng.toFixed(4)}°E`]]:[])];
   document.getElementById('d-rows').innerHTML=rows.map(([k,v])=>`<div class="info-row"><span class="ir-key">${k}</span><span class="ir-val">${v}</span></div>`).join('');
   document.getElementById('d-strava-link').innerHTML=mem.stravaId?`<a class="strava-link" href="https://www.strava.com/activities/${mem.stravaId}" target="_blank">↗ View on Strava</a>`:'';
-  // Charts: hide for non-Strava or load streams
-  var chartsSection = document.getElementById('d-charts-section');
-  if (mem.stravaId) {
-    loadAndRenderCharts(memId);
-  } else {
-    chartsSection.style.display = 'none';
-  }
   updateTrackHighlight(memId);
   document.getElementById('detail-panel').classList.add('open');
   document.getElementById('save-indicator').textContent='';
 }
-
-function showStoryDetail(storyId) {
-  const story = db[storyId];
-  if (!story || !isStory(story)) return;
-  computeStoryStats(story);
-
-  // Header
-  document.getElementById('d-type-dot').style.background = 'var(--accent)';
-  document.getElementById('d-type-label').textContent = 'Story';
-  document.getElementById('d-name-input').value = story.title || '';
-  document.getElementById('d-name-input').oninput = function() {
-    story.title = document.getElementById('d-name-input').value;
-    story._titleEdited = true;
-    story.lastModified = new Date().toISOString();
-    scheduleSave();
-  };
-
-  // Date range
-  const dateRange = story.dateStart && story.dateEnd
-    ? new Date(story.dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) +
-      ' — ' + new Date(story.dateEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-    : '';
-  document.getElementById('d-date').textContent = dateRange;
-
-  // Stats
-  document.getElementById('d-stats').innerHTML = [
-    { val: story._totalDistance > 0 ? (story._totalDistance / 1000).toFixed(1) + ' km' : '—', label: 'Total Distance' },
-    { val: story._totalDuration > 0 ? formatDur(story._totalDuration) : '—', label: 'Total Time' },
-    { val: story._totalElevation > 0 ? Math.round(story._totalElevation) + ' m' : '—', label: 'Total Elevation' },
-    { val: story._momentCount || 0, label: 'Moments' },
-  ].map(function(s) { return '<div class="dstat"><div class="dstat-val">' + s.val + '</div><div class="dstat-label">' + s.label + '</div></div>'; }).join('');
-
-  // Hide moment-specific sections
-  document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = 'none'; });
-  document.getElementById('d-rows').style.display = 'none';
-  document.getElementById('d-strava-link').style.display = 'none';
-
-  // Remove any previous story detail elements
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(function(el) { el.remove(); });
-
-  const body = document.getElementById('detail-body');
-
-  // Narrative section
-  var narrativeDiv = document.createElement('div');
-  narrativeDiv.className = 'sd-narrative';
-  narrativeDiv.innerHTML =
-    '<div class="detail-section-title">Narrative</div>' +
-    '<textarea class="sd-narrative-input" id="sd-narrative-input" placeholder="Write about this chapter of your life...">' + (story.narrative || '') + '</textarea>';
-  body.insertBefore(narrativeDiv, document.getElementById('d-rows'));
-  document.getElementById('sd-narrative-input').oninput = function() {
-    story.narrative = this.value;
-    story.lastModified = new Date().toISOString();
-    scheduleSave();
-  };
-
-  // Mood section
-  var moodSection = document.querySelectorAll('#detail-body .detail-section')[2]; // mood is 3rd section
-  if (moodSection) {
-    moodSection.style.display = '';
-    document.getElementById('d-mood').innerHTML = MOODS.map(function(m) {
-      return '<button class="mood-btn ' + (story.mood === m.id ? 'active' : '') + '" onclick="setStoryDetailMood(\'' + storyId + '\',\'' + m.id + '\',this)">' + m.emoji + '<span>' + m.label + '</span></button>';
-    }).join('');
-  }
-
-  // Actions
-  var actionsDiv = document.createElement('div');
-  actionsDiv.className = 'sd-actions';
-  actionsDiv.innerHTML =
-    '<button class="btn-ghost" onclick="openStoryModal(\'' + storyId + '\')">Edit Moments</button>' +
-    '<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="deleteStory(\'' + storyId + '\');closeDetail()">Delete Story</button>';
-  body.insertBefore(actionsDiv, document.getElementById('d-rows'));
-
-  // Moment timeline
-  var timelineDiv = document.createElement('div');
-  timelineDiv.className = 'sd-moment-timeline';
-  timelineDiv.innerHTML = '<div class="detail-section-title" style="padding:10px 18px 6px;border-bottom:1px solid var(--border)">Moments in this Story</div>';
-  var moments = (story.momentIds || []).map(function(id) { return db[id]; }).filter(function(m) { return m && !isStory(m); });
-  moments.sort(function(a, b) { return (a.date || '') > (b.date || '') ? 1 : -1; });
-
-  moments.forEach(function(m) {
-    var color = m.customColor || getColor(m.type);
-    var group = getGroup(m.type);
-    var date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-    var dist = m.distance ? (m.distance / 1000).toFixed(1) + ' km' : '';
-    var entry = document.createElement('div');
-    entry.className = 'sd-moment-entry';
-    entry.innerHTML =
-      '<div class="sd-moment-bar" style="background:' + color + '"></div>' +
-      '<div class="sd-moment-info">' +
-        '<div class="sd-moment-name">' + m.name + '</div>' +
-        '<div class="sd-moment-meta"><span>' + date + '</span><span>' + (TYPE_CONFIG[group]?.label || m.type) + '</span></div>' +
-      '</div>' +
-      '<div class="sd-moment-dist">' + dist + '</div>';
-    entry.onclick = function() {
-      showDetail(m.id);
-      if (m.startLat) map.flyTo({ center: [m.startLng, m.startLat], zoom: 13, pitch: terrainOn ? 50 : 0, duration: 1000 });
-    };
-    timelineDiv.appendChild(entry);
-  });
-
-  body.insertBefore(timelineDiv, document.getElementById('d-rows'));
-
-  document.getElementById('detail-panel').classList.add('open');
-  document.getElementById('save-indicator').textContent = '';
-}
-
-function setStoryDetailMood(storyId, moodId, btn) {
-  var story = db[storyId];
-  if (!story) return;
-  story.mood = story.mood === moodId ? null : moodId;
-  story.lastModified = new Date().toISOString();
-  document.querySelectorAll('#d-mood .mood-btn').forEach(function(b) { b.classList.remove('active'); });
-  if (story.mood) btn.classList.add('active');
-  scheduleSave();
-}
-function closeDetail() {
-  var wasStory = selectedId && db[selectedId] && isStory(db[selectedId]);
-  selectedId=null;
-  document.getElementById('detail-panel').classList.remove('open');
-  renderList();
-  updateTrackHighlight(null);
-  // Clean up any story-injected elements from detail body
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(function(el) { el.remove(); });
-  document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
-  document.getElementById('d-rows').style.display = '';
-  document.getElementById('d-strava-link').style.display = '';
-}
+function closeDetail() { selectedId=null; document.getElementById('detail-panel').classList.remove('open'); renderList(); updateTrackHighlight(null); }
 function onNameEdit() { if(!selectedId) return; db[selectedId].name=document.getElementById('d-name-input').value; db[selectedId]._nameEdited=true; scheduleSave(); }
 function onNoteEdit() { if(!selectedId) return; db[selectedId].note=document.getElementById('d-note').value; scheduleSave(); }
 function setMood(memId,moodId,btn) { db[memId].mood=db[memId].mood===moodId?null:moodId; document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('active')); if(db[memId].mood) btn.classList.add('active'); scheduleSave(); }
@@ -1811,165 +1327,50 @@ function buildFeed() {
   const container = document.getElementById('feed-container');
   container.innerHTML = '';
   const profile = loadProfile();
-  const mems = getMoments().sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
-  const stories = getStories();
+  const mems = Object.values(db).sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
 
-  // Build a unified feed: moments use their date, stories use dateEnd
-  const feedItems = [];
-  mems.slice(0, 100).forEach(function(m) { feedItems.push({ type: 'moment', obj: m, sortDate: m.date || '' }); });
-  stories.forEach(function(s) {
-    computeStoryStats(s);
-    feedItems.push({ type: 'story', obj: s, sortDate: s.dateEnd || s.createdAt || '' });
-  });
-  feedItems.sort(function(a, b) { return (b.sortDate || '') > (a.sortDate || '') ? 1 : -1; });
+  mems.slice(0,100).forEach(mem => {
+    const color = mem.customColor||getColor(mem.type);
+    const group = getGroup(mem.type);
+    const date = mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
+    const mood = MOODS.find(m=>m.id===mem.mood);
+    const coords = getCoords(mem);
 
-  feedItems.forEach(function(item) {
-    if (item.type === 'story') {
-      renderFeedStoryCard(container, item.obj, profile);
-    } else {
-      renderFeedMomentCard(container, item.obj, profile);
+    let card = document.createElement('div'); card.className='feed-card';
+    let html = `<div class="fc-header">
+      <div class="fc-avatar">${profile.photo?`<img src="${profile.photo}">`:'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted)">◇</div>'}</div>
+      <div class="fc-user"><div class="fc-username">${profile.name||'You'}</div><div class="fc-date">${date}</div></div>
+      <div class="fc-type-badge" style="background:${color}">${TYPE_CONFIG[group]?.label||mem.type}</div>
+    </div>`;
+
+    // Mini map canvas
+    if(coords&&coords.length>=2) {
+      html += `<div class="fc-map"><canvas id="fc-map-${mem.id}" width="620" height="160"></canvas></div>`;
+    }
+
+    html += `<div class="fc-name">${mem.name}</div>`;
+    html += `<div class="fc-stats">
+      <div class="fc-stat"><div class="fc-stat-val">${mem.distance?(mem.distance/1000).toFixed(1)+' km':'—'}</div><div class="fc-stat-label">Distance</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${mem.duration?formatDur(mem.duration):'—'}</div><div class="fc-stat-label">Time</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${mem.elevation?mem.elevation+' m':'—'}</div><div class="fc-stat-label">Elevation</div></div>
+      ${mem.avgSpeed?`<div class="fc-stat"><div class="fc-stat-val">${formatPace(mem.avgSpeed,mem.type)}</div><div class="fc-stat-label">Pace</div></div>`:''}
+    </div>`;
+
+    if(mem.note) html += `<div class="fc-note">${mem.note}</div>`;
+    if(mood) html += `<div class="fc-mood">${mood.emoji} ${mood.label}</div>`;
+    if(mem.photos?.length) {
+      html += `<div class="fc-photos">${mem.photos.slice(0,4).map(p=>`<img src="${p.dataUrl}" alt="">`).join('')}</div>`;
+    }
+    html += `<div class="fc-footer"><button class="fc-view-btn" onclick="goToActivity('${mem.id}')">View on Map →</button></div>`;
+
+    card.innerHTML = html;
+    container.appendChild(card);
+
+    // Draw mini track on canvas
+    if(coords&&coords.length>=2) {
+      requestAnimationFrame(()=>drawFeedMap(mem.id, coords, color));
     }
   });
-}
-
-function renderFeedMomentCard(container, mem, profile) {
-  const color = mem.customColor||getColor(mem.type);
-  const group = getGroup(mem.type);
-  const date = mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'';
-  const mood = MOODS.find(function(m){return m.id===mem.mood;});
-  const coords = getCoords(mem);
-
-  var card = document.createElement('div'); card.className='feed-card';
-  var html = '<div class="fc-header">' +
-    '<div class="fc-avatar">' + (profile.photo ? '<img src="' + profile.photo + '">' : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted)">◇</div>') + '</div>' +
-    '<div class="fc-user"><div class="fc-username">' + (profile.name||'You') + '</div><div class="fc-date">' + date + '</div></div>' +
-    '<div class="fc-type-badge" style="background:' + color + '">' + (TYPE_CONFIG[group]?.label||mem.type) + '</div>' +
-  '</div>';
-
-  if(coords&&coords.length>=2) {
-    html += '<div class="fc-map"><canvas id="fc-map-' + mem.id + '" width="620" height="160"></canvas></div>';
-  }
-
-  html += '<div class="fc-name">' + mem.name + '</div>';
-  html += '<div class="fc-stats">' +
-    '<div class="fc-stat"><div class="fc-stat-val">' + (mem.distance?(mem.distance/1000).toFixed(1)+' km':'—') + '</div><div class="fc-stat-label">Distance</div></div>' +
-    '<div class="fc-stat"><div class="fc-stat-val">' + (mem.duration?formatDur(mem.duration):'—') + '</div><div class="fc-stat-label">Time</div></div>' +
-    '<div class="fc-stat"><div class="fc-stat-val">' + (mem.elevation?mem.elevation+' m':'—') + '</div><div class="fc-stat-label">Elevation</div></div>' +
-    (mem.avgSpeed ? '<div class="fc-stat"><div class="fc-stat-val">' + formatPace(mem.avgSpeed,mem.type) + '</div><div class="fc-stat-label">Pace</div></div>' : '') +
-  '</div>';
-
-  if(mem.note) html += '<div class="fc-note">' + mem.note + '</div>';
-  if(mood) html += '<div class="fc-mood">' + mood.emoji + ' ' + mood.label + '</div>';
-  if(mem.photos?.length) {
-    html += '<div class="fc-photos">' + mem.photos.slice(0,4).map(function(p){return '<img src="' + p.dataUrl + '" alt="">';}).join('') + '</div>';
-  }
-  html += '<div class="fc-footer"><button class="fc-view-btn" onclick="goToActivity(\'' + mem.id + '\')">View on Map &#8594;</button></div>';
-
-  card.innerHTML = html;
-  container.appendChild(card);
-
-  if(coords&&coords.length>=2) {
-    requestAnimationFrame(function(){drawFeedMap(mem.id, coords, color);});
-  }
-}
-
-function renderFeedStoryCard(container, story, profile) {
-  var dateRange = '';
-  if (story.dateStart && story.dateEnd) {
-    dateRange = new Date(story.dateStart).toLocaleDateString('en-GB', {day:'numeric',month:'short'}) +
-      ' — ' + new Date(story.dateEnd).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'});
-  }
-  var mood = MOODS.find(function(m){return m.id===story.mood;});
-  var typeKeys = Object.keys(story._typeBreakdown || {});
-
-  var card = document.createElement('div');
-  card.className = 'feed-card story-card-feed';
-
-  var html = '<div class="fc-header">' +
-    '<div class="fc-avatar">' + (profile.photo ? '<img src="' + profile.photo + '">' : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--muted)">◇</div>') + '</div>' +
-    '<div class="fc-user"><div class="fc-username">' + (profile.name||'You') + '</div><div class="fc-date">' + dateRange + '</div></div>' +
-    '<div class="fc-story-badge">Story</div>' +
-  '</div>';
-
-  // Multi-track map
-  html += '<div class="fc-map"><canvas id="fc-smap-' + story.id + '" width="620" height="160"></canvas></div>';
-
-  html += '<div class="fc-name">' + (story.title || 'Untitled Story') + '</div>';
-
-  // Type pills
-  if (typeKeys.length > 0) {
-    html += '<div class="fc-story-types">' + typeKeys.map(function(k) {
-      var count = story._typeBreakdown[k] || 0;
-      return '<span class="fc-story-type-pill" style="background:' + (TYPE_CONFIG[k]?.color || '#92400e') + '">' + (TYPE_CONFIG[k]?.label || k) + ' (' + count + ')</span>';
-    }).join('') + '</div>';
-  }
-
-  html += '<div class="fc-stats">' +
-    '<div class="fc-stat"><div class="fc-stat-val">' + (story._totalDistance > 0 ? (story._totalDistance/1000).toFixed(1)+' km' : '—') + '</div><div class="fc-stat-label">Distance</div></div>' +
-    '<div class="fc-stat"><div class="fc-stat-val">' + (story._totalDuration > 0 ? formatDur(story._totalDuration) : '—') + '</div><div class="fc-stat-label">Time</div></div>' +
-    '<div class="fc-stat"><div class="fc-stat-val">' + (story._totalElevation > 0 ? Math.round(story._totalElevation)+' m' : '—') + '</div><div class="fc-stat-label">Elevation</div></div>' +
-    '<div class="fc-stat"><div class="fc-stat-val">' + (story._momentCount || 0) + '</div><div class="fc-stat-label">Moments</div></div>' +
-  '</div>';
-
-  if (story.narrative) html += '<div class="fc-note">' + story.narrative + '</div>';
-  if (mood) html += '<div class="fc-mood">' + mood.emoji + ' ' + mood.label + '</div>';
-
-  html += '<div class="fc-footer"><button class="fc-view-btn" onclick="viewStoryOnMap(\'' + story.id + '\')">View Story &#8594;</button></div>';
-
-  card.innerHTML = html;
-  container.appendChild(card);
-
-  // Draw multi-track map
-  requestAnimationFrame(function() { drawFeedStoryMap(story); });
-}
-
-function drawFeedStoryMap(story) {
-  var canvas = document.getElementById('fc-smap-' + story.id);
-  if (!canvas) return;
-  var ctx = canvas.getContext('2d');
-  var W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#f5f0e8';
-  ctx.fillRect(0, 0, W, H);
-
-  var tracks = [];
-  (story.momentIds || []).forEach(function(id) {
-    var m = db[id];
-    if (!m || isStory(m)) return;
-    var c = getCoords(m);
-    if (c && c.length >= 2) tracks.push({ coords: c, color: m.customColor || getColor(m.type) });
-  });
-  if (tracks.length === 0) return;
-
-  var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  tracks.forEach(function(t) {
-    t.coords.forEach(function(p) {
-      minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
-      minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
-    });
-  });
-
-  var pad = 30;
-  var scaleX = (W - pad*2) / (maxX - minX || 1);
-  var scaleY = (H - pad*2) / (maxY - minY || 1);
-  var scale = Math.min(scaleX, scaleY);
-  var offX = (W - (maxX - minX) * scale) / 2;
-  var offY = (H - (maxY - minY) * scale) / 2;
-
-  tracks.forEach(function(t) {
-    ctx.beginPath();
-    ctx.strokeStyle = t.color;
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalAlpha = 0.85;
-    t.coords.forEach(function(p, i) {
-      var x = offX + (p[0] - minX) * scale;
-      var y = H - offY - (p[1] - minY) * scale;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  });
-  ctx.globalAlpha = 1;
 }
 
 function drawFeedMap(memId, coords, color) {
@@ -1996,7 +1397,7 @@ function drawFeedMap(memId, coords, color) {
 // STATS / ARCHIVE
 // ════════════════════════════════════════
 function buildStats() {
-  const mems=getMoments(); if(!mems.length)return;
+  const mems=Object.values(db); if(!mems.length)return;
 
   // Single pass over all memories for all aggregates
   let totalDist=0, totalElev=0, withNotes=0, withPhotos=0;
@@ -2103,7 +1504,7 @@ function buildHeatmap(counts) {
 }
 
 function showHeatmapDay(dateKey) {
-  const acts = getMoments().filter(m=>m.date?.substring(0,10)===dateKey);
+  const acts = Object.values(db).filter(m=>m.date?.substring(0,10)===dateKey);
   if(acts.length===0) return;
   if(acts.length===1) { goToActivity(acts[0].id); return; }
   // Multiple — show first one
@@ -2111,7 +1512,7 @@ function showHeatmapDay(dateKey) {
 }
 
 function updateHeaderStats() {
-  const mems=getMoments();
+  const mems=Object.values(db);
   const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
   const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
   const years=new Set(mems.map(m=>m.date?.substring(0,4)).filter(Boolean));
@@ -2149,17 +1550,15 @@ function buildProfile() {
   document.getElementById('profile-name').value=profile.name||'';
   document.getElementById('profile-bio').value=profile.bio||'';
   if(profile.photo) document.getElementById('profile-photo-display').innerHTML=`<img src="${profile.photo}" alt="Profile">`;
-  const mems=getMoments();
-  const stories=getStories();
+  const mems=Object.values(db);
   const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
   const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
-  const withNotes=mems.filter(m=>m.note).length, withPhotos=mems.filter(m=>m.photos?.length).length;
+  const withStory=mems.filter(m=>m.note).length, withPhotos=mems.filter(m=>m.photos?.length).length;
   document.getElementById('profile-stats-row').innerHTML=[
     {val:mems.length,label:'Moments'},{val:Math.round(totalDist).toLocaleString()+' km',label:'Distance'},
-    {val:Math.round(totalElev/1000)+'k m',label:'Elevation'},{val:stories.length+' / '+withNotes,label:'Stories / Notes'},
+    {val:Math.round(totalElev/1000)+'k m',label:'Elevation'},{val:withStory+' / '+withPhotos,label:'Stories / Photos'},
   ].map(s=>`<div class="profile-stat"><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
 
-  renderProfileStories();
   renderProfileHoneycomb();
 }
 
@@ -2169,165 +1568,10 @@ function setProfileSort(sort) {
   renderProfileHoneycomb();
 }
 
-function renderProfileStories() {
-  const section = document.getElementById('profile-stories-section');
-  const grid = document.getElementById('profile-stories-grid');
-  const stories = getStories();
-
-  if (stories.length === 0) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
-  grid.innerHTML = '';
-
-  stories.sort((a, b) => (b.lastModified || b.createdAt || '') > (a.lastModified || a.createdAt || '') ? 1 : -1);
-
-  stories.forEach(story => {
-    computeStoryStats(story);
-    const dateRange = story.dateStart && story.dateEnd
-      ? new Date(story.dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' — ' + new Date(story.dateEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-      : '';
-    const dist = story._totalDistance > 0 ? (story._totalDistance / 1000).toFixed(1) + ' km' : '—';
-    const elev = story._totalElevation > 0 ? Math.round(story._totalElevation) + ' m' : '—';
-    const dur = story._totalDuration > 0 ? formatDur(story._totalDuration) : '—';
-    const typeKeys = Object.keys(story._typeBreakdown || {});
-
-    const card = document.createElement('div');
-    card.className = 'story-card';
-
-    let mapHtml = '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>';
-    mapHtml += '<div class="story-card-badge">' + (story._momentCount || 0) + ' moments</div></div>';
-
-    card.innerHTML = mapHtml +
-      '<div class="story-card-body">' +
-        '<div class="story-card-title">' + (story.title || 'Untitled') + '</div>' +
-        '<div class="story-card-meta">' + dateRange + '</div>' +
-        '<div class="story-card-stats">' +
-          '<div class="story-card-stat"><div class="story-card-stat-val">' + dist + '</div><div class="story-card-stat-label">Distance</div></div>' +
-          '<div class="story-card-stat"><div class="story-card-stat-val">' + elev + '</div><div class="story-card-stat-label">Elevation</div></div>' +
-          '<div class="story-card-stat"><div class="story-card-stat-val">' + dur + '</div><div class="story-card-stat-label">Time</div></div>' +
-        '</div>' +
-        '<div class="story-card-types">' + typeKeys.map(k => '<div class="story-card-type-dot" style="background:' + (TYPE_CONFIG[k]?.color || '#92400e') + '" title="' + (TYPE_CONFIG[k]?.label || k) + '"></div>').join('') + '</div>' +
-        '<div class="story-card-actions">' +
-          '<button class="story-card-btn" onclick="event.stopPropagation();openStoryModal(\'' + story.id + '\')">Edit</button>' +
-          '<button class="story-card-btn" onclick="event.stopPropagation();viewStoryOnMap(\'' + story.id + '\')">Map</button>' +
-          '<button class="story-card-btn danger" onclick="event.stopPropagation();deleteStory(\'' + story.id + '\')">Delete</button>' +
-        '</div>' +
-      '</div>';
-
-    card.onclick = function() { viewStoryOnMap(story.id); };
-    grid.appendChild(card);
-
-    // Draw multi-track mini map
-    requestAnimationFrame(function() { drawStoryCardMap(story); });
-  });
-}
-
-function drawStoryCardMap(story) {
-  const canvas = document.getElementById('sc-map-' + story.id);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#f5f0e8';
-  ctx.fillRect(0, 0, W, H);
-
-  // Collect all coords from child moments
-  const tracks = [];
-  (story.momentIds || []).forEach(function(id) {
-    const m = db[id];
-    if (!m || isStory(m)) return;
-    const c = getCoords(m);
-    if (c && c.length >= 2) tracks.push({ coords: c, color: m.customColor || getColor(m.type) });
-  });
-
-  if (tracks.length === 0) return;
-
-  // Find global bounds
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  tracks.forEach(function(t) {
-    t.coords.forEach(function(p) {
-      minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]);
-      minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]);
-    });
-  });
-
-  var pad = 20;
-  var scaleX = (W - pad * 2) / (maxX - minX || 1);
-  var scaleY = (H - pad * 2) / (maxY - minY || 1);
-  var scale = Math.min(scaleX, scaleY);
-  var offX = (W - (maxX - minX) * scale) / 2;
-  var offY = (H - (maxY - minY) * scale) / 2;
-
-  // Draw each track
-  tracks.forEach(function(t) {
-    ctx.beginPath();
-    ctx.strokeStyle = t.color;
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.globalAlpha = 0.8;
-    t.coords.forEach(function(p, i) {
-      var x = offX + (p[0] - minX) * scale;
-      var y = H - offY - (p[1] - minY) * scale;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  });
-  ctx.globalAlpha = 1;
-}
-
-function viewStoryOnMap(storyId) {
-  const story = db[storyId];
-  if (!story || !isStory(story)) return;
-
-  switchView('map');
-  setTimeout(function() {
-    // Show story detail panel
-    showDetail(storyId);
-
-    // Highlight all member tracks
-    const ids = story.momentIds || [];
-    if (ids.length === 0) return;
-
-    // Build filter: match any of the story's moment IDs
-    var matchFilter = ['any'];
-    ids.forEach(function(id) { matchFilter.push(['==', ['get', 'id'], id]); });
-
-    if (map.getLayer('tracks-highlight')) {
-      map.setFilter('tracks-highlight', matchFilter);
-      map.setPaintProperty('tracks-layer', 'line-opacity', ['case', matchFilter.slice(0), 1, 0.15]);
-      map.setPaintProperty('tracks-layer', 'line-width', ['case', matchFilter.slice(0), 4, 1]);
-    }
-
-    // Fit bounds to all member tracks
-    var bounds = new mapboxgl.LngLatBounds();
-    var hasBounds = false;
-    ids.forEach(function(id) {
-      var m = db[id];
-      if (!m || isStory(m)) return;
-      var c = getCoords(m);
-      if (c && c.length >= 2) {
-        c.forEach(function(p) { bounds.extend(p); });
-        hasBounds = true;
-      }
-    });
-    if (hasBounds) {
-      map.fitBounds(bounds, { padding: 60, duration: 1200, maxZoom: 14 });
-    }
-  }, 200);
-}
-
-function deleteStory(storyId) {
-  if (!confirm('Delete this story? The moments inside will not be affected.')) return;
-  delete db[storyId];
-  saveDB();
-  allStories = getStories();
-  statsBuilt = false;
-  if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
-}
-
 function renderProfileHoneycomb() {
   const container = document.getElementById('profile-honeycomb');
   container.innerHTML = '';
-  let mems = getMoments();
+  let mems = Object.values(db);
   if(profileSort==='recent') mems.sort((a,b)=>new Date(b.date)-new Date(a.date));
   else if(profileSort==='distance') mems.sort((a,b)=>(b.distance||0)-(a.distance||0));
   else if(profileSort==='photos') mems=mems.filter(m=>m.photos?.length).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -2459,8 +1703,7 @@ async function doImport() {
   }
 
   saveDB();
-  allMemories = getMoments().sort((a,b) => new Date(b.date) - new Date(a.date));
-  allStories = getStories();
+  allMemories = Object.values(db).sort((a,b) => new Date(b.date) - new Date(a.date));
   const years = new Set(allMemories.map(m => m.date?.substring(0,4)).filter(Boolean));
   [...years].forEach(y => activeYears.add(y));
   initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
@@ -2513,453 +1756,6 @@ function parseKML(text) {
 }
 
 // ════════════════════════════════════════
-// STORY MODAL
-// ════════════════════════════════════════
-let storySelectedIds = new Set();
-let storyTypeFilters = new Set(Object.keys(TYPE_CONFIG));
-let storySort = 'recent';
-let editingStoryId = null; // null = new story, string = editing existing
-
-function openStoryModal(existingId) {
-  editingStoryId = existingId || null;
-  storySelectedIds = new Set();
-  storyTypeFilters = new Set(Object.keys(TYPE_CONFIG));
-  storySort = 'recent';
-
-  if (editingStoryId && db[editingStoryId] && isStory(db[editingStoryId])) {
-    const s = db[editingStoryId];
-    document.getElementById('sm-title').value = s.title || '';
-    document.getElementById('sm-narrative').value = s.narrative || '';
-    document.getElementById('story-modal-title').textContent = 'Edit Story';
-    document.getElementById('sm-save-btn').textContent = 'Save Changes';
-    (s.momentIds || []).forEach(id => { if (db[id]) storySelectedIds.add(id); });
-    _storyMood = s.mood || null;
-  } else {
-    document.getElementById('sm-title').value = '';
-    document.getElementById('sm-narrative').value = '';
-    document.getElementById('story-modal-title').textContent = 'New Story';
-    document.getElementById('sm-save-btn').textContent = 'Create Story';
-    _storyMood = null;
-  }
-
-  document.getElementById('sm-search').value = '';
-  document.getElementById('sm-date-from').value = '';
-  document.getElementById('sm-date-to').value = '';
-  document.getElementById('sm-status').textContent = '';
-
-  buildStoryTypeFilters();
-  buildStoryMoodRow();
-  renderStoryMomentList();
-  updateStoryPreview();
-  document.getElementById('story-modal').classList.add('open');
-}
-
-function closeStoryModal() {
-  document.getElementById('story-modal').classList.remove('open');
-  editingStoryId = null;
-  storySelectedIds = new Set();
-}
-
-let _storyMood = null;
-
-function buildStoryTypeFilters() {
-  const container = document.getElementById('sm-type-filters');
-  container.innerHTML = Object.entries(TYPE_CONFIG).map(([key, cfg]) => {
-    const active = storyTypeFilters.has(key) ? ' active' : '';
-    return '<button class="sm-filter-btn' + active + '" data-stype="' + key + '" onclick="toggleStoryTypeFilter(\'' + key + '\',this)">' + cfg.label + '</button>';
-  }).join('');
-}
-
-function toggleStoryTypeFilter(key, btn) {
-  if (storyTypeFilters.has(key)) storyTypeFilters.delete(key);
-  else storyTypeFilters.add(key);
-  btn.classList.toggle('active');
-  renderStoryMomentList();
-}
-
-function buildStoryMoodRow() {
-  document.getElementById('sm-mood-row').innerHTML = MOODS.map(m =>
-    '<button class="mood-btn' + (_storyMood === m.id ? ' active' : '') + '" onclick="setStoryMood(\'' + m.id + '\',this)">' + m.emoji + '<span>' + m.label + '</span></button>'
-  ).join('');
-}
-
-function setStoryMood(moodId, btn) {
-  _storyMood = _storyMood === moodId ? null : moodId;
-  document.querySelectorAll('#sm-mood-row .mood-btn').forEach(b => b.classList.remove('active'));
-  if (_storyMood) btn.classList.add('active');
-}
-
-function getFilteredStoryMoments() {
-  const search = document.getElementById('sm-search').value.toLowerCase();
-  const dateFrom = document.getElementById('sm-date-from').value;
-  const dateTo = document.getElementById('sm-date-to').value;
-
-  let mems = getMoments();
-
-  mems = mems.filter(m => {
-    const group = getGroup(m.type);
-    if (!storyTypeFilters.has(group)) return false;
-    if (search && !m.name.toLowerCase().includes(search)) return false;
-    if (dateFrom && m.date && m.date.substring(0, 10) < dateFrom) return false;
-    if (dateTo && m.date && m.date.substring(0, 10) > dateTo) return false;
-    return true;
-  });
-
-  if (storySort === 'recent') mems.sort((a, b) => (b.date || '') > (a.date || '') ? 1 : -1);
-  else if (storySort === 'distance') mems.sort((a, b) => (b.distance || 0) - (a.distance || 0));
-  else if (storySort === 'name') mems.sort((a, b) => a.name.localeCompare(b.name));
-
-  return mems;
-}
-
-function renderStoryMomentList() {
-  const mems = getFilteredStoryMoments();
-  const list = document.getElementById('sm-moment-list');
-  list.innerHTML = '';
-
-  mems.slice(0, 300).forEach(m => {
-    const color = m.customColor || getColor(m.type);
-    const group = getGroup(m.type);
-    const date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-    const dist = m.distance ? (m.distance / 1000).toFixed(1) + ' km' : '';
-    const sel = storySelectedIds.has(m.id);
-
-    const item = document.createElement('div');
-    item.className = 'sm-moment-item' + (sel ? ' selected' : '');
-    item.innerHTML =
-      '<div class="sm-checkbox">' + (sel ? '✓' : '') + '</div>' +
-      '<div class="sm-type-dot" style="background:' + color + '"></div>' +
-      '<div class="sm-moment-info">' +
-        '<div class="sm-moment-name">' + m.name + '</div>' +
-        '<div class="sm-moment-meta"><span>' + date + '</span><span>' + (TYPE_CONFIG[group]?.label || m.type) + '</span></div>' +
-      '</div>' +
-      '<div class="sm-moment-dist">' + dist + '</div>';
-    item.onclick = function() { toggleStoryMoment(m.id); };
-    list.appendChild(item);
-  });
-
-  // Update tally
-  document.getElementById('sm-tally-text').textContent = storySelectedIds.size + ' selected of ' + mems.length + ' shown';
-}
-
-function toggleStoryMoment(id) {
-  if (storySelectedIds.has(id)) storySelectedIds.delete(id);
-  else storySelectedIds.add(id);
-  renderStoryMomentList();
-  updateStoryPreview();
-}
-
-function storySelectAllVisible() {
-  const mems = getFilteredStoryMoments();
-  const allSelected = mems.every(m => storySelectedIds.has(m.id));
-  if (allSelected) {
-    // Deselect all visible
-    mems.forEach(m => storySelectedIds.delete(m.id));
-  } else {
-    mems.forEach(m => storySelectedIds.add(m.id));
-  }
-  renderStoryMomentList();
-  updateStoryPreview();
-}
-
-function removeStoryMoment(id) {
-  storySelectedIds.delete(id);
-  renderStoryMomentList();
-  updateStoryPreview();
-}
-
-function updateStoryPreview() {
-  // Selected chips
-  const chipList = document.getElementById('sm-selected-list');
-  chipList.innerHTML = '';
-  const selectedMems = [...storySelectedIds].map(id => db[id]).filter(m => m && !isStory(m));
-  selectedMems.sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1);
-
-  selectedMems.forEach(m => {
-    const color = m.customColor || getColor(m.type);
-    const chip = document.createElement('div');
-    chip.className = 'sm-selected-chip';
-    chip.innerHTML =
-      '<div class="sm-type-dot" style="background:' + color + '"></div>' +
-      '<div class="sm-chip-name">' + m.name + '</div>' +
-      '<button class="sm-chip-remove" onclick="removeStoryMoment(\'' + m.id + '\')">x</button>';
-    chipList.appendChild(chip);
-  });
-
-  // Stats
-  let dist = 0, elev = 0, dur = 0;
-  selectedMems.forEach(m => { dist += m.distance || 0; elev += m.elevation || 0; dur += m.duration || 0; });
-  document.getElementById('sm-stats-summary').innerHTML =
-    '<div class="sm-stat"><div class="sm-stat-val">' + (dist > 0 ? (dist / 1000).toFixed(1) + ' km' : '—') + '</div><div class="sm-stat-label">Distance</div></div>' +
-    '<div class="sm-stat"><div class="sm-stat-val">' + (elev > 0 ? Math.round(elev) + ' m' : '—') + '</div><div class="sm-stat-label">Elevation</div></div>' +
-    '<div class="sm-stat"><div class="sm-stat-val">' + (dur > 0 ? formatDur(dur) : '—') + '</div><div class="sm-stat-label">Time</div></div>';
-}
-
-async function saveStory() {
-  const title = document.getElementById('sm-title').value.trim();
-  if (!title) { document.getElementById('sm-status').textContent = 'Please enter a title.'; return; }
-  if (storySelectedIds.size === 0) { document.getElementById('sm-status').textContent = 'Select at least one moment.'; return; }
-
-  const btn = document.getElementById('sm-save-btn');
-  btn.disabled = true;
-  document.getElementById('sm-status').textContent = 'Saving...';
-
-  const id = editingStoryId || stableStoryId(title);
-  const now = new Date().toISOString();
-
-  const story = {
-    id: id,
-    type: 'story',
-    title: title,
-    subtitle: '',
-    coverPhoto: (editingStoryId && db[editingStoryId]) ? db[editingStoryId].coverPhoto || null : null,
-    momentIds: [...storySelectedIds],
-    narrative: document.getElementById('sm-narrative').value,
-    mood: _storyMood,
-    tags: [],
-    published: false,
-    createdAt: (editingStoryId && db[editingStoryId]) ? db[editingStoryId].createdAt || now : now,
-    lastModified: now,
-    _totalDistance: 0,
-    _totalElevation: 0,
-    _totalDuration: 0,
-    _momentCount: 0,
-    _typeBreakdown: {}
-  };
-
-  computeStoryStats(story);
-  db[id] = story;
-  saveDB();
-
-  // Persist to Drive
-  const result = await persistToDrive([story]);
-  if (result.ok) {
-    document.getElementById('sm-status').textContent = 'Story saved and synced to Drive.';
-  } else {
-    document.getElementById('sm-status').textContent = 'Saved locally. Drive sync pending.';
-  }
-
-  // Refresh app state
-  allStories = getStories();
-  statsBuilt = false;
-
-  btn.disabled = false;
-  setTimeout(() => { closeStoryModal(); if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile(); }, 1500);
-}
-
-// ════════════════════════════════════════
-// STRAVA STREAMS + CHARTS (v0.3)
-// ════════════════════════════════════════
-const STRAVA_CLIENT_ID = '215759';
-const STRAVA_CLIENT_SECRET = '659b2ee168b3e3b4e7a265cf7d57c4544986e0de';
-const STRAVA_REFRESH_TOKEN = '7c6aaaa84a30e39abf62060cf51d2cbfdca52a3b';
-let _stravaAccessToken = null;
-let _stravaTokenExpiry = 0;
-const _streamCache = {};
-
-async function getStravaToken() {
-  if (_stravaAccessToken && Date.now() < _stravaTokenExpiry) return _stravaAccessToken;
-  try {
-    const res = await fetch('https://www.strava.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: STRAVA_CLIENT_ID,
-        client_secret: STRAVA_CLIENT_SECRET,
-        refresh_token: STRAVA_REFRESH_TOKEN,
-        grant_type: 'refresh_token'
-      })
-    });
-    const data = await res.json();
-    _stravaAccessToken = data.access_token;
-    _stravaTokenExpiry = (data.expires_at || 0) * 1000;
-    return _stravaAccessToken;
-  } catch (e) {
-    console.warn('Strava token refresh failed:', e);
-    return null;
-  }
-}
-
-async function fetchStravaStreams(stravaId) {
-  if (_streamCache[stravaId]) return _streamCache[stravaId];
-  const token = await getStravaToken();
-  if (!token) return null;
-  try {
-    const res = await fetch(
-      'https://www.strava.com/api/v3/activities/' + stravaId + '/streams?keys=heartrate,velocity_smooth,altitude,cadence,watts,time&key_by_type=true',
-      { headers: { 'Authorization': 'Bearer ' + token } }
-    );
-    if (!res.ok) { console.warn('Stream fetch failed:', res.status); return null; }
-    const data = await res.json();
-    _streamCache[stravaId] = data;
-    return data;
-  } catch (e) {
-    console.warn('Stream fetch error:', e);
-    return null;
-  }
-}
-
-async function loadAndRenderCharts(memId) {
-  const mem = db[memId];
-  if (!mem || !mem.stravaId) return;
-
-  const section = document.getElementById('d-charts-section');
-  const loading = document.getElementById('d-charts-loading');
-  const wrap = document.getElementById('d-charts-wrap');
-
-  section.style.display = '';
-  loading.style.display = '';
-  wrap.innerHTML = '';
-
-  const streams = await fetchStravaStreams(mem.stravaId);
-
-  // If detail panel closed or different activity selected while loading, abort
-  if (selectedId !== memId) return;
-
-  loading.style.display = 'none';
-
-  if (!streams) {
-    wrap.innerHTML = '<div style="font-size:8px;color:var(--muted)">Stream data unavailable</div>';
-    return;
-  }
-
-  var timeData = streams.time ? streams.time.data : null;
-  var charts = [];
-
-  if (streams.heartrate && streams.heartrate.data) {
-    var hrData = streams.heartrate.data;
-    var avgHR = Math.round(hrData.reduce(function(s, v) { return s + v; }, 0) / hrData.length);
-    var maxHR = Math.max.apply(null, hrData);
-    charts.push({ title: 'Heart Rate', data: hrData, time: timeData, color: '#c0392b', avg: avgHR + ' bpm', max: maxHR + ' bpm', unit: 'bpm' });
-  }
-
-  if (streams.velocity_smooth && streams.velocity_smooth.data) {
-    var velData = streams.velocity_smooth.data;
-    var group = getGroup(mem.type);
-    var isSpeed = group === 'Ride' || group === 'Flight' || group === 'Drive';
-    var displayData, avgVal, unit;
-    if (isSpeed) {
-      displayData = velData.map(function(v) { return v * 3.6; });
-      avgVal = (displayData.reduce(function(s, v) { return s + v; }, 0) / displayData.length).toFixed(1) + ' km/h';
-      unit = 'km/h';
-    } else {
-      // Convert m/s to min/km (pace) — cap at 15 min/km to avoid spikes when stopped
-      displayData = velData.map(function(v) { return v > 0.3 ? Math.min(1000 / v / 60, 15) : 15; });
-      avgVal = formatPace(velData.reduce(function(s, v) { return s + v; }, 0) / velData.length, mem.type);
-      unit = 'min/km';
-    }
-    charts.push({ title: isSpeed ? 'Speed' : 'Pace', data: displayData, time: timeData, color: '#2563eb', avg: avgVal, unit: unit, invert: !isSpeed });
-  }
-
-  if (streams.altitude && streams.altitude.data) {
-    var altData = streams.altitude.data;
-    var minAlt = Math.min.apply(null, altData);
-    var maxAlt = Math.max.apply(null, altData);
-    charts.push({ title: 'Elevation', data: altData, time: timeData, color: '#16a34a', avg: Math.round(maxAlt) + ' m peak', fill: true, unit: 'm' });
-  }
-
-  if (streams.cadence && streams.cadence.data) {
-    var cadData = streams.cadence.data;
-    var avgCad = Math.round(cadData.reduce(function(s, v) { return s + v; }, 0) / cadData.length);
-    charts.push({ title: 'Cadence', data: cadData, time: timeData, color: '#7c3aed', avg: avgCad + ' rpm', unit: 'rpm' });
-  }
-
-  if (streams.watts && streams.watts.data) {
-    var wattData = streams.watts.data;
-    var avgWatt = Math.round(wattData.reduce(function(s, v) { return s + v; }, 0) / wattData.length);
-    charts.push({ title: 'Power', data: wattData, time: timeData, color: '#d97706', avg: avgWatt + ' W', unit: 'W' });
-  }
-
-  charts.forEach(function(chart, idx) {
-    var card = document.createElement('div');
-    card.className = 'd-chart-card';
-    card.innerHTML =
-      '<div class="d-chart-header">' +
-        '<div class="d-chart-title">' + chart.title + '</div>' +
-        '<div class="d-chart-value">' + chart.avg + '</div>' +
-      '</div>' +
-      '<canvas class="d-chart-canvas" id="d-chart-' + idx + '" width="640" height="160"></canvas>';
-    wrap.appendChild(card);
-    requestAnimationFrame(function() { drawStreamChart('d-chart-' + idx, chart); });
-  });
-}
-
-function drawStreamChart(canvasId, chart) {
-  var canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  var ctx = canvas.getContext('2d');
-  var W = canvas.width, H = canvas.height;
-  var data = chart.data;
-  if (!data || data.length < 2) return;
-
-  // Downsample if > 500 points for performance
-  var step = Math.max(1, Math.floor(data.length / 500));
-  var sampled = [];
-  for (var i = 0; i < data.length; i += step) { sampled.push(data[i]); }
-
-  var minV = Math.min.apply(null, sampled);
-  var maxV = Math.max.apply(null, sampled);
-  var range = maxV - minV || 1;
-  var pad = 4;
-
-  ctx.clearRect(0, 0, W, H);
-
-  // Draw fill area
-  if (chart.fill) {
-    ctx.beginPath();
-    ctx.moveTo(0, H);
-    sampled.forEach(function(v, i) {
-      var x = (i / (sampled.length - 1)) * W;
-      var y = H - pad - ((v - minV) / range) * (H - pad * 2);
-      if (i === 0) ctx.lineTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.lineTo(W, H);
-    ctx.closePath();
-    ctx.fillStyle = chart.color + '15';
-    ctx.fill();
-  }
-
-  // Draw line
-  ctx.beginPath();
-  ctx.strokeStyle = chart.color;
-  ctx.lineWidth = 1.5;
-  ctx.lineJoin = 'round';
-  ctx.globalAlpha = 0.9;
-
-  sampled.forEach(function(v, i) {
-    var x = (i / (sampled.length - 1)) * W;
-    var y = H - pad - ((v - minV) / range) * (H - pad * 2);
-    if (chart.invert) y = pad + ((v - minV) / range) * (H - pad * 2);
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  // Average line
-  var avg = sampled.reduce(function(s, v) { return s + v; }, 0) / sampled.length;
-  var avgY = H - pad - ((avg - minV) / range) * (H - pad * 2);
-  if (chart.invert) avgY = pad + ((avg - minV) / range) * (H - pad * 2);
-  ctx.beginPath();
-  ctx.strokeStyle = chart.color;
-  ctx.lineWidth = 0.5;
-  ctx.globalAlpha = 0.4;
-  ctx.setLineDash([4, 4]);
-  ctx.moveTo(0, avgY);
-  ctx.lineTo(W, avgY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.globalAlpha = 1;
-
-  // Min/max labels
-  ctx.font = '9px JetBrains Mono';
-  ctx.fillStyle = chart.color;
-  ctx.globalAlpha = 0.5;
-  ctx.fillText(Math.round(maxV), 4, 12);
-  ctx.fillText(Math.round(minV), 4, H - 2);
-  ctx.globalAlpha = 1;
-}
-
-// ════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════
 function haversine(lat1,lon1,lat2,lon2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
@@ -3009,7 +1805,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeMobileMenu();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -3026,21 +1822,6 @@ _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobil
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);_r('toggleType',toggleType);_r('switchToolsTab',switchToolsTab);
 _r('setProfileSort',setProfileSort);_r('showHeatmapDay',showHeatmapDay);_r('removeImportFile',removeImportFile);
 _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
-_r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
-_r('computeStoryStats',computeStoryStats);_r('stableStoryId',stableStoryId);
-_r('openStoryModal',openStoryModal);_r('closeStoryModal',closeStoryModal);
-_r('renderStoryMomentList',renderStoryMomentList);_r('toggleStoryMoment',toggleStoryMoment);
-_r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeStoryMoment);
-_r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
-_r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
-_r('buildStoryTypeFilters',buildStoryTypeFilters);
-_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
-_r('deleteStory',deleteStory);_r('drawStoryCardMap',drawStoryCardMap);
-_r('showStoryDetail',showStoryDetail);_r('setStoryDetailMood',setStoryDetailMood);
-_r('renderFeedMomentCard',renderFeedMomentCard);_r('renderFeedStoryCard',renderFeedStoryCard);
-_r('drawFeedStoryMap',drawFeedStoryMap);
-_r('getStravaToken',getStravaToken);_r('fetchStravaStreams',fetchStravaStreams);
-_r('loadAndRenderCharts',loadAndRenderCharts);_r('drawStreamChart',drawStreamChart);
 
 initMap();
 </script>
