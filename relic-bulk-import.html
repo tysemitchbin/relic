@@ -320,6 +320,53 @@ body {
 .status-bar.error { border-color: var(--red); color: var(--red); background: #fef2f2; }
 .status-bar.pending { border-color: var(--warm); color: var(--ink); background: var(--paper2); }
 
+/* Danger zone */
+.danger-zone {
+  margin-top: 60px;
+  padding: 20px;
+  border: 1px dashed var(--red);
+  background: #fef2f2;
+}
+
+.danger-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 8px;
+}
+
+.danger-desc {
+  font-size: 10px;
+  color: var(--ink);
+  margin-bottom: 14px;
+  line-height: 1.5;
+  max-width: 640px;
+}
+
+.danger-desc code {
+  background: #fee2e2;
+  padding: 1px 5px;
+  font-size: 9px;
+}
+
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+  border: 1px solid var(--red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-danger:hover { opacity: 0.85; }
+.btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: var(--paper); }
@@ -360,7 +407,7 @@ body {
       </div>
       <div>
         <div class="config-label">Apps Script URL</div>
-        <input class="config-input" type="text" id="https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec"
+        <input class="config-input" type="text" id="apps-script-url"
           value="https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec"
           placeholder="Your Apps Script Web App URL">
       </div>
@@ -406,6 +453,19 @@ body {
   </div>
 
   <div class="status-bar" id="status-bar"></div>
+
+  <!-- Danger zone — separate section to avoid confusion with the normal flow -->
+  <div class="danger-zone">
+    <div class="danger-title">Danger Zone</div>
+    <div class="danger-desc">
+      Permanently removes every entry with <code>source: "kml_import"</code> from Drive.
+      Strava and single-file GPX imports are untouched. Use this to wipe a bad dump before re-importing.
+    </div>
+    <div class="actions" style="justify-content: flex-start">
+      <button class="btn-danger" id="purge-btn" onclick="purgeKmlImports()">Purge KML Imports</button>
+    </div>
+    <div class="status-bar" id="purge-status-bar"></div>
+  </div>
 </div>
 
 <script>
@@ -433,10 +493,13 @@ function haversine(lat1, lon1, lat2, lon2) {
 
 // ════════════════════════════════════════
 // DETERMINISTIC ID
-// Creates a stable ID from name + coords so re-running won't duplicate
+// Creates a stable ID from type + name + coords so re-running won't duplicate.
+// The 'import_' prefix already prevents collisions with strava_xxx IDs;
+// including type is belt-and-suspenders so a KML "Aspen Ski" and a ride
+// over the same coords can't ever hash to the same value.
 // ════════════════════════════════════════
-function stableId(name, coords) {
-  const raw = name + '|' + coords.map(c => c[0].toFixed(4) + ',' + c[1].toFixed(4)).join(';');
+function stableId(type, name, coords) {
+  const raw = type + '|' + name + '|' + coords.map(c => c[0].toFixed(4) + ',' + c[1].toFixed(4)).join(';');
   let hash = 0;
   for (let i = 0; i < raw.length; i++) {
     const ch = raw.charCodeAt(i);
@@ -447,6 +510,35 @@ function stableId(name, coords) {
 }
 
 // ════════════════════════════════════════
+// COORD EXTRACTION — handles MultiGeometry
+// Walks ALL LineString and Point descendants of a Placemark and
+// concatenates them into a single coord array. Ferry gaps, layovers,
+// and paused-recording resumes collapse into one continuous track —
+// which matches how you recorded them (one trip = one entry).
+// ════════════════════════════════════════
+function parseCoordString(text, out) {
+  text.trim().split(/\s+/).forEach(pair => {
+    const parts = pair.split(',').map(Number);
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      out.push([parts[0], parts[1]]); // [lng, lat]
+    }
+  });
+}
+
+function extractPlacemarkCoords(pm) {
+  const all = [];
+  // All LineString coordinates, in document order — handles MultiGeometry
+  pm.querySelectorAll('LineString > coordinates').forEach(el => {
+    parseCoordString(el.textContent, all);
+  });
+  // Points too (single-location entries)
+  pm.querySelectorAll('Point > coordinates').forEach(el => {
+    parseCoordString(el.textContent, all);
+  });
+  return all;
+}
+
+// ════════════════════════════════════════
 // KML PARSER
 // ════════════════════════════════════════
 function parseKMLToEntries(text, activityType) {
@@ -454,15 +546,19 @@ function parseKMLToEntries(text, activityType) {
   const doc = parser.parseFromString(text, 'text/xml');
   const placemarks = doc.querySelectorAll('Placemark');
   const entries = [];
+  let skippedNoCoords = 0;
+  let skippedTooShort = 0;
 
   placemarks.forEach(pm => {
-    // Name — KML uses <n> in this file (Google My Maps export quirk)
-    // but standard KML uses <name>
+    // Name — direct child first, so we don't accidentally grab
+    // nested names inside ExtendedData. Fallback to any descendant.
     let name = '';
-    const nEl = pm.querySelector('n');
-    const nameEl = pm.querySelector('name');
-    if (nEl) name = nEl.textContent.trim();
-    else if (nameEl) name = nameEl.textContent.trim();
+    const directNameEl = pm.querySelector(':scope > name');
+    if (directNameEl) name = directNameEl.textContent.trim();
+    if (!name) {
+      const anyNameEl = pm.querySelector('name');
+      if (anyNameEl) name = anyNameEl.textContent.trim();
+    }
     if (!name) name = 'Unnamed Track';
 
     // Year from ExtendedData
@@ -480,35 +576,25 @@ function parseKMLToEntries(text, activityType) {
       }
     });
 
-    // Fallback: try <description> element
+    // Fallback: <description> element (direct child preferred)
     if (!description) {
-      const descEl = pm.querySelector('description');
+      const descEl = pm.querySelector(':scope > description') || pm.querySelector('description');
       if (descEl) {
-        // Strip HTML tags from CDATA descriptions
         const raw = descEl.textContent.trim();
-        // Extract just the useful text, skip "Year: XXXX" prefix
         const cleaned = raw.replace(/<br\s*\/?>/gi, '\n')
           .replace(/<[^>]+>/g, '')
           .replace(/Year:\s*\d+\s*/gi, '')
           .replace(/description:\s*/gi, '')
           .trim();
-        if (cleaned && !description) description = cleaned;
+        if (cleaned) description = cleaned;
       }
     }
 
-    // Coordinates from LineString or Point
-    const coordsEl = pm.querySelector('LineString coordinates') || pm.querySelector('Point coordinates');
-    if (!coordsEl) return;
+    // Coords — concatenates all LineStrings + Points in the Placemark
+    const coords = extractPlacemarkCoords(pm);
 
-    const coords = [];
-    coordsEl.textContent.trim().split(/\s+/).forEach(pair => {
-      const parts = pair.split(',').map(Number);
-      if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-        coords.push([parts[0], parts[1]]); // [lng, lat]
-      }
-    });
-
-    if (coords.length < 1) return;
+    if (coords.length === 0) { skippedNoCoords++; return; }
+    if (coords.length < 2) { skippedTooShort++; return; }
 
     // Calculate distance
     let dist = 0;
@@ -516,11 +602,11 @@ function parseKMLToEntries(text, activityType) {
       dist += haversine(coords[i-1][1], coords[i-1][0], coords[i][1], coords[i][0]);
     }
 
-    // Build date — January 1 of the year
+    // Build date — January 1 of the year (or current year if unknown)
     const dateYear = year || new Date().getFullYear();
     const date = dateYear + '-01-01T12:00:00Z';
 
-    const id = stableId(name, coords);
+    const id = stableId(activityType, name, coords);
 
     entries.push({
       id: id,
@@ -544,11 +630,20 @@ function parseKMLToEntries(text, activityType) {
       photos: [],
       customColor: null,
       stravaId: null,
-      // Extra metadata
+      // Preview-only metadata (stripped before sending)
       _year: dateYear,
-      _pointCount: coords.length
+      _pointCount: coords.length,
+      _yearMissing: !year
     });
   });
+
+  // Stash skip counts for the preview panel to display
+  window._lastParseStats = {
+    placemarks: placemarks.length,
+    parsed: entries.length,
+    skippedNoCoords: skippedNoCoords,
+    skippedTooShort: skippedTooShort
+  };
 
   return entries;
 }
@@ -579,6 +674,16 @@ function handleFile(file) {
   reader.readAsText(file);
 }
 
+// Small HTML escaper — KML Placemark names can contain anything
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderPreview() {
   const type = document.getElementById('import-type').value;
   const color = TYPE_COLORS[type] || '#92400e';
@@ -586,22 +691,39 @@ function renderPreview() {
   body.innerHTML = '';
 
   const totalDist = parsedEntries.reduce((s, e) => s + e.distance, 0);
+  const missingYearCount = parsedEntries.filter(e => e._yearMissing).length;
 
   parsedEntries.forEach((entry, i) => {
     const distKm = (entry.distance / 1000).toFixed(1);
+    const yearDisplay = entry._yearMissing
+      ? '<span style="color:var(--red)" title="No Year in KML — defaulted to current year">' + entry._year + ' ?</span>'
+      : entry._year;
     const tr = document.createElement('tr');
     tr.innerHTML =
       '<td>' + (i + 1) + '</td>' +
-      '<td class="name-cell"><span class="type-dot" style="background:' + color + '"></span>' + entry.name + '</td>' +
-      '<td>' + entry._year + '</td>' +
-      '<td class="note-cell" title="' + (entry.note || '').replace(/"/g, '&quot;') + '">' + (entry.note || '') + '</td>' +
+      '<td class="name-cell"><span class="type-dot" style="background:' + color + '"></span>' + escHtml(entry.name) + '</td>' +
+      '<td>' + yearDisplay + '</td>' +
+      '<td class="note-cell" title="' + escHtml(entry.note || '') + '">' + escHtml(entry.note || '') + '</td>' +
       '<td class="dist-cell">' + distKm + ' km</td>' +
       '<td class="pts-cell">' + entry._pointCount + '</td>';
     body.appendChild(tr);
   });
 
-  document.getElementById('preview-count').textContent =
-    parsedEntries.length + ' activities | ' + Math.round(totalDist / 1000).toLocaleString() + ' km total';
+  // Build count line with skip stats if available
+  const stats = window._lastParseStats || {};
+  let countLine = parsedEntries.length + ' activities · ' + Math.round(totalDist / 1000).toLocaleString() + ' km total';
+  if (stats.placemarks && stats.placemarks !== stats.parsed) {
+    const skipped = stats.placemarks - stats.parsed;
+    countLine += ' · ' + skipped + ' skipped';
+    if (stats.skippedNoCoords) countLine += ' (' + stats.skippedNoCoords + ' no-coord';
+    if (stats.skippedTooShort) countLine += (stats.skippedNoCoords ? ', ' : ' (') + stats.skippedTooShort + ' <2pts';
+    if (stats.skippedNoCoords || stats.skippedTooShort) countLine += ')';
+  }
+  if (missingYearCount > 0) {
+    countLine += ' · ' + missingYearCount + ' missing year';
+  }
+
+  document.getElementById('preview-count').textContent = countLine;
   document.getElementById('preview-section').style.display = 'block';
   hideStatus();
 }
@@ -610,7 +732,7 @@ function renderPreview() {
 // SEND TO APPS SCRIPT
 // ════════════════════════════════════════
 async function sendToAppsScript() {
-  const url = document.getElementById('https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec').value.trim();
+  const url = document.getElementById('apps-script-url').value.trim();
   if (!url) {
     showStatus('Please enter your Apps Script URL.', 'error');
     return;
@@ -626,30 +748,56 @@ async function sendToAppsScript() {
   btn.textContent = 'Sending...';
   showStatus('Sending ' + parsedEntries.length + ' activities to Relic archive...', 'pending');
 
-  // Clean entries — remove preview-only fields
-  const cleanEntries = parsedEntries.map(e => {
-    const clean = { ...e };
-    delete clean._year;
-    delete clean._pointCount;
-    return clean;
-  });
+  // Clean entries — remove preview-only fields AND hard-block any entry
+  // that looks remotely Strava-sourced. The server also refuses to overwrite
+  // existing IDs, but this means we don't even send colliding data.
+  const cleanEntries = parsedEntries
+    .filter(e => {
+      if (e.source === 'strava') return false;
+      if (e.stravaId) return false;
+      if (typeof e.id === 'string' && e.id.startsWith('strava_')) return false;
+      return true;
+    })
+    .map(e => {
+      const clean = { ...e };
+      delete clean._year;
+      delete clean._pointCount;
+      delete clean._yearMissing;
+      return clean;
+    });
+
+  if (cleanEntries.length === 0) {
+    showStatus('All entries were filtered out (Strava-like). Nothing to send.', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Send to Relic Archive';
+    return;
+  }
 
   try {
+    // Real fetch (not no-cors) — Apps Script "Anyone" access deployments
+    // support CORS. Lets us read back how many were added vs skipped.
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cleanEntries),
-      mode: 'no-cors' // Apps Script requires this from browser
+      body: JSON.stringify(cleanEntries)
     });
 
-    // With no-cors, we can't read the response body
-    // But if fetch didn't throw, the request was sent
-    showStatus(
-      'Request sent! ' + cleanEntries.length + ' activities submitted. ' +
-      'Check your Apps Script execution log to confirm they were written. ' +
-      'Then reload Relic to see them.',
-      'success'
-    );
+    let json = null;
+    try {
+      json = await res.json();
+    } catch(parseErr) {
+      throw new Error('Server did not return JSON — check Apps Script deployment. HTTP ' + res.status);
+    }
+
+    if (json.status === 'ok') {
+      showStatus(
+        'Done. ' + json.added + ' added, ' + json.skipped + ' already existed. ' +
+        'Total in archive: ' + json.total + '. Reload Relic to see them.',
+        'success'
+      );
+    } else {
+      showStatus('Server error: ' + (json.message || 'unknown'), 'error');
+    }
   } catch(err) {
     showStatus('Error: ' + err.message, 'error');
   }
@@ -659,7 +807,66 @@ async function sendToAppsScript() {
 }
 
 // ════════════════════════════════════════
-// DOWNLOAD JSON (backup option)
+// PURGE KML IMPORTS
+// Asks Apps Script to delete every entry with source: 'kml_import'.
+// Requires the matching doPost branch on the Apps Script side.
+// Two-step confirm (native prompt → button press) to prevent accidents.
+// ════════════════════════════════════════
+async function purgeKmlImports() {
+  const url = document.getElementById('apps-script-url').value.trim();
+  if (!url) {
+    showPurgeStatus('Please enter your Apps Script URL.', 'error');
+    return;
+  }
+
+  const typed = prompt(
+    'This will PERMANENTLY delete every "kml_import" entry from Drive.\n' +
+    'Strava and single-file GPX imports are not affected.\n\n' +
+    'Type PURGE to confirm:'
+  );
+  if (typed !== 'PURGE') {
+    showPurgeStatus('Cancelled.', 'pending');
+    return;
+  }
+
+  const btn = document.getElementById('purge-btn');
+  btn.disabled = true;
+  btn.textContent = 'Purging...';
+  showPurgeStatus('Asking Apps Script to purge...', 'pending');
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'purge_source', source: 'kml_import' })
+    });
+
+    let json = null;
+    try { json = await res.json(); }
+    catch(e) { throw new Error('Server did not return JSON — check the Apps Script has been updated with the purge endpoint. HTTP ' + res.status); }
+
+    if (json.status === 'ok') {
+      showPurgeStatus(
+        'Purged ' + json.removed + ' entries. ' + json.remaining + ' remain in archive. ' +
+        'Reload Relic to see the updated state.',
+        'success'
+      );
+    } else {
+      showPurgeStatus('Server error: ' + (json.message || 'unknown'), 'error');
+    }
+  } catch(err) {
+    showPurgeStatus('Error: ' + err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Purge KML Imports';
+}
+
+function showPurgeStatus(msg, type) {
+  const bar = document.getElementById('purge-status-bar');
+  bar.textContent = msg;
+  bar.className = 'status-bar visible ' + type;
+}
 // ════════════════════════════════════════
 function downloadJSON() {
   if (parsedEntries.length === 0) return;
@@ -667,6 +874,7 @@ function downloadJSON() {
     const clean = { ...e };
     delete clean._year;
     delete clean._pointCount;
+    delete clean._yearMissing;
     return clean;
   });
   const blob = new Blob([JSON.stringify(cleanEntries, null, 2)], { type: 'application/json' });
