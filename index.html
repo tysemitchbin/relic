@@ -11,6 +11,7 @@
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
     /* Map touch handling */
     #map { touch-action: none; }
@@ -853,9 +854,45 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   .sb-mobile-header { display: none; }
   .mm-stats { display: none; }
 }
+
+/* ── LOGIN ── */
+#login {
+  position: fixed; inset: 0; background: var(--ink); z-index: 10000;
+  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  padding: 24px;
+}
+#login.show { display: flex; }
+#login .loading-wordmark { font-size: 52px; }
+#login form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 300px; margin-top: 8px; }
+#login input {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+  color: var(--paper); font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  padding: 11px 13px; outline: none; text-align: center; transition: border-color 0.15s;
+}
+#login input:focus { border-color: var(--warm); }
+#login input::placeholder { color: rgba(255,255,255,0.25); }
+#login button {
+  background: var(--paper); color: var(--ink); border: none;
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  padding: 12px; cursor: pointer; transition: opacity 0.15s;
+}
+#login button:hover { opacity: 0.85; }
+#login button:disabled { opacity: 0.4; cursor: not-allowed; }
+#login-status { font-size: 10px; letter-spacing: 0.5px; color: var(--warm); min-height: 14px; text-align: center; line-height: 1.6; }
 </style>
 </head>
 <body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="loading-wordmark">Relic</div>
+  <div class="loading-tagline">Your life, mapped</div>
+  <form id="login-form">
+    <input type="email" id="login-email" placeholder="you@email.com" autocomplete="email" required>
+    <button type="submit" id="login-btn">Send sign-in link</button>
+  </form>
+  <div id="login-status"></div>
+</div>
 
 <!-- LOADING -->
 <div id="loading">
@@ -884,6 +921,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="nav-btn" id="nav-profile" onclick="switchView('profile')">Profile</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
       <button class="nav-btn" onclick="forceSync()">↺ Sync</button>
+      <button class="nav-btn" onclick="signOut()">Sign out</button>
     </div>
     <button class="hamburger" id="hamburger-btn" onclick="toggleMobileMenu()">
       <span></span><span></span><span></span>
@@ -897,6 +935,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <button class="mobile-menu-item" data-view="profile" onclick="mobileNav('profile')">◇ Profile</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openImport()">+ Import</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); forceSync()">↺ Sync</button>
+    <button class="mobile-menu-item" onclick="signOut()">Sign out</button>
     <div class="mm-stats">
       <div class="mm-stat"><div class="mm-stat-val" id="hm-moments">—</div><div class="mm-stat-label">Moments</div></div>
       <div class="mm-stat"><div class="mm-stat-val" id="hm-km">—</div><div class="mm-stat-label">Kilometres</div></div>
@@ -1168,11 +1207,14 @@ function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#92400e'
 // ════════════════════════════════════════
 // DATA
 // ════════════════════════════════════════
-const DB_KEY = 'relic_db_v1';
 const COLORS_KEY = 'relic_colors_v1';
-const CACHE_TS_KEY = 'relic_sync_ts';
-const DRIVE_SYNC_TS_KEY = 'relic_drive_sync_ts';
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec';
+
+// ── Supabase ──
+const SUPABASE_URL = 'https://vacmugisahiwhvkpyxgv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_P24sdAdsfNOKzJa5L9S-UQ_8SoI9koU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+const SIGNED_URL_TTL = 86400; // 24h — re-signed on every page load
 
 let db = {}, map, terrainOn = false, satelliteOn = false;
 let allMemories = [], filteredMemories = [], allStories = [];
@@ -1182,6 +1224,8 @@ let selectedId = null, saveTimer = null;
 let sidebarSort = 'recent';
 let profileSort = 'recent';
 let statsBuilt = false;
+let _profile = { name:'', bio:'', avatarPath:null, photo:null };
+let _profileTimer = null;
 
 // Story helpers
 function isStory(obj) { return obj && obj.type === 'story'; }
@@ -1228,32 +1272,141 @@ function getCoords(mem) {
 }
 function clearCoordCache() { Object.keys(coordCache).forEach(k => delete coordCache[k]); }
 
-function loadDB() { try { const r = localStorage.getItem(DB_KEY); db = r ? JSON.parse(r) : {}; } catch(e) { db = {}; } }
-function saveDB() {
-  try {
-    // Fields to keep for moments — _polyline stripped to save space (loaded from Drive each session)
-    const KEEP_FIELDS = new Set([
-      'id','name','type','date','source','stravaId',
-      'distance','duration','elevation',
-      'avgHR','maxHR','calories','avgSpeed',
-      'startLat','startLng','note','mood','photos','customColor',
-      '_nameEdited','_year',
-      // v0.3 Level 1 fields
-      'maxSpeed','avgCadence','avgWatts','weightedWatts',
-      'sufferScore','prCount','achievementCount',
-      'elevHigh','elevLow','gearId','workoutType','commute','elapsedTime'
-    ]);
-    const lean = {};
-    Object.entries(db).forEach(([id, obj]) => {
-      if (isStory(obj)) {
-        lean[id] = { ...obj };
-      } else {
-        lean[id] = {};
-        KEEP_FIELDS.forEach(function(k) { if (obj[k] !== undefined) lean[id][k] = obj[k]; });
-      }
+// ── Row <-> in-memory object mappers ──
+function rowToMoment(r) {
+  return {
+    id: r.id, name: r.name, type: r.type, date: r.date,
+    source: r.source, stravaId: r.strava_id,
+    coords: null, _polyline: r.polyline || null,
+    distance: r.distance || 0, duration: r.duration || 0, elevation: r.elevation || 0,
+    startLat: r.start_lat, startLng: r.start_lng,
+    note: r.note || '', mood: r.mood || null, photos: [],
+    customColor: r.custom_color || null, _nameEdited: !!r.name_edited,
+    avgHR: r.avg_hr, maxHR: r.max_hr, calories: r.calories, avgSpeed: r.avg_speed,
+    maxSpeed: r.max_speed, avgCadence: r.avg_cadence, avgWatts: r.avg_watts,
+    weightedWatts: r.weighted_watts, sufferScore: r.suffer_score,
+    prCount: r.pr_count, achievementCount: r.achievement_count,
+    elevHigh: r.elev_high, elevLow: r.elev_low, gearId: r.gear_id,
+    workoutType: r.workout_type, commute: !!r.commute, elapsedTime: r.elapsed_time,
+  };
+}
+function momentToRow(m) {
+  return {
+    id: m.id, user_id: currentUser.id,
+    name: m.name || 'Untitled', type: m.type || 'Other', date: m.date || null,
+    source: m.source || null, strava_id: m.stravaId || null,
+    distance: m.distance || 0, duration: m.duration || 0, elevation: m.elevation || 0,
+    polyline: m._polyline || (Array.isArray(m.coords) && m.coords.length >= 2 ? encodePolyline(m.coords) : null),
+    start_lat: m.startLat ?? null, start_lng: m.startLng ?? null,
+    note: m.note || '', mood: m.mood || null,
+    custom_color: m.customColor || null, name_edited: !!m._nameEdited,
+    avg_hr: m.avgHR ?? null, max_hr: m.maxHR ?? null, calories: m.calories ?? null,
+    avg_speed: m.avgSpeed ?? null, max_speed: m.maxSpeed ?? null, avg_cadence: m.avgCadence ?? null,
+    avg_watts: m.avgWatts ?? null, weighted_watts: m.weightedWatts ?? null, suffer_score: m.sufferScore ?? null,
+    pr_count: m.prCount ?? null, achievement_count: m.achievementCount ?? null,
+    elev_high: m.elevHigh ?? null, elev_low: m.elevLow ?? null, gear_id: m.gearId || null,
+    workout_type: m.workoutType ?? null, commute: !!m.commute, elapsed_time: m.elapsedTime ?? null,
+  };
+}
+function rowToStory(r) {
+  return {
+    id: r.id, type: 'story', title: r.title || 'Untitled', narrative: r.narrative || '',
+    mood: r.mood || null, coverPhoto: r.cover_photo_path || null,
+    momentIds: Array.isArray(r.moment_ids) ? r.moment_ids : [],
+    createdAt: r.created_at, lastModified: r.updated_at,
+  };
+}
+function storyToRow(s) {
+  return {
+    id: s.id, user_id: currentUser.id, title: s.title || 'Untitled',
+    narrative: s.narrative || '', mood: s.mood || null,
+    cover_photo_path: s.coverPhoto || null,
+    moment_ids: Array.isArray(s.momentIds) ? s.momentIds : [],
+  };
+}
+
+// Page through a table 1000 rows at a time (Supabase's per-request cap)
+async function selectAllRows(table, orderCol) {
+  const PAGE = 1000;
+  let all = [], from = 0;
+  for (;;) {
+    let q = sb.from(table).select('*').range(from, from + PAGE - 1);
+    if (orderCol) q = q.order(orderCol, { ascending: true });
+    const { data, error } = await q;
+    if (error) throw error;
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
+// ── Load everything for the current user ──
+async function loadFromSupabase() {
+  const [acts, stories, photoRows, profRes] = await Promise.all([
+    selectAllRows('activities'),
+    selectAllRows('stories'),
+    selectAllRows('activity_photos', 'sort_order'),
+    sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle(),
+  ]);
+
+  // sign photo URLs (batched, 1000 per call)
+  const signedByPath = {};
+  for (let i = 0; i < photoRows.length; i += 1000) {
+    const batch = photoRows.slice(i, i + 1000).map(p => p.storage_path);
+    const { data: signed } = await sb.storage.from('photos').createSignedUrls(batch, SIGNED_URL_TTL);
+    (signed || []).forEach(s => { if (s.signedUrl) signedByPath[s.path] = s.signedUrl; });
+  }
+  const photosByActivity = {};
+  photoRows.forEach(p => {
+    (photosByActivity[p.activity_id] ||= []).push({
+      dataUrl: signedByPath[p.storage_path] || '', lat: p.lat, lng: p.lng,
+      caption: p.caption || '', _id: p.id, _path: p.storage_path,
     });
-    localStorage.setItem(DB_KEY, JSON.stringify(lean));
-  } catch(e) { console.warn('Storage full', e); }
+  });
+
+  db = {};
+  acts.forEach(r => {
+    const m = rowToMoment(r);
+    m.photos = photosByActivity[r.id] || [];
+    db[r.id] = m;
+  });
+  stories.forEach(r => { db[r.id] = rowToStory(r); });
+
+  const p = profRes.data;
+  _profile = { name: p?.name || '', bio: p?.bio || '', avatarPath: p?.avatar_path || null, photo: null };
+  if (_profile.avatarPath) {
+    const { data: u } = await sb.storage.from('photos').createSignedUrl(_profile.avatarPath, SIGNED_URL_TTL);
+    _profile.photo = u?.signedUrl || null;
+  }
+}
+
+// ── Debounced write-back of edited moments/stories ──
+let dirtyIds = new Set();
+function markDirty(id) { if (id) { dirtyIds.add(id); scheduleSave(); } }
+async function flushDirty() {
+  const ids = [...dirtyIds]; dirtyIds.clear();
+  if (!ids.length) { setSaveIndicator(''); return; }
+  const acts = [], stories = [];
+  ids.forEach(id => {
+    const o = db[id]; if (!o) return;
+    if (isStory(o)) stories.push(storyToRow(o)); else acts.push(momentToRow(o));
+  });
+  try {
+    if (acts.length) { const { error } = await sb.from('activities').upsert(acts); if (error) throw error; }
+    if (stories.length) { const { error } = await sb.from('stories').upsert(stories); if (error) throw error; }
+    renderList();
+    setSaveIndicator('Saved ✓');
+    setTimeout(() => setSaveIndicator(''), 2000);
+  } catch (e) {
+    console.error('Save failed', e);
+    ids.forEach(id => dirtyIds.add(id));
+    setSaveIndicator('Save failed — retrying…');
+    setTimeout(scheduleSave, 4000);
+  }
+}
+function setSaveIndicator(msg) {
+  const el = document.getElementById('save-indicator'); if (el) el.textContent = msg;
 }
 function loadColors() { try { const r = localStorage.getItem(COLORS_KEY); if(r) { const s = JSON.parse(r); Object.entries(s).forEach(([k,v])=>{ if(TYPE_CONFIG[k]) TYPE_CONFIG[k].color=v; }); } } catch(e) {} }
 
@@ -1285,75 +1438,17 @@ function stravaToMemory(a) {
   };
 }
 
-// Drive sync
-async function fetchDriveMeta() { const r = await fetch(`${APPS_SCRIPT_URL}?action=meta`,{cache:'no-store'}); if(!r.ok) throw new Error('Meta fetch failed'); return r.json(); }
-async function fetchDriveData() { const r = await fetch(`${APPS_SCRIPT_URL}?action=data`,{cache:'no-store'}); if(!r.ok) throw new Error('Data fetch failed'); return r.json(); }
-function mergeFromDrive(driveData) {
-  let n=0;
-  Object.entries(driveData).forEach(([id,obj])=>{
-    const e=db[id]||{};
-    if(isStory(obj)) {
-      // Story merge: preserve local narrative/mood edits
-      db[id]={...obj,
-        narrative: e.narrative || obj.narrative || '',
-        mood: e.mood ?? obj.mood ?? null,
-        title: e._titleEdited ? e.title : (obj.title || e.title),
-        coverPhoto: e.coverPhoto || obj.coverPhoto || null};
-      if(!e.id) n++;
-    } else {
-      // Moment merge: existing logic
-      db[id]={...obj, note:e.note||obj.note||'', mood:e.mood??obj.mood??null,
-        photos:e.photos?.length?e.photos:(obj.photos||[]), customColor:e.customColor||obj.customColor||null,
-        name:e._nameEdited?e.name:(obj.name||e.name)};
-      // Fix: encode raw coords into polyline if missing (bulk import compat)
-      var merged = db[id];
-      if (merged.coords && merged.coords.length >= 2 && !merged._polyline) {
-        merged._polyline = encodePolyline(merged.coords);
-      }
-      if(!e.id) n++;
-    }
-  });
-  return n;
-}
-async function backgroundSyncFromDrive() {
-  if(!APPS_SCRIPT_URL||APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) return;
-  try {
-    const data = await fetchDriveData();
-    const n = mergeFromDrive(data);
-    clearCoordCache();
-    saveDB(); localStorage.setItem(DRIVE_SYNC_TS_KEY, Date.now().toString());
-    // Always re-render: even if n===0, Drive data restores polylines stripped from cache
-    allMemories=getMoments().sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
-    allStories=getStories();
-    allStories.forEach(s => computeStoryStats(s));
-    updateHeaderStats(); applyFilters(); statsBuilt=false;
-  } catch(e) { console.warn('Background sync failed:', e); }
-}
-
-// Persist imported entries to Drive JSON via Apps Script POST
-// Uses a real fetch (not no-cors) so we can confirm success, then re-syncs from Drive
-async function persistToDrive(entries) {
-  if(!APPS_SCRIPT_URL) return { ok: false };
+// Persist a batch of newly-created moments (e.g. from Import) to Supabase
+async function persistMoments(entries) {
   const arr = Array.isArray(entries) ? entries : [entries];
+  if (!arr.length) return { ok: true };
   try {
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(arr)
-    });
-    const json = await res.json();
-    if(json.status === 'ok') {
-      console.log('Drive persist confirmed: ' + json.added + ' added, ' + json.skipped + ' skipped');
-      // Mark Drive as updated so next sync pulls fresh data
-      localStorage.removeItem(DRIVE_SYNC_TS_KEY);
-      return { ok: true, added: json.added, skipped: json.skipped };
-    } else {
-      console.warn('Drive persist returned error:', json.message);
-      return { ok: false };
-    }
-  } catch(e) {
-    console.warn('Drive persist failed:', e);
-    return { ok: false };
+    const { error } = await sb.from('activities').upsert(arr.map(momentToRow));
+    if (error) throw error;
+    return { ok: true, added: arr.length };
+  } catch (e) {
+    console.warn('Supabase persist failed:', e);
+    return { ok: false, error: e.message };
   }
 }
 
@@ -1368,19 +1463,18 @@ function initMap() {
     map.touchZoomRotate.enable();
     map.dragPan.enable();
   map.on('load', async () => {
-    addTerrainSource(); loadDB(); loadColors(); setProgress(10);
-    const hasCache = Object.keys(db).length > 0;
-    if (hasCache) {
-      setStatus('Loading from cache...'); setProgress(60);
-      await renderAll(); setProgress(100);
-      setTimeout(()=>{ const el=document.getElementById('loading'); el.style.opacity='0'; setTimeout(()=>{el.style.display='none';map.resize();},700); },300);
-      backgroundSyncFromDrive();
-    } else {
-      setStatus('Fetching your archive...'); setProgress(20);
-      try { const d=await fetchDriveData(); setProgress(70); setStatus('Building archive...'); mergeFromDrive(d); saveDB(); localStorage.setItem(DRIVE_SYNC_TS_KEY,Date.now().toString()); } catch(e) { setStatus('Could not load — check config'); console.error(e); }
-      setStatus('Rendering...'); await renderAll(); setProgress(100);
-      setTimeout(()=>{ const el=document.getElementById('loading'); el.style.opacity='0'; setTimeout(()=>{el.style.display='none';map.resize();},700); },300);
+    addTerrainSource(); loadColors(); setProgress(10);
+    setStatus('Loading your archive...'); setProgress(30);
+    try {
+      await loadFromSupabase();
+      setProgress(70);
+    } catch (e) {
+      console.error(e);
+      setStatus('Could not load your data — ' + (e.message || e));
+      return;
     }
+    setStatus('Rendering...'); await renderAll(); setProgress(100);
+    setTimeout(()=>{ const el=document.getElementById('loading'); el.style.opacity='0'; setTimeout(()=>{el.style.display='none';map.resize();},700); },300);
   });
   map.on('mousemove', e => {
     const {lng,lat}=e.lngLat;
@@ -1657,7 +1751,7 @@ function showStoryDetail(storyId) {
     story.title = document.getElementById('d-name-input').value;
     story._titleEdited = true;
     story.lastModified = new Date().toISOString();
-    scheduleSave();
+    markDirty(story.id);
   };
 
   // Date range
@@ -1695,7 +1789,7 @@ function showStoryDetail(storyId) {
   document.getElementById('sd-narrative-input').oninput = function() {
     story.narrative = this.value;
     story.lastModified = new Date().toISOString();
-    scheduleSave();
+    markDirty(story.id);
   };
 
   // Mood section
@@ -1756,7 +1850,7 @@ function setStoryDetailMood(storyId, moodId, btn) {
   story.lastModified = new Date().toISOString();
   document.querySelectorAll('#d-mood .mood-btn').forEach(function(b) { b.classList.remove('active'); });
   if (story.mood) btn.classList.add('active');
-  scheduleSave();
+  markDirty(storyId);
 }
 function closeDetail() {
   var wasStory = selectedId && db[selectedId] && isStory(db[selectedId]);
@@ -1770,10 +1864,10 @@ function closeDetail() {
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
 }
-function onNameEdit() { if(!selectedId) return; db[selectedId].name=document.getElementById('d-name-input').value; db[selectedId]._nameEdited=true; scheduleSave(); }
-function onNoteEdit() { if(!selectedId) return; db[selectedId].note=document.getElementById('d-note').value; scheduleSave(); }
-function setMood(memId,moodId,btn) { db[memId].mood=db[memId].mood===moodId?null:moodId; document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('active')); if(db[memId].mood) btn.classList.add('active'); scheduleSave(); }
-function scheduleSave() { clearTimeout(saveTimer); document.getElementById('save-indicator').textContent='Saving...'; saveTimer=setTimeout(()=>{saveDB();renderList();document.getElementById('save-indicator').textContent='Saved ✓';setTimeout(()=>{document.getElementById('save-indicator').textContent='';},2000);},800); }
+function onNameEdit() { if(!selectedId) return; db[selectedId].name=document.getElementById('d-name-input').value; db[selectedId]._nameEdited=true; markDirty(selectedId); }
+function onNoteEdit() { if(!selectedId) return; db[selectedId].note=document.getElementById('d-note').value; markDirty(selectedId); }
+function setMood(memId,moodId,btn) { db[memId].mood=db[memId].mood===moodId?null:moodId; document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('active')); if(db[memId].mood) btn.classList.add('active'); markDirty(memId); }
+function scheduleSave() { clearTimeout(saveTimer); setSaveIndicator('Saving…'); saveTimer=setTimeout(flushDirty,800); }
 
 // Photos
 function renderPhotos(memId) {
@@ -1789,22 +1883,54 @@ function renderPhotos(memId) {
   addBtn.onclick=()=>document.getElementById('photo-input').click();
   grid.appendChild(addBtn);
 }
-function handlePhotoUpload(input) {
-  if(!selectedId) return;
-  Array.from(input.files).forEach(file=>{
-    const reader=new FileReader();
-    reader.onload=e=>{readEXIF(file).then(({lat,lng})=>{
-      const photo={dataUrl:e.target.result,lat,lng,caption:'',date:new Date().toISOString()};
-      if(!db[selectedId].photos)db[selectedId].photos=[];
-      db[selectedId].photos.push(photo);
-      if(lat&&lng)addPhotoMarker(lat,lng,photo.dataUrl,db[selectedId].photos.length-1);
-      scheduleSave(); renderPhotos(selectedId);
-    });};
-    reader.readAsDataURL(file);
-  });
-  input.value='';
+async function resizeImageToJpeg(file, maxDim, quality) {
+  const bmp = await createImageBitmap(file);
+  let w = bmp.width, h = bmp.height;
+  if (w > maxDim || h > maxDim) { const s = maxDim / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+  return new Promise(res => c.toBlob(res, 'image/jpeg', quality));
 }
-function removePhoto(memId,idx) { db[memId].photos.splice(idx,1); scheduleSave(); renderPhotos(memId); }
+
+async function handlePhotoUpload(input) {
+  if (!selectedId) return;
+  const memId = selectedId;
+  const files = Array.from(input.files);
+  input.value = '';
+  for (const file of files) {
+    try {
+      const { lat, lng } = await readEXIF(file);
+      const blob = await resizeImageToJpeg(file, 1600, 0.82);
+      const path = `${currentUser.id}/${memId}/${crypto.randomUUID()}.jpg`;
+      const up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
+      if (up.error) throw up.error;
+      const { data: row, error: insErr } = await sb.from('activity_photos').insert({
+        user_id: currentUser.id, activity_id: memId, storage_path: path,
+        lat: lat ?? null, lng: lng ?? null, sort_order: (db[memId].photos || []).length,
+      }).select().single();
+      if (insErr) throw insErr;
+      const { data: signed } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
+      const photo = { dataUrl: signed?.signedUrl || '', lat, lng, caption: '', _id: row.id, _path: path };
+      (db[memId].photos ||= []).push(photo);
+      if (lat && lng) addPhotoMarker(lat, lng, photo.dataUrl, db[memId].photos.length - 1);
+      if (selectedId === memId) renderPhotos(memId);
+    } catch (e) {
+      console.error('Photo upload failed', e);
+      alert('Photo upload failed: ' + (e.message || e));
+    }
+  }
+}
+async function removePhoto(memId, idx) {
+  const photo = (db[memId].photos || [])[idx];
+  db[memId].photos.splice(idx, 1);
+  renderPhotos(memId);
+  if (photo && photo._id) {
+    try {
+      await sb.from('activity_photos').delete().eq('id', photo._id);
+      if (photo._path) await sb.storage.from('photos').remove([photo._path]);
+    } catch (e) { console.warn('Photo delete failed', e); }
+  }
+}
 
 async function readEXIF(file){return new Promise(resolve=>{const r=new FileReader();r.onload=e=>{try{const v=new DataView(e.target.result);if(v.getUint16(0)!==0xFFD8){resolve({lat:null,lng:null});return;}let o=2;while(o<v.byteLength){if(v.getUint16(o)===0xFFE1){resolve(parseGPSFromEXIF(v,o+10));return;}o+=2+v.getUint16(o+2);}}catch(e){}resolve({lat:null,lng:null});};r.readAsArrayBuffer(file.slice(0,128*1024));});}
 function parseGPSFromEXIF(v,s){try{const le=v.getUint16(s)===0x4949;const io=v.getUint32(s+4,le)+s;const n=v.getUint16(io,le);for(let i=0;i<n;i++){const eo=io+2+i*12;if(v.getUint16(eo,le)===0x8825){return extractGPSCoords(v,v.getUint32(eo+8,le)+s,le,s);}}}catch(e){}return{lat:null,lng:null};}
@@ -2140,18 +2266,36 @@ function updateHeaderStats() {
 // ════════════════════════════════════════
 // PROFILE + HONEYCOMB
 // ════════════════════════════════════════
-const PROFILE_KEY = 'relic_profile_v1';
-function loadProfile() { try { const r=localStorage.getItem(PROFILE_KEY); return r?JSON.parse(r):{name:'',bio:'',photo:null}; } catch(e) { return {name:'',bio:'',photo:null}; } }
+function loadProfile() { return _profile || { name:'', bio:'', photo:null }; }
 function saveProfile() {
-  const profile = { name:document.getElementById('profile-name').value, bio:document.getElementById('profile-bio').value,
-    photo:document.getElementById('profile-photo-display').querySelector('img')?.src||null };
-  localStorage.setItem(PROFILE_KEY,JSON.stringify(profile));
+  _profile.name = document.getElementById('profile-name').value;
+  _profile.bio = document.getElementById('profile-bio').value;
+  clearTimeout(_profileTimer);
+  _profileTimer = setTimeout(async () => {
+    const { error } = await sb.from('profiles').upsert({
+      id: currentUser.id, name: _profile.name, bio: _profile.bio, avatar_path: _profile.avatarPath || null,
+    });
+    if (error) console.warn('Profile save failed', error);
+  }, 800);
 }
-function handleProfilePhoto(input) {
-  const file=input.files[0]; if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{document.getElementById('profile-photo-display').innerHTML=`<img src="${e.target.result}" alt="Profile">`;saveProfile();};
-  reader.readAsDataURL(file);
+async function handleProfilePhoto(input) {
+  const file = input.files[0]; input.value = ''; if (!file) return;
+  try {
+    const blob = await resizeImageToJpeg(file, 512, 0.85);
+    const path = `${currentUser.id}/profile/${crypto.randomUUID()}.jpg`;
+    const up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
+    if (up.error) throw up.error;
+    const oldPath = _profile.avatarPath;
+    _profile.avatarPath = path;
+    const { data: signed } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
+    _profile.photo = signed?.signedUrl || null;
+    document.getElementById('profile-photo-display').innerHTML = `<img src="${_profile.photo}" alt="Profile">`;
+    await sb.from('profiles').upsert({ id: currentUser.id, name: _profile.name, bio: _profile.bio, avatar_path: path });
+    if (oldPath) await sb.storage.from('photos').remove([oldPath]);
+  } catch (e) {
+    console.error('Profile photo failed', e);
+    alert('Profile photo upload failed: ' + (e.message || e));
+  }
 }
 
 function buildProfile() {
@@ -2325,13 +2469,14 @@ function viewStoryOnMap(storyId) {
   }, 200);
 }
 
-function deleteStory(storyId) {
+async function deleteStory(storyId) {
   if (!confirm('Delete this story? The moments inside will not be affected.')) return;
   delete db[storyId];
-  saveDB();
   allStories = getStories();
   statsBuilt = false;
   if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
+  const { error } = await sb.from('stories').delete().eq('id', storyId);
+  if (error) console.warn('Story delete failed', error);
 }
 
 function renderProfileHoneycomb() {
@@ -2468,7 +2613,6 @@ async function doImport() {
     } catch(e) { console.warn('Import failed for', file.name, e); }
   }
 
-  saveDB();
   allMemories = getMoments().sort((a,b) => new Date(b.date) - new Date(a.date));
   allStories = getStories();
   const years = new Set(allMemories.map(m => m.date?.substring(0,4)).filter(Boolean));
@@ -2476,12 +2620,15 @@ async function doImport() {
   initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
 
   if(importedEntries.length) {
-    progress.textContent = `Sending ${importedEntries.length} to Drive...`;
-    const result = await persistToDrive(importedEntries);
+    progress.textContent = `Saving ${importedEntries.length} to your archive...`;
+    const result = await persistMoments(importedEntries);
     if(result.ok) {
-      progress.textContent = `Done! ${imported} imported, confirmed in Drive.`;
+      progress.textContent = `Done! ${imported} imported.`;
     } else {
-      progress.textContent = `Imported ${imported} locally — Drive sync pending (will retry on next load).`;
+      // roll back the local copies that didn't save
+      importedEntries.forEach(e => { delete db[e.id]; });
+      applyFilters();
+      progress.textContent = `Import failed to save: ${result.error || 'unknown error'}`;
     }
   } else {
     progress.textContent = imported === 0 ? 'Nothing new to import.' : `Done! ${imported} imported.`;
@@ -2739,56 +2886,33 @@ async function saveStory() {
 
   computeStoryStats(story);
   db[id] = story;
-  saveDB();
 
-  // Persist to Drive
-  const result = await persistToDrive([story]);
-  if (result.ok) {
-    document.getElementById('sm-status').textContent = 'Story saved and synced to Drive.';
-  } else {
-    document.getElementById('sm-status').textContent = 'Saved locally. Drive sync pending.';
+  const { error } = await sb.from('stories').upsert(storyToRow(story));
+  if (error) {
+    delete db[id];
+    document.getElementById('sm-status').textContent = 'Save failed: ' + error.message;
+    btn.disabled = false;
+    return;
   }
+  document.getElementById('sm-status').textContent = 'Story saved.';
 
   // Refresh app state
   allStories = getStories();
   statsBuilt = false;
 
   btn.disabled = false;
-  setTimeout(() => { closeStoryModal(); if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile(); }, 1500);
+  setTimeout(() => { closeStoryModal(); if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile(); }, 1200);
 }
 
 // ════════════════════════════════════════
 // STRAVA STREAMS + CHARTS (v0.3)
 // ════════════════════════════════════════
-const STRAVA_CLIENT_ID = '215759';
-const STRAVA_CLIENT_SECRET = '659b2ee168b3e3b4e7a265cf7d57c4544986e0de';
-const STRAVA_REFRESH_TOKEN = '7c6aaaa84a30e39abf62060cf51d2cbfdca52a3b';
-let _stravaAccessToken = null;
-let _stravaTokenExpiry = 0;
 const _streamCache = {};
 
-async function getStravaToken() {
-  if (_stravaAccessToken && Date.now() < _stravaTokenExpiry) return _stravaAccessToken;
-  try {
-    const res = await fetch('https://www.strava.com/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        client_id: STRAVA_CLIENT_ID,
-        client_secret: STRAVA_CLIENT_SECRET,
-        refresh_token: STRAVA_REFRESH_TOKEN,
-        grant_type: 'refresh_token'
-      })
-    });
-    const data = await res.json();
-    _stravaAccessToken = data.access_token;
-    _stravaTokenExpiry = (data.expires_at || 0) * 1000;
-    return _stravaAccessToken;
-  } catch (e) {
-    console.warn('Strava token refresh failed:', e);
-    return null;
-  }
-}
+// Strava stream charts are disabled pending the per-user OAuth / Edge Function
+// work (migration Phase 6). Returning null makes the detail panel show
+// "Stream data unavailable" and skip the charts section.
+async function getStravaToken() { return null; }
 
 async function fetchStravaStreams(stravaId) {
   if (_streamCache[stravaId]) return _streamCache[stravaId];
@@ -2817,21 +2941,20 @@ async function loadAndRenderCharts(memId) {
   const loading = document.getElementById('d-charts-loading');
   const wrap = document.getElementById('d-charts-wrap');
 
-  section.style.display = '';
-  loading.style.display = '';
-  wrap.innerHTML = '';
-
   const streams = await fetchStravaStreams(mem.stravaId);
 
   // If detail panel closed or different activity selected while loading, abort
   if (selectedId !== memId) return;
 
-  loading.style.display = 'none';
-
   if (!streams) {
-    wrap.innerHTML = '<div style="font-size:8px;color:var(--muted)">Stream data unavailable</div>';
+    // Charts are off until per-user Strava OAuth (Phase 6) — hide the section entirely
+    section.style.display = 'none';
     return;
   }
+
+  section.style.display = '';
+  loading.style.display = 'none';
+  wrap.innerHTML = '';
 
   var timeData = streams.time ? streams.time.data : null;
   var charts = [];
@@ -3008,7 +3131,8 @@ function mobileNav(view) {
   document.getElementById('sidebar').classList.add('collapsed');
   if(view) switchView(view);
 }
-function forceSync() { localStorage.removeItem(DRIVE_SYNC_TS_KEY); location.reload(); }
+function forceSync() { location.reload(); }
+async function signOut() { try { await sb.auth.signOut(); } catch(e){} location.reload(); }
 
 // Drag & drop
 const dz=document.getElementById('drop-zone');
@@ -3027,7 +3151,7 @@ const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
-_r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('persistToDrive',persistToDrive);_r('handlePhotoUpload',handlePhotoUpload);
+_r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
 _r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
@@ -3052,7 +3176,57 @@ _r('drawFeedStoryMap',drawFeedStoryMap);
 _r('getStravaToken',getStravaToken);_r('fetchStravaStreams',fetchStravaStreams);
 _r('loadAndRenderCharts',loadAndRenderCharts);_r('drawStreamChart',drawStreamChart);
 
-initMap();
+// ════════════════════════════════════════
+// AUTH GATE + BOOT
+// ════════════════════════════════════════
+let appBooted = false;
+
+function showLogin() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('login').classList.add('show');
+}
+function startApp() {
+  if (appBooted) return;
+  appBooted = true;
+  document.getElementById('login').classList.remove('show');
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('loading').style.display = 'flex';
+  initMap();
+}
+
+async function bootRelic() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) { currentUser = session.user; startApp(); }
+  else showLogin();
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && !appBooted) {
+    currentUser = session.user;
+    startApp();
+  }
+  if (event === 'SIGNED_OUT') location.reload();
+});
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const btn = document.getElementById('login-btn');
+  const statusEl = document.getElementById('login-status');
+  if (!email) return;
+  btn.disabled = true;
+  statusEl.textContent = 'Sending…';
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: location.origin + location.pathname }
+  });
+  btn.disabled = false;
+  statusEl.textContent = error
+    ? 'Error: ' + error.message
+    : 'Check your email for the sign-in link.';
+});
+
+bootRelic();
 </script>
 </body>
 </html>
