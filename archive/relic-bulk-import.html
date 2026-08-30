@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relic — Bulk Import</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1a1814;
+  --paper: #f5f0e8;
+  --paper2: #ede8df;
+  --paper3: #e4ddd2;
+  --warm: #c8b89a;
+  --accent: #8b4513;
+  --muted: #8a8278;
+  --border: #d4cdc2;
+  --green: #16a34a;
+  --red: #c0392b;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+.header {
+  height: 52px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 12px;
+}
+
+.wordmark {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 8px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.wordmark-sub {
+  font-size: 7px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.header-badge {
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 3px 8px;
+  margin-left: 8px;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.page-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 36px;
+  font-weight: 300;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.page-sub {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 32px;
+}
+
+/* Config section */
+.config-section {
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  background: var(--paper2);
+}
+
+.config-label {
+  font-size: 7px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.config-input {
+  width: 100%;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 8px 10px;
+  outline: none;
+}
+
+.config-input:focus { border-color: var(--accent); }
+
+.config-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.config-row > div { flex: 1; }
+
+.config-select {
+  width: 100%;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 8px 10px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 1px dashed var(--border);
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 24px;
+  background: var(--paper2);
+}
+
+.drop-zone:hover, .drop-zone.over {
+  border-color: var(--accent);
+  background: var(--paper3);
+}
+
+.drop-icon {
+  font-size: 28px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.drop-text {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+
+.drop-hint {
+  font-size: 8px;
+  color: var(--warm);
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+
+/* Preview table */
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.preview-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.preview-count {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  font-size: 10px;
+}
+
+.preview-table th {
+  text-align: left;
+  font-size: 7px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.preview-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  vertical-align: top;
+}
+
+.preview-table tr:hover td {
+  background: var(--paper2);
+}
+
+.preview-table .name-cell {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.preview-table .note-cell {
+  font-style: italic;
+  color: var(--muted);
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-table .dist-cell {
+  text-align: right;
+  font-weight: 500;
+}
+
+.preview-table .pts-cell {
+  text-align: right;
+  color: var(--muted);
+}
+
+.type-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.preview-scroll {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  background: var(--paper);
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+  border: 1px solid var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-primary:hover { opacity: 0.8; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Status */
+.status-bar {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  display: none;
+}
+
+.status-bar.visible { display: block; }
+.status-bar.success { border-color: var(--green); color: var(--green); background: #f0fdf4; }
+.status-bar.error { border-color: var(--red); color: var(--red); background: #fef2f2; }
+.status-bar.pending { border-color: var(--warm); color: var(--ink); background: var(--paper2); }
+
+/* Danger zone */
+.danger-zone {
+  margin-top: 60px;
+  padding: 20px;
+  border: 1px dashed var(--red);
+  background: #fef2f2;
+}
+
+.danger-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 8px;
+}
+
+.danger-desc {
+  font-size: 10px;
+  color: var(--ink);
+  margin-bottom: 14px;
+  line-height: 1.5;
+  max-width: 640px;
+}
+
+.danger-desc code {
+  background: #fee2e2;
+  padding: 1px 5px;
+  font-size: 9px;
+}
+
+.btn-danger {
+  background: var(--red);
+  color: #fff;
+  border: 1px solid var(--red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-danger:hover { opacity: 0.85; }
+.btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: var(--paper); }
+::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="wordmark">Relic</div>
+    <div class="wordmark-sub">Life Archive</div>
+  </div>
+  <div class="header-badge">Bulk Import</div>
+</div>
+
+<div class="container">
+  <div class="page-title">Bulk Import</div>
+  <div class="page-sub">Parse KML files into individual activities and write them to your Relic archive</div>
+
+  <!-- Config -->
+  <div class="config-section">
+    <div class="config-row">
+      <div>
+        <div class="config-label">Activity Type</div>
+        <select class="config-select" id="import-type">
+          <option value="Flight">Flight</option>
+          <option value="Drive">Drive</option>
+          <option value="Run">Run</option>
+          <option value="Ride">Ride</option>
+          <option value="Hike">Hike</option>
+          <option value="Walk">Walk</option>
+          <option value="AlpineSki">Alpine Ski</option>
+          <option value="NordicSki">Nordic Ski</option>
+          <option value="BackcountrySki">Backcountry Ski</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div>
+        <div class="config-label">Apps Script URL</div>
+        <input class="config-input" type="text" id="apps-script-url"
+          value="https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec"
+          placeholder="Your Apps Script Web App URL">
+      </div>
+    </div>
+  </div>
+
+  <!-- Drop zone -->
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <div class="drop-icon">+</div>
+    <div class="drop-text">Drop KML file here or click to browse</div>
+    <div class="drop-hint" id="drop-hint"></div>
+    <input type="file" id="file-input" accept=".kml" style="display:none">
+  </div>
+
+  <!-- Preview -->
+  <div id="preview-section" style="display:none">
+    <div class="preview-header">
+      <div class="preview-title">Preview</div>
+      <div class="preview-count" id="preview-count"></div>
+    </div>
+    <div class="preview-scroll">
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Year</th>
+            <th>Note</th>
+            <th style="text-align:right">Distance</th>
+            <th style="text-align:right">Points</th>
+          </tr>
+        </thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top: 20px">
+      <div class="actions">
+        <button class="btn-ghost" onclick="clearAll()">Clear</button>
+        <button class="btn-primary" id="send-btn" onclick="sendToAppsScript()">Send to Relic Archive</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar"></div>
+
+  <!-- Danger zone — separate section to avoid confusion with the normal flow -->
+  <div class="danger-zone">
+    <div class="danger-title">Danger Zone</div>
+    <div class="danger-desc">
+      Permanently removes every entry with <code>source: "kml_import"</code> from Drive.
+      Strava and single-file GPX imports are untouched. Use this to wipe a bad dump before re-importing.
+    </div>
+    <div class="actions" style="justify-content: flex-start">
+      <button class="btn-danger" id="purge-btn" onclick="purgeKmlImports()">Purge KML Imports</button>
+    </div>
+    <div class="status-bar" id="purge-status-bar"></div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════
+const TYPE_COLORS = {
+  Flight: '#d97706', Drive: '#374151', Run: '#c0392b', Ride: '#2563eb',
+  Hike: '#16a34a', Walk: '#7c3aed', AlpineSki: '#e11d48', NordicSki: '#0891b2',
+  BackcountrySki: '#6d28d9', Other: '#92400e'
+};
+
+let parsedEntries = [];
+
+// ════════════════════════════════════════
+// HAVERSINE
+// ════════════════════════════════════════
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ════════════════════════════════════════
+// DETERMINISTIC ID
+// Creates a stable ID from type + name + coords so re-running won't duplicate.
+// The 'import_' prefix already prevents collisions with strava_xxx IDs;
+// including type is belt-and-suspenders so a KML "Aspen Ski" and a ride
+// over the same coords can't ever hash to the same value.
+// ════════════════════════════════════════
+function stableId(type, name, coords) {
+  const raw = type + '|' + name + '|' + coords.map(c => c[0].toFixed(4) + ',' + c[1].toFixed(4)).join(';');
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash |= 0;
+  }
+  return 'import_' + Math.abs(hash).toString(36);
+}
+
+// ════════════════════════════════════════
+// COORD EXTRACTION — handles MultiGeometry
+// Walks ALL LineString and Point descendants of a Placemark and
+// concatenates them into a single coord array. Ferry gaps, layovers,
+// and paused-recording resumes collapse into one continuous track —
+// which matches how you recorded them (one trip = one entry).
+// ════════════════════════════════════════
+function parseCoordString(text, out) {
+  text.trim().split(/\s+/).forEach(pair => {
+    const parts = pair.split(',').map(Number);
+    if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      out.push([parts[0], parts[1]]); // [lng, lat]
+    }
+  });
+}
+
+function extractPlacemarkCoords(pm) {
+  const all = [];
+  // All LineString coordinates, in document order — handles MultiGeometry
+  pm.querySelectorAll('LineString > coordinates').forEach(el => {
+    parseCoordString(el.textContent, all);
+  });
+  // Points too (single-location entries)
+  pm.querySelectorAll('Point > coordinates').forEach(el => {
+    parseCoordString(el.textContent, all);
+  });
+  return all;
+}
+
+// ════════════════════════════════════════
+// KML PARSER
+// ════════════════════════════════════════
+function parseKMLToEntries(text, activityType) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'text/xml');
+  const placemarks = doc.querySelectorAll('Placemark');
+  const entries = [];
+  let skippedNoCoords = 0;
+  let skippedTooShort = 0;
+
+  placemarks.forEach(pm => {
+    // Name — direct child first, so we don't accidentally grab
+    // nested names inside ExtendedData. Fallback to any descendant.
+    let name = '';
+    const directNameEl = pm.querySelector(':scope > name');
+    if (directNameEl) name = directNameEl.textContent.trim();
+    if (!name) {
+      const anyNameEl = pm.querySelector('name');
+      if (anyNameEl) name = anyNameEl.textContent.trim();
+    }
+    if (!name) name = 'Unnamed Track';
+
+    // Year from ExtendedData
+    let year = null;
+    const dataEls = pm.querySelectorAll('ExtendedData Data');
+    let description = '';
+    dataEls.forEach(d => {
+      const dataName = d.getAttribute('name');
+      const val = d.querySelector('value');
+      if (dataName === 'Year' && val) {
+        year = parseInt(parseFloat(val.textContent));
+      }
+      if (dataName === 'description' && val && val.textContent.trim()) {
+        description = val.textContent.trim();
+      }
+    });
+
+    // Fallback: <description> element (direct child preferred)
+    if (!description) {
+      const descEl = pm.querySelector(':scope > description') || pm.querySelector('description');
+      if (descEl) {
+        const raw = descEl.textContent.trim();
+        const cleaned = raw.replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<[^>]+>/g, '')
+          .replace(/Year:\s*\d+\s*/gi, '')
+          .replace(/description:\s*/gi, '')
+          .trim();
+        if (cleaned) description = cleaned;
+      }
+    }
+
+    // Coords — concatenates all LineStrings + Points in the Placemark
+    const coords = extractPlacemarkCoords(pm);
+
+    if (coords.length === 0) { skippedNoCoords++; return; }
+    if (coords.length < 2) { skippedTooShort++; return; }
+
+    // Calculate distance
+    let dist = 0;
+    for (let i = 1; i < coords.length; i++) {
+      dist += haversine(coords[i-1][1], coords[i-1][0], coords[i][1], coords[i][0]);
+    }
+
+    // Build date — January 1 of the year (or current year if unknown)
+    const dateYear = year || new Date().getFullYear();
+    const date = dateYear + '-01-01T12:00:00Z';
+
+    const id = stableId(activityType, name, coords);
+
+    entries.push({
+      id: id,
+      name: name,
+      type: activityType,
+      date: date,
+      source: 'kml_import',
+      coords: coords,
+      _polyline: null,
+      distance: dist,
+      duration: 0,
+      elevation: 0,
+      avgHR: null,
+      maxHR: null,
+      calories: null,
+      avgSpeed: null,
+      startLat: coords[0][1],
+      startLng: coords[0][0],
+      note: description,
+      mood: null,
+      photos: [],
+      customColor: null,
+      stravaId: null,
+      // Preview-only metadata (stripped before sending)
+      _year: dateYear,
+      _pointCount: coords.length,
+      _yearMissing: !year
+    });
+  });
+
+  // Stash skip counts for the preview panel to display
+  window._lastParseStats = {
+    placemarks: placemarks.length,
+    parsed: entries.length,
+    skippedNoCoords: skippedNoCoords,
+    skippedTooShort: skippedTooShort
+  };
+
+  return entries;
+}
+
+// ════════════════════════════════════════
+// FILE HANDLING
+// ════════════════════════════════════════
+function handleFile(file) {
+  if (!file || !file.name.toLowerCase().endsWith('.kml')) {
+    showStatus('Please select a KML file.', 'error');
+    return;
+  }
+
+  document.getElementById('drop-hint').textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const type = document.getElementById('import-type').value;
+    parsedEntries = parseKMLToEntries(e.target.result, type);
+
+    if (parsedEntries.length === 0) {
+      showStatus('No tracks found in file.', 'error');
+      return;
+    }
+
+    renderPreview();
+  };
+  reader.readAsText(file);
+}
+
+// Small HTML escaper — KML Placemark names can contain anything
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderPreview() {
+  const type = document.getElementById('import-type').value;
+  const color = TYPE_COLORS[type] || '#92400e';
+  const body = document.getElementById('preview-body');
+  body.innerHTML = '';
+
+  const totalDist = parsedEntries.reduce((s, e) => s + e.distance, 0);
+  const missingYearCount = parsedEntries.filter(e => e._yearMissing).length;
+
+  parsedEntries.forEach((entry, i) => {
+    const distKm = (entry.distance / 1000).toFixed(1);
+    const yearDisplay = entry._yearMissing
+      ? '<span style="color:var(--red)" title="No Year in KML — defaulted to current year">' + entry._year + ' ?</span>'
+      : entry._year;
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + (i + 1) + '</td>' +
+      '<td class="name-cell"><span class="type-dot" style="background:' + color + '"></span>' + escHtml(entry.name) + '</td>' +
+      '<td>' + yearDisplay + '</td>' +
+      '<td class="note-cell" title="' + escHtml(entry.note || '') + '">' + escHtml(entry.note || '') + '</td>' +
+      '<td class="dist-cell">' + distKm + ' km</td>' +
+      '<td class="pts-cell">' + entry._pointCount + '</td>';
+    body.appendChild(tr);
+  });
+
+  // Build count line with skip stats if available
+  const stats = window._lastParseStats || {};
+  let countLine = parsedEntries.length + ' activities · ' + Math.round(totalDist / 1000).toLocaleString() + ' km total';
+  if (stats.placemarks && stats.placemarks !== stats.parsed) {
+    const skipped = stats.placemarks - stats.parsed;
+    countLine += ' · ' + skipped + ' skipped';
+    if (stats.skippedNoCoords) countLine += ' (' + stats.skippedNoCoords + ' no-coord';
+    if (stats.skippedTooShort) countLine += (stats.skippedNoCoords ? ', ' : ' (') + stats.skippedTooShort + ' <2pts';
+    if (stats.skippedNoCoords || stats.skippedTooShort) countLine += ')';
+  }
+  if (missingYearCount > 0) {
+    countLine += ' · ' + missingYearCount + ' missing year';
+  }
+
+  document.getElementById('preview-count').textContent = countLine;
+  document.getElementById('preview-section').style.display = 'block';
+  hideStatus();
+}
+
+// ════════════════════════════════════════
+// SEND TO APPS SCRIPT
+// ════════════════════════════════════════
+async function sendToAppsScript() {
+  const url = document.getElementById('apps-script-url').value.trim();
+  if (!url) {
+    showStatus('Please enter your Apps Script URL.', 'error');
+    return;
+  }
+
+  if (parsedEntries.length === 0) {
+    showStatus('No entries to send. Parse a file first.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  showStatus('Sending ' + parsedEntries.length + ' activities to Relic archive...', 'pending');
+
+  // Clean entries — remove preview-only fields AND hard-block any entry
+  // that looks remotely Strava-sourced. The server also refuses to overwrite
+  // existing IDs, but this means we don't even send colliding data.
+  const cleanEntries = parsedEntries
+    .filter(e => {
+      if (e.source === 'strava') return false;
+      if (e.stravaId) return false;
+      if (typeof e.id === 'string' && e.id.startsWith('strava_')) return false;
+      return true;
+    })
+    .map(e => {
+      const clean = { ...e };
+      delete clean._year;
+      delete clean._pointCount;
+      delete clean._yearMissing;
+      return clean;
+    });
+
+  if (cleanEntries.length === 0) {
+    showStatus('All entries were filtered out (Strava-like). Nothing to send.', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Send to Relic Archive';
+    return;
+  }
+
+  try {
+    // Real fetch (not no-cors) — Apps Script "Anyone" access deployments
+    // support CORS. Lets us read back how many were added vs skipped.
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cleanEntries)
+    });
+
+    let json = null;
+    try {
+      json = await res.json();
+    } catch(parseErr) {
+      throw new Error('Server did not return JSON — check Apps Script deployment. HTTP ' + res.status);
+    }
+
+    if (json.status === 'ok') {
+      showStatus(
+        'Done. ' + json.added + ' added, ' + json.skipped + ' already existed. ' +
+        'Total in archive: ' + json.total + '. Reload Relic to see them.',
+        'success'
+      );
+    } else {
+      showStatus('Server error: ' + (json.message || 'unknown'), 'error');
+    }
+  } catch(err) {
+    showStatus('Error: ' + err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Send to Relic Archive';
+}
+
+// ════════════════════════════════════════
+// PURGE KML IMPORTS
+// Asks Apps Script to delete every entry with source: 'kml_import'.
+// Requires the matching doPost branch on the Apps Script side.
+// Two-step confirm (native prompt → button press) to prevent accidents.
+// ════════════════════════════════════════
+async function purgeKmlImports() {
+  const url = document.getElementById('apps-script-url').value.trim();
+  if (!url) {
+    showPurgeStatus('Please enter your Apps Script URL.', 'error');
+    return;
+  }
+
+  const typed = prompt(
+    'This will PERMANENTLY delete every "kml_import" entry from Drive.\n' +
+    'Strava and single-file GPX imports are not affected.\n\n' +
+    'Type PURGE to confirm:'
+  );
+  if (typed !== 'PURGE') {
+    showPurgeStatus('Cancelled.', 'pending');
+    return;
+  }
+
+  const btn = document.getElementById('purge-btn');
+  btn.disabled = true;
+  btn.textContent = 'Purging...';
+  showPurgeStatus('Asking Apps Script to purge...', 'pending');
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'purge_source', source: 'kml_import' })
+    });
+
+    let json = null;
+    try { json = await res.json(); }
+    catch(e) { throw new Error('Server did not return JSON — check the Apps Script has been updated with the purge endpoint. HTTP ' + res.status); }
+
+    if (json.status === 'ok') {
+      showPurgeStatus(
+        'Purged ' + json.removed + ' entries. ' + json.remaining + ' remain in archive. ' +
+        'Reload Relic to see the updated state.',
+        'success'
+      );
+    } else {
+      showPurgeStatus('Server error: ' + (json.message || 'unknown'), 'error');
+    }
+  } catch(err) {
+    showPurgeStatus('Error: ' + err.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Purge KML Imports';
+}
+
+function showPurgeStatus(msg, type) {
+  const bar = document.getElementById('purge-status-bar');
+  bar.textContent = msg;
+  bar.className = 'status-bar visible ' + type;
+}
+// ════════════════════════════════════════
+function downloadJSON() {
+  if (parsedEntries.length === 0) return;
+  const cleanEntries = parsedEntries.map(e => {
+    const clean = { ...e };
+    delete clean._year;
+    delete clean._pointCount;
+    delete clean._yearMissing;
+    return clean;
+  });
+  const blob = new Blob([JSON.stringify(cleanEntries, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'relic-import-' + document.getElementById('import-type').value.toLowerCase() + '.json';
+  a.click();
+}
+
+// ════════════════════════════════════════
+// UI HELPERS
+// ════════════════════════════════════════
+function clearAll() {
+  parsedEntries = [];
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('drop-hint').textContent = '';
+  document.getElementById('file-input').value = '';
+  hideStatus();
+}
+
+function showStatus(msg, type) {
+  const bar = document.getElementById('status-bar');
+  bar.textContent = msg;
+  bar.className = 'status-bar visible ' + type;
+}
+
+function hideStatus() {
+  document.getElementById('status-bar').className = 'status-bar';
+}
+
+// ════════════════════════════════════════
+// EVENT LISTENERS
+// ════════════════════════════════════════
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('over');
+});
+
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('over');
+});
+
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+// Re-parse when type changes
+document.getElementById('import-type').addEventListener('change', () => {
+  if (parsedEntries.length > 0) {
+    // Re-parse with new type if we have a file loaded
+    const type = document.getElementById('import-type').value;
+    parsedEntries.forEach(e => { e.type = type; });
+    renderPreview();
+  }
+});
+</script>
+
+</body>
+</html>
