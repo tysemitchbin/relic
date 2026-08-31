@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Relic — Bulk Import</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --ink: #1a1814;
@@ -371,10 +372,36 @@ body {
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: var(--paper); }
 ::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* Login gate */
+#login { position: fixed; inset: 0; background: var(--ink); z-index: 9999; display: flex;
+  flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; }
+#login .wm { font-family: 'Cormorant Garamond', serif; font-size: 44px; font-weight: 300;
+  letter-spacing: 14px; text-transform: uppercase; color: var(--paper); }
+#login .tag { font-size: 8px; letter-spacing: 3px; text-transform: uppercase; color: var(--warm); }
+#login form { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 280px; margin-top: 6px; }
+#login input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: var(--paper);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 10px 12px; outline: none; text-align: center; }
+#login button { background: var(--paper); color: var(--ink); border: none; font-family: 'JetBrains Mono', monospace;
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase; padding: 11px; cursor: pointer; }
+#login-status { font-size: 9px; letter-spacing: 0.5px; color: var(--warm); min-height: 12px; text-align: center; }
+#app-body { display: none; }
+#app-body.ready { display: block; }
 </style>
 </head>
 <body>
 
+<div id="login">
+  <div class="wm">Relic</div>
+  <div class="tag">Bulk Import</div>
+  <form id="login-form">
+    <input type="email" id="login-email" placeholder="you@email.com" required>
+    <button type="submit">Send sign-in link</button>
+  </form>
+  <div id="login-status"></div>
+</div>
+
+<div id="app-body">
 <div class="header">
   <div>
     <div class="wordmark">Relic</div>
@@ -385,7 +412,7 @@ body {
 
 <div class="container">
   <div class="page-title">Bulk Import</div>
-  <div class="page-sub">Parse KML files into individual activities and write them to your Relic archive</div>
+  <div class="page-sub">Parse a KML file into individual activities and write them to your Relic archive</div>
 
   <!-- Config -->
   <div class="config-section">
@@ -404,12 +431,6 @@ body {
           <option value="BackcountrySki">Backcountry Ski</option>
           <option value="Other">Other</option>
         </select>
-      </div>
-      <div>
-        <div class="config-label">Apps Script URL</div>
-        <input class="config-input" type="text" id="apps-script-url"
-          value="https://script.google.com/macros/s/AKfycbwGzSEC65TLaqw8gI6KqZDVUdkpr9YLcYoagfv1r_J63iyRE9TWMDGzis-Sd6T0cc23fw/exec"
-          placeholder="Your Apps Script Web App URL">
       </div>
     </div>
   </div>
@@ -447,7 +468,7 @@ body {
     <div style="margin-top: 20px">
       <div class="actions">
         <button class="btn-ghost" onclick="clearAll()">Clear</button>
-        <button class="btn-primary" id="send-btn" onclick="sendToAppsScript()">Send to Relic Archive</button>
+        <button class="btn-primary" id="send-btn" onclick="sendToArchive()">Send to Relic Archive</button>
       </div>
     </div>
   </div>
@@ -458,7 +479,7 @@ body {
   <div class="danger-zone">
     <div class="danger-title">Danger Zone</div>
     <div class="danger-desc">
-      Permanently removes every entry with <code>source: "kml_import"</code> from Drive.
+      Permanently removes every activity with <code>source: "kml_import"</code> from <em>your</em> archive.
       Strava and single-file GPX imports are untouched. Use this to wipe a bad dump before re-importing.
     </div>
     <div class="actions" style="justify-content: flex-start">
@@ -467,16 +488,66 @@ body {
     <div class="status-bar" id="purge-status-bar"></div>
   </div>
 </div>
+</div><!-- /#app-body -->
 
 <script>
 // ════════════════════════════════════════
 // CONFIG
 // ════════════════════════════════════════
+const SUPABASE_URL = 'https://vacmugisahiwhvkpyxgv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_P24sdAdsfNOKzJa5L9S-UQ_8SoI9koU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+
 const TYPE_COLORS = {
   Flight: '#d97706', Drive: '#374151', Run: '#c0392b', Ride: '#2563eb',
   Hike: '#16a34a', Walk: '#7c3aed', AlpineSki: '#e11d48', NordicSki: '#0891b2',
   BackcountrySki: '#6d28d9', Other: '#92400e'
 };
+
+// polyline encoder (matches index.html)
+function encodePolyline(coords) {
+  let out = '', lat = 0, lng = 0;
+  const enc = v => { v = v < 0 ? ~(v << 1) : (v << 1); while (v >= 0x20) { out += String.fromCharCode((0x20 | (v & 0x1f)) + 63); v >>= 5; } out += String.fromCharCode(v + 63); };
+  coords.forEach(([lo, la]) => { const ila = Math.round(la * 1e5), ilo = Math.round(lo * 1e5); enc(ila - lat); lat = ila; enc(ilo - lng); lng = ilo; });
+  return out;
+}
+
+// KML entry -> activities row
+function entryToRow(e) {
+  const coords = Array.isArray(e.coords) ? e.coords : [];
+  return {
+    id: e.id, user_id: currentUser.id,
+    name: e.name || 'Untitled', type: e.type || 'Other',
+    date: e.date || null, source: 'kml_import', strava_id: null,
+    polyline: e._polyline || (coords.length >= 2 ? encodePolyline(coords) : null),
+    distance: e.distance || 0, duration: 0, elevation: 0,
+    start_lat: e.startLat ?? (coords[0] ? coords[0][1] : null),
+    start_lng: e.startLng ?? (coords[0] ? coords[0][0] : null),
+    note: e.note || '', mood: null, custom_color: null, name_edited: false,
+  };
+}
+
+// ── Auth gate ──
+document.getElementById('login-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const email = document.getElementById('login-email').value.trim();
+  const s = document.getElementById('login-status');
+  if (!email) return;
+  s.textContent = 'Sending…';
+  const { error } = await sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname } });
+  s.textContent = error ? ('Error: ' + error.message) : 'Check your email for the sign-in link.';
+});
+function showApp() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app-body').classList.add('ready');
+}
+sb.auth.onAuthStateChange((_e, session) => {
+  if (session && !currentUser) { currentUser = session.user; showApp(); }
+});
+sb.auth.getSession().then(({ data: { session } }) => {
+  if (session && !currentUser) { currentUser = session.user; showApp(); }
+});
 
 let parsedEntries = [];
 
@@ -729,15 +800,10 @@ function renderPreview() {
 }
 
 // ════════════════════════════════════════
-// SEND TO APPS SCRIPT
+// SEND TO SUPABASE
 // ════════════════════════════════════════
-async function sendToAppsScript() {
-  const url = document.getElementById('apps-script-url').value.trim();
-  if (!url) {
-    showStatus('Please enter your Apps Script URL.', 'error');
-    return;
-  }
-
+async function sendToArchive() {
+  if (!currentUser) { showStatus('Not signed in.', 'error'); return; }
   if (parsedEntries.length === 0) {
     showStatus('No entries to send. Parse a file first.', 'error');
     return;
@@ -746,60 +812,31 @@ async function sendToAppsScript() {
   const btn = document.getElementById('send-btn');
   btn.disabled = true;
   btn.textContent = 'Sending...';
-  showStatus('Sending ' + parsedEntries.length + ' activities to Relic archive...', 'pending');
+  showStatus('Writing ' + parsedEntries.length + ' activities to your archive...', 'pending');
 
-  // Clean entries — remove preview-only fields AND hard-block any entry
-  // that looks remotely Strava-sourced. The server also refuses to overwrite
-  // existing IDs, but this means we don't even send colliding data.
-  const cleanEntries = parsedEntries
-    .filter(e => {
-      if (e.source === 'strava') return false;
-      if (e.stravaId) return false;
-      if (typeof e.id === 'string' && e.id.startsWith('strava_')) return false;
-      return true;
-    })
-    .map(e => {
-      const clean = { ...e };
-      delete clean._year;
-      delete clean._pointCount;
-      delete clean._yearMissing;
-      return clean;
-    });
+  // Block anything that looks Strava-sourced
+  const rows = parsedEntries
+    .filter(e => e.source !== 'strava' && !e.stravaId && !(typeof e.id === 'string' && e.id.startsWith('strava_')))
+    .map(entryToRow);
 
-  if (cleanEntries.length === 0) {
+  if (rows.length === 0) {
     showStatus('All entries were filtered out (Strava-like). Nothing to send.', 'error');
-    btn.disabled = false;
-    btn.textContent = 'Send to Relic Archive';
+    btn.disabled = false; btn.textContent = 'Send to Relic Archive';
     return;
   }
 
   try {
-    // Real fetch (not no-cors) — Apps Script "Anyone" access deployments
-    // support CORS. Lets us read back how many were added vs skipped.
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cleanEntries)
-    });
-
-    let json = null;
-    try {
-      json = await res.json();
-    } catch(parseErr) {
-      throw new Error('Server did not return JSON — check Apps Script deployment. HTTP ' + res.status);
+    let added = 0;
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i + 200);
+      const { error } = await sb.from('activities').upsert(chunk, { onConflict: 'user_id,id' });
+      if (error) throw error;
+      added += chunk.length;
+      showStatus('Written ' + added + ' / ' + rows.length + '...', 'pending');
     }
-
-    if (json.status === 'ok') {
-      showStatus(
-        'Done. ' + json.added + ' added, ' + json.skipped + ' already existed. ' +
-        'Total in archive: ' + json.total + '. Reload Relic to see them.',
-        'success'
-      );
-    } else {
-      showStatus('Server error: ' + (json.message || 'unknown'), 'error');
-    }
-  } catch(err) {
-    showStatus('Error: ' + err.message, 'error');
+    showStatus('Done. ' + added + ' activities in your archive. Reload Relic to see them.', 'success');
+  } catch (err) {
+    showStatus('Error: ' + (err.message || err), 'error');
   }
 
   btn.disabled = false;
@@ -807,55 +844,30 @@ async function sendToAppsScript() {
 }
 
 // ════════════════════════════════════════
-// PURGE KML IMPORTS
-// Asks Apps Script to delete every entry with source: 'kml_import'.
-// Requires the matching doPost branch on the Apps Script side.
-// Two-step confirm (native prompt → button press) to prevent accidents.
+// PURGE KML IMPORTS  (this user's kml_import activities only — RLS-scoped)
 // ════════════════════════════════════════
 async function purgeKmlImports() {
-  const url = document.getElementById('apps-script-url').value.trim();
-  if (!url) {
-    showPurgeStatus('Please enter your Apps Script URL.', 'error');
-    return;
-  }
+  if (!currentUser) { showPurgeStatus('Not signed in.', 'error'); return; }
 
   const typed = prompt(
-    'This will PERMANENTLY delete every "kml_import" entry from Drive.\n' +
+    'This will PERMANENTLY delete every "kml_import" activity from YOUR archive.\n' +
     'Strava and single-file GPX imports are not affected.\n\n' +
     'Type PURGE to confirm:'
   );
-  if (typed !== 'PURGE') {
-    showPurgeStatus('Cancelled.', 'pending');
-    return;
-  }
+  if (typed !== 'PURGE') { showPurgeStatus('Cancelled.', 'pending'); return; }
 
   const btn = document.getElementById('purge-btn');
   btn.disabled = true;
   btn.textContent = 'Purging...';
-  showPurgeStatus('Asking Apps Script to purge...', 'pending');
+  showPurgeStatus('Deleting...', 'pending');
 
   try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'purge_source', source: 'kml_import' })
-    });
-
-    let json = null;
-    try { json = await res.json(); }
-    catch(e) { throw new Error('Server did not return JSON — check the Apps Script has been updated with the purge endpoint. HTTP ' + res.status); }
-
-    if (json.status === 'ok') {
-      showPurgeStatus(
-        'Purged ' + json.removed + ' entries. ' + json.remaining + ' remain in archive. ' +
-        'Reload Relic to see the updated state.',
-        'success'
-      );
-    } else {
-      showPurgeStatus('Server error: ' + (json.message || 'unknown'), 'error');
-    }
-  } catch(err) {
-    showPurgeStatus('Error: ' + err.message, 'error');
+    const { data, error } = await sb.from('activities')
+      .delete().eq('source', 'kml_import').select('id');
+    if (error) throw error;
+    showPurgeStatus('Purged ' + (data ? data.length : 0) + ' activities. Reload Relic to see the change.', 'success');
+  } catch (err) {
+    showPurgeStatus('Error: ' + (err.message || err), 'error');
   }
 
   btn.disabled = false;

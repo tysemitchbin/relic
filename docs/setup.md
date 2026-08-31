@@ -285,8 +285,11 @@ One Relic Strava API app (client id `215759`), each user OAuths through it.
 If `215759` isn't your app any more, change `STRAVA_CLIENT_ID` in `index.html`
 too (it's public — only the secret is sensitive).
 
-## Phase 7 — Retire the Apps Script write path (not started)
+## Phase 7 — Retire the Apps Script write path (done)
 
-Point `relic-bulk-import.html` at Supabase (`upsert`, and
-`delete().eq('source','kml_import')` for the purge). **Leave the Drive *read*
-endpoint deployed** — `archive/index.html` still uses it (see `archive/README.md`).
+`relic-bulk-import.html` now has a magic-link gate and writes straight to
+Supabase (`upsert` on `activities`; purge = `delete().eq('source','kml_import')`,
+RLS-scoped to the signed-in user). The Apps Script URL field is gone.
+
+**Leave the Drive *read* endpoint deployed** — `archive/index.html` still uses it
+(see `archive/README.md`). Nothing writes to Drive any more.
