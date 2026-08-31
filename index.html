@@ -448,6 +448,13 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .strava-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .strava-btn.ghost { background: transparent; color: var(--muted); border-color: var(--border); }
 .strava-btn.ghost:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+.strava-progress { margin-top: 12px; }
+.strava-progress-track { height: 3px; background: var(--border); overflow: hidden; position: relative; }
+.strava-progress-fill { position: absolute; top: 0; left: -35%; width: 35%; height: 100%; background: var(--accent); animation: strava-indet 1.15s ease-in-out infinite; }
+.strava-progress-fill.paused { animation-play-state: paused; background: var(--warm); }
+.strava-progress-fill.done { animation: none; left: 0; width: 100%; transition: width 0.4s ease; }
+@keyframes strava-indet { 0% { left: -35%; width: 35%; } 55% { left: 45%; width: 50%; } 100% { left: 100%; width: 35%; } }
+.strava-progress-label { font-size: 8px; letter-spacing: 0.5px; color: var(--muted); margin-top: 6px; }
 .profile-stat { background: var(--paper2); padding: 20px 16px; display: flex; flex-direction: column; gap: 4px; }
 .profile-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--ink); }
 .profile-stat-label { font-size: 7px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
@@ -1080,6 +1087,10 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
               <div class="strava-state" id="strava-state">Checking…</div>
             </div>
             <div class="strava-actions" id="strava-actions"></div>
+          </div>
+          <div class="strava-progress" id="strava-progress" hidden>
+            <div class="strava-progress-track"><div class="strava-progress-fill" id="strava-progress-fill"></div></div>
+            <div class="strava-progress-label" id="strava-progress-label"></div>
           </div>
         </div>
 
@@ -2358,7 +2369,18 @@ function lastSyncedLabel(ts) {
 }
 
 // Drives the resumable sync loop. `full` = force a complete re-page.
-let _syncing = false;
+let _syncing = false, _syncTotal = 0;
+function stravaProg(show, opts) {
+  const box = document.getElementById('strava-progress');
+  const fill = document.getElementById('strava-progress-fill');
+  const label = document.getElementById('strava-progress-label');
+  if (!box) return;
+  box.hidden = !show;
+  if (!show) return;
+  if (fill) { fill.classList.toggle('paused', !!(opts && opts.paused)); fill.classList.toggle('done', !!(opts && opts.done)); }
+  if (label && opts && opts.text != null) label.textContent = opts.text;
+}
+
 async function syncStrava(full) {
   if (_syncing) return;
   _syncing = true;
@@ -2366,33 +2388,43 @@ async function syncStrava(full) {
   const stateEl = document.getElementById('strava-state');
   const set = (t) => { if (stateEl) stateEl.textContent = t; };
   if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  set('Syncing with Strava…');
+  stravaProg(true, { text: 'Starting…' });
 
-  let total = 0, page = null;
+  let page = null, pausedForRetry = false;
   try {
     for (;;) {
       const res = await strava('sync', page == null ? { full: !!full } : { full: !!full, page });
-      total += res.synced || 0;
+      _syncTotal += res.synced || 0;
 
       if (res.rateLimited) {
-        set('Strava rate limit reached — ' + total + ' synced so far. Resuming automatically in ~15 min (keep this tab open) or press again later.');
-        page = res.nextPage;
+        pausedForRetry = true;
+        stravaProg(true, { paused: true, text: _syncTotal + ' imported — paused, Strava rate limit' });
+        set('Strava rate limit reached. Resuming automatically in ~15 min (keep this tab open), or press "Resume import" later.');
         const secs = (res.retryAfterSec || 900) + 5;
         setTimeout(() => { _syncing = false; syncStrava(full); }, secs * 1000);
-        return; // leave _syncing true until the timer re-enters
+        return; // _syncing / _syncTotal preserved for the retry
       }
       if (res.done) break;
       page = res.nextPage;
-      set('Importing from Strava… ' + total + ' activities so far');
+      stravaProg(true, { text: _syncTotal + ' activities imported…' });
+      set('Importing from Strava…');
     }
-    set('Synced ' + total + ' — reloading…');
+    stravaProg(true, { done: true, text: 'Done — ' + _syncTotal + ' activities' });
+    set('Synced ' + _syncTotal + ' — reloading…');
     await loadFromSupabase();
     await renderAll();
+    setTimeout(() => stravaProg(false), 2500);
   } catch (e) {
+    stravaProg(false);
     set('Sync failed: ' + (e.message || e));
   } finally {
-    _syncing = false;
-    if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
-    else renderStravaSection();
+    if (!pausedForRetry) {
+      _syncing = false;
+      _syncTotal = 0;
+      if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
+      else renderStravaSection();
+    }
   }
 }
 
