@@ -133,17 +133,22 @@ create policy "own photo files" on storage.objects
 
 -- ── STRAVA CONNECTIONS (Phase 6) ──────────────────────────
 -- Also in docs/supabase-strava.sql for running standalone on an existing project.
+-- strava_connections + the strava_upsert_activities() merge helper:
+-- full definitions in docs/supabase-strava.sql (kept there so it can be run
+-- standalone on an existing project). Run that file after this one.
 create table if not exists public.strava_connections (
-  user_id       uuid primary key references auth.users on delete cascade,
-  athlete_id    bigint,
-  access_token  text not null,
-  refresh_token text not null,
-  expires_at    bigint not null,
-  scope         text,
-  athlete       jsonb,
-  synced_at     timestamptz,
-  connected_at  timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+  user_id         uuid primary key references auth.users on delete cascade,
+  athlete_id      bigint,
+  access_token    text not null,
+  refresh_token   text not null,
+  expires_at      bigint not null,
+  scope           text,
+  athlete         jsonb,
+  synced_at       timestamptz,
+  first_sync_done boolean not null default false,
+  sync_page       integer not null default 1,
+  connected_at    timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
 );
 -- RLS on, NO policy: only the `strava` Edge Function (service role) touches this.
 alter table public.strava_connections enable row level security;

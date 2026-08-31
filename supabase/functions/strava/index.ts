@@ -9,6 +9,16 @@
 // Turn OFF "Verify JWT" (we verify in code so the CORS preflight passes).
 // Secrets to set:  STRAVA_CLIENT_ID,  STRAVA_CLIENT_SECRET
 // (SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY are injected.)
+//
+// Sync design — resumable & rate-limit aware:
+//   The client calls action:"sync" in a loop. Each call fetches up to
+//   PAGES_PER_CALL pages (100 activities each) from Strava, hands them to the
+//   `strava_upsert_activities` SQL function (which merges without clobbering the
+//   user's note/mood/colour/renamed-title), and returns { done, nextPage }.
+//   - First sync of a big account = many short calls, progress shown, resumes
+//     from `sync_page` if the tab is closed mid-way.
+//   - Later syncs pass no page and use `after=<newest>` → usually one call.
+//   - Strava 429 → returns { rateLimited, retryAfterSec }; the client backs off.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -17,6 +27,9 @@ const STRAVA_CLIENT_SECRET = Deno.env.get("STRAVA_CLIENT_SECRET")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const PER = 100;            // Strava max per_page
+const PAGES_PER_CALL = 4;   // ~400 activities per invocation — well under the timeout
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -37,20 +50,17 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) return json({ error: "missing auth" }, 401);
 
-    // Acts as the caller — RLS enforced. Also used to verify the JWT.
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
     });
     const { data: { user }, error: uErr } = await userClient.auth.getUser();
     if (uErr || !user) return json({ error: "invalid session" }, 401);
 
-    // Service-role client — the only thing that reads/writes strava_connections.
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-
     const body = await req.json().catch(() => ({}));
     const action = body.action as string;
 
-    // ── exchange: first-time connect ──────────────────────────
+    // ── exchange: first-time connect ─────────────────────────
     if (action === "exchange") {
       if (!body.code) return json({ error: "missing code" }, 400);
       const tok = await fetch("https://www.strava.com/oauth/token", {
@@ -74,12 +84,14 @@ Deno.serve(async (req) => {
         expires_at: tok.expires_at,
         scope: body.scope ?? null,
         athlete: tok.athlete ?? null,
+        first_sync_done: false,
+        sync_page: 1,
         updated_at: new Date().toISOString(),
       });
       return json({ ok: true, connected: true, athlete: tok.athlete ?? null });
     }
 
-    // ── everything else needs an existing connection ──────────
+    // ── everything else needs an existing connection ─────────
     const { data: conn } = await admin
       .from("strava_connections").select("*").eq("user_id", user.id).maybeSingle();
 
@@ -90,6 +102,7 @@ Deno.serve(async (req) => {
         athlete: conn?.athlete ?? null,
         athlete_id: conn?.athlete_id ?? null,
         synced_at: conn?.synced_at ?? null,
+        first_sync_done: !!conn?.first_sync_done,
       });
     }
 
@@ -112,56 +125,78 @@ Deno.serve(async (req) => {
           `/streams?keys=heartrate,velocity_smooth,altitude,cadence,watts,time&key_by_type=true`,
         { headers: { Authorization: `Bearer ${accessToken}` } },
       );
+      if (r.status === 429) return json({ ok: true, rateLimited: true, retryAfterSec: 900 });
       if (!r.ok) return json({ error: `stream fetch failed (${r.status})` }, 502);
       return json({ ok: true, streams: await r.json() });
     }
 
     if (action === "sync") {
-      const full = !!body.full;
+      const forceFull = !!body.full;
+      const firstSync = !conn.first_sync_done && !forceFull;
+      const incremental = !firstSync && !forceFull;
 
-      // Lean map of existing strava rows — only the fields we must not clobber
-      const { data: existingRows } = await userClient
-        .from("activities")
-        .select("id,name,name_edited,note,mood,custom_color,polyline,calories,suffer_score")
-        .like("id", "strava\\_%");
-      const existing = new Map((existingRows ?? []).map((r) => [r.id, r]));
+      // Where to start paging
+      let page = 1;
+      if (body.page) page = Math.max(1, parseInt(String(body.page)) || 1);
+      else if (firstSync) page = conn.sync_page || 1;
 
-      // Incremental: only ask Strava for activities newer than our most recent one
+      // Incremental window — only new activities since our newest one
       let afterParam = "";
-      if (!full && existingRows && existingRows.length) {
+      if (incremental) {
         const { data: latest } = await userClient
           .from("activities").select("date").eq("source", "strava")
           .order("date", { ascending: false }).limit(1);
         const newest = latest?.[0]?.date;
         if (newest) {
-          const epoch = Math.floor(new Date(newest).getTime() / 1000) - 86400; // 1-day buffer
-          afterParam = `&after=${epoch}`;
+          afterParam = `&after=${Math.floor(new Date(newest).getTime() / 1000) - 86400}`;
         }
       }
 
-      let page = 1, seen = 0;
-      const PER = 100;
-      for (;;) {
-        const list = await fetch(
+      let seen = 0, done = false, rateLimited = false;
+
+      for (let i = 0; i < PAGES_PER_CALL; i++) {
+        const resp = await fetch(
           `https://www.strava.com/api/v3/athlete/activities?per_page=${PER}&page=${page}${afterParam}`,
           { headers: { Authorization: `Bearer ${accessToken}` } },
-        ).then((r) => r.json());
-        if (!Array.isArray(list) || list.length === 0) break;
+        );
 
-        const rows = list.map((a) => stravaToRow(a, user.id, existing.get(`strava_${a.id}`)));
-        const { error } = await userClient
-          .from("activities").upsert(rows, { onConflict: "user_id,id" });
-        if (error) return json({ error: `upsert failed: ${error.message}` }, 500);
+        if (resp.status === 429) { rateLimited = true; break; }
+        if (!resp.ok) {
+          return json({ error: `strava list failed (${resp.status})`, nextPage: page }, 502);
+        }
+
+        const list = await resp.json();
+        if (!Array.isArray(list) || list.length === 0) { done = true; break; }
+
+        const rows = list.map((a: any) => stravaRow(a, user.id));
+        const { error } = await userClient.rpc("strava_upsert_activities", { p_rows: rows });
+        if (error) return json({ error: `upsert failed: ${error.message}`, nextPage: page }, 500);
 
         seen += list.length;
-        if (list.length < PER) break;
+        if (list.length < PER) { done = true; break; }
         page++;
       }
 
-      await admin.from("strava_connections")
-        .update({ synced_at: new Date().toISOString() }).eq("user_id", user.id);
+      // Persist progress
+      const patch: Record<string, unknown> = {};
+      if (firstSync) patch.sync_page = done ? 1 : page;
+      if (done) {
+        patch.synced_at = new Date().toISOString();
+        if (firstSync) patch.first_sync_done = true;
+      }
+      if (Object.keys(patch).length) {
+        await admin.from("strava_connections").update(patch).eq("user_id", user.id);
+      }
 
-      return json({ ok: true, synced: seen, mode: full ? "full" : "incremental" });
+      return json({
+        ok: true,
+        synced: seen,
+        done,
+        nextPage: done ? null : page,
+        rateLimited,
+        retryAfterSec: rateLimited ? 900 : 0,
+        phase: forceFull ? "full" : firstSync ? "first" : "incremental",
+      });
     }
 
     return json({ error: `unknown action: ${action}` }, 400);
@@ -195,36 +230,33 @@ async function ensureFreshToken(admin: ReturnType<typeof createClient>, conn: an
   return tok.access_token as string;
 }
 
-// Strava activity -> `activities` row, keeping the user's own edits intact.
-function stravaToRow(a: any, userId: string, prev: any) {
-  const e = prev ?? {};
+// Strava summary activity -> row for strava_upsert_activities().
+// Fields the summary endpoint doesn't include (calories, suffer_score,
+// elev_high/low) come back null; the SQL function coalesces those so a prior
+// detailed value survives.
+function stravaRow(a: any, userId: string) {
   return {
     id: `strava_${a.id}`,
     user_id: userId,
-    name: e.name_edited ? e.name : a.name,
-    type: a.type,
+    name: a.name ?? "Untitled",
+    type: a.type ?? "Other",
     date: a.start_date_local || a.start_date || null,
-    source: "strava",
     strava_id: a.id,
-    polyline: a.map?.summary_polyline || e.polyline || null,
+    polyline: a.map?.summary_polyline || null,
     distance: a.distance || 0,
     duration: a.moving_time || 0,
     elevation: a.total_elevation_gain || 0,
     start_lat: a.start_latlng?.[0] ?? null,
     start_lng: a.start_latlng?.[1] ?? null,
-    note: e.note ?? "",
-    mood: e.mood ?? null,
-    custom_color: e.custom_color ?? null,
-    name_edited: !!e.name_edited,
     avg_hr: a.average_heartrate ?? null,
     max_hr: a.max_heartrate ?? null,
-    calories: a.calories ?? e.calories ?? null,
+    calories: a.calories ?? null,
     avg_speed: a.average_speed ?? null,
     max_speed: a.max_speed ?? null,
     avg_cadence: a.average_cadence ?? null,
     avg_watts: a.average_watts ?? null,
     weighted_watts: a.weighted_average_watts ?? null,
-    suffer_score: a.suffer_score ?? e.suffer_score ?? null,
+    suffer_score: a.suffer_score ?? null,
     pr_count: a.pr_count ?? null,
     achievement_count: a.achievement_count ?? null,
     elev_high: a.elev_high ?? null,

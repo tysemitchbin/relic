@@ -256,12 +256,17 @@ One Relic Strava API app (client id `215759`), each user OAuths through it.
 
 **Code (already in the repo):**
 - `supabase/functions/strava/index.ts` — one Edge Function, routed by `action`:
-  `exchange` (first connect), `status`, `sync` (pull activities, keep user edits),
-  `streams` (detail-panel charts), `disconnect`. Holds the client secret.
+  `exchange` (first connect), `status`, `sync`, `streams`, `disconnect`. Holds
+  the client secret. `sync` is **resumable & paged** (≤4 Strava pages per call,
+  client loops with progress), so a first import of a multi-thousand-activity
+  account can't time out and resumes from `sync_page` if interrupted. Strava 429
+  → returns `rateLimited` and the client backs off ~15 min.
 - `strava-callback.html` — OAuth redirect target; exchanges the code, returns to `/`.
-- `docs/supabase-strava.sql` — `strava_connections` table (RLS on, no policy —
-  only the Edge Function touches it via service role).
-- `index.html` — Profile "Strava" section + `fetchStravaStreams` routed to the function.
+- `docs/supabase-strava.sql` — `strava_connections` table (RLS on, no policy)
+  **plus** `strava_upsert_activities()`, a merge helper so syncs never clobber a
+  user's note / mood / colour / renamed title.
+- `index.html` — Profile "Strava" section; load-time incremental auto-sync (only
+  once the first import is complete); `fetchStravaStreams` routed to the function.
 
 **Deploy steps:**
 1. **SQL Editor** → run `docs/supabase-strava.sql`.

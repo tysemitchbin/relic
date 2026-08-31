@@ -2332,9 +2332,13 @@ async function renderStravaSection() {
   if (_stravaConn && _stravaConn.connected) {
     const a = _stravaConn.athlete;
     const who = a ? ((a.firstname || '') + ' ' + (a.lastname || '')).trim() : ('athlete ' + (_stravaConn.athlete_id || ''));
-    stateEl.textContent = 'Connected — ' + (who || 'linked') + ' · ' + lastSyncedLabel(_stravaConn.synced_at);
+    const sub = _stravaConn.first_sync_done
+      ? lastSyncedLabel(_stravaConn.synced_at)
+      : 'first import not finished';
+    stateEl.textContent = 'Connected — ' + (who || 'linked') + ' · ' + sub;
     actionsEl.innerHTML =
-      '<button class="strava-btn" id="strava-sync-btn" onclick="syncStrava(false)">Sync now</button>' +
+      '<button class="strava-btn" id="strava-sync-btn" onclick="syncStrava(false)">'
+        + (_stravaConn.first_sync_done ? 'Sync now' : 'Resume import') + '</button>' +
       '<button class="strava-btn ghost" onclick="syncStrava(true)">Full re-sync</button>' +
       '<button class="strava-btn ghost" onclick="disconnectStrava()">Disconnect</button>';
   } else {
@@ -2353,31 +2357,55 @@ function lastSyncedLabel(ts) {
   return 'synced ' + Math.round(hrs / 24) + 'd ago';
 }
 
+// Drives the resumable sync loop. `full` = force a complete re-page.
+let _syncing = false;
 async function syncStrava(full) {
+  if (_syncing) return;
+  _syncing = true;
   const btn = document.getElementById('strava-sync-btn');
   const stateEl = document.getElementById('strava-state');
+  const set = (t) => { if (stateEl) stateEl.textContent = t; };
   if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+
+  let total = 0, page = null;
   try {
-    const res = await strava('sync', { full: !!full });
-    if (stateEl) stateEl.textContent = 'Pulled ' + (res.synced || 0) + ' activities — reloading…';
+    for (;;) {
+      const res = await strava('sync', page == null ? { full: !!full } : { full: !!full, page });
+      total += res.synced || 0;
+
+      if (res.rateLimited) {
+        set('Strava rate limit reached — ' + total + ' synced so far. Resuming automatically in ~15 min (keep this tab open) or press again later.');
+        page = res.nextPage;
+        const secs = (res.retryAfterSec || 900) + 5;
+        setTimeout(() => { _syncing = false; syncStrava(full); }, secs * 1000);
+        return; // leave _syncing true until the timer re-enters
+      }
+      if (res.done) break;
+      page = res.nextPage;
+      set('Importing from Strava… ' + total + ' activities so far');
+    }
+    set('Synced ' + total + ' — reloading…');
     await loadFromSupabase();
     await renderAll();
-    if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
   } catch (e) {
-    if (stateEl) stateEl.textContent = 'Sync failed: ' + (e.message || e);
-    if (btn) { btn.disabled = false; btn.textContent = 'Sync now'; }
+    set('Sync failed: ' + (e.message || e));
+  } finally {
+    _syncing = false;
+    if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
+    else renderStravaSection();
   }
 }
 
-// On app load: if connected and it's been a while, quietly pull new activities.
+// On app load: for an already-established connection, quietly pull new activities
+// if it's been a while. The first big import is always user-driven (button).
 async function maybeAutoSyncStrava() {
   try {
     _stravaConn = await strava('status');
-    if (!_stravaConn || !_stravaConn.connected) return;
+    if (!_stravaConn || !_stravaConn.connected || !_stravaConn.first_sync_done) return;
     const last = _stravaConn.synced_at ? new Date(_stravaConn.synced_at).getTime() : 0;
     if (Date.now() - last < 30 * 60 * 1000) return; // synced within 30 min — skip
     const res = await strava('sync', { full: false });
-    if (res && res.synced > 0) { await loadFromSupabase(); await renderAll(); }
+    if (res && res.synced > 0 && res.done) { await loadFromSupabase(); await renderAll(); }
   } catch (e) {
     console.warn('Strava auto-sync skipped:', e.message || e);
   }
