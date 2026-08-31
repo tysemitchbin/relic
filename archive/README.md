@@ -10,9 +10,10 @@ Frozen snapshot of Relic **before** the multi-user / Supabase migration
   Script web app (`APPS_SCRIPT_URL` in the file).
 - **Photos:** stored as base64 data URLs *inside* that JSON blob.
 - **Cache:** `localStorage` (`relic_db_v1`, `relic_profile_v1`, `relic_colors_v1`).
-- **Secrets:** Strava client secret + refresh token and the Mapbox token are
-  hardcoded in the HTML. These were rotated / URL-restricted during Phase 0 of
-  the migration, so the copies here are inert.
+- **Secrets:** the Mapbox token here is the current live one (kept working on
+  purpose — see below). The Strava client secret + refresh token are the old
+  ones; once the Strava app secret is rotated, the detail-panel charts in this
+  version stop working, but everything else keeps running.
 
 ## Files
 
@@ -26,9 +27,13 @@ not copied here.
 
 ## Running it
 
-Still works as long as the Apps Script deployment and its Drive file exist.
-Open `index.html` directly or serve the folder statically. Once the Apps Script
-is decommissioned (migration Phase 7) this version stops loading data.
+Served at `<site>/archive/index.html` on the same Cloudflare Pages deployment,
+or open `index.html` directly / serve the folder statically.
 
-Snapshot taken: 2026-08-30. Corresponds to the last commit before the
-`docs/` migration planning was added.
+**This version is kept functional**, not just frozen — the Google Apps Script
+read endpoint and its Drive file stay deployed for it. Migration Phase 7 only
+repoints the *bulk importer* to Supabase and stops *writing* to Drive; the Drive
+read path is left alone so this archive keeps loading its data.
+
+Snapshot taken: 2026-08-30 (last commit before the `docs/` migration planning),
+with the Mapbox token refreshed 2026-08-31.
