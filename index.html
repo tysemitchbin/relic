@@ -1507,10 +1507,11 @@ function initMap() {
     }
     setStatus('Rendering...'); await renderAll(); setProgress(100);
     setTimeout(()=>{ const el=document.getElementById('loading'); el.style.opacity='0'; setTimeout(()=>{el.style.display='none';map.resize();},700); },300);
-    // Returned from a Strava connect? land on Profile so the Sync button is visible.
+    // Returned from a Strava connect? land on Profile and pull activities once.
     if (new URLSearchParams(location.search).get('strava') === 'connected') {
       history.replaceState(null, '', location.pathname);
       switchView('profile');
+      setTimeout(syncStrava, 400);
     }
   });
   map.on('mousemove', e => {
