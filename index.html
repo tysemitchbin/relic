@@ -1347,7 +1347,7 @@ async function loadFromSupabase() {
     selectAllRows('activities'),
     selectAllRows('stories'),
     selectAllRows('activity_photos', 'sort_order'),
-    sb.from('profiles').select('*').eq('id', currentUser.id).maybeSingle(),
+    sb.from('profiles').select('*').eq('id', currentUser.id).limit(1),
   ]);
 
   // sign photo URLs (batched, 1000 per call)
@@ -1373,7 +1373,7 @@ async function loadFromSupabase() {
   });
   stories.forEach(r => { db[r.id] = rowToStory(r); });
 
-  const p = profRes.data;
+  const p = (profRes.data && profRes.data[0]) || null;
   _profile = { name: p?.name || '', bio: p?.bio || '', avatarPath: p?.avatar_path || null, photo: null };
   if (_profile.avatarPath) {
     const { data: u } = await sb.storage.from('photos').createSignedUrl(_profile.avatarPath, SIGNED_URL_TTL);
