@@ -141,6 +141,7 @@ create table if not exists public.strava_connections (
   expires_at    bigint not null,
   scope         text,
   athlete       jsonb,
+  synced_at     timestamptz,
   connected_at  timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );

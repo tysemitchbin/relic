@@ -1511,7 +1511,9 @@ function initMap() {
     if (new URLSearchParams(location.search).get('strava') === 'connected') {
       history.replaceState(null, '', location.pathname);
       switchView('profile');
-      setTimeout(syncStrava, 400);
+      setTimeout(() => syncStrava(false), 400);
+    } else {
+      maybeAutoSyncStrava();
     }
   });
   map.on('mousemove', e => {
@@ -2330,9 +2332,10 @@ async function renderStravaSection() {
   if (_stravaConn && _stravaConn.connected) {
     const a = _stravaConn.athlete;
     const who = a ? ((a.firstname || '') + ' ' + (a.lastname || '')).trim() : ('athlete ' + (_stravaConn.athlete_id || ''));
-    stateEl.textContent = 'Connected — ' + (who || 'linked');
+    stateEl.textContent = 'Connected — ' + (who || 'linked') + ' · ' + lastSyncedLabel(_stravaConn.synced_at);
     actionsEl.innerHTML =
-      '<button class="strava-btn" id="strava-sync-btn" onclick="syncStrava()">Sync activities</button>' +
+      '<button class="strava-btn" id="strava-sync-btn" onclick="syncStrava(false)">Sync now</button>' +
+      '<button class="strava-btn ghost" onclick="syncStrava(true)">Full re-sync</button>' +
       '<button class="strava-btn ghost" onclick="disconnectStrava()">Disconnect</button>';
   } else {
     stateEl.textContent = 'Not connected';
@@ -2340,19 +2343,43 @@ async function renderStravaSection() {
   }
 }
 
-async function syncStrava() {
+function lastSyncedLabel(ts) {
+  if (!ts) return 'never synced';
+  const mins = Math.round((Date.now() - new Date(ts).getTime()) / 60000);
+  if (mins < 1) return 'synced just now';
+  if (mins < 60) return 'synced ' + mins + 'm ago';
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return 'synced ' + hrs + 'h ago';
+  return 'synced ' + Math.round(hrs / 24) + 'd ago';
+}
+
+async function syncStrava(full) {
   const btn = document.getElementById('strava-sync-btn');
   const stateEl = document.getElementById('strava-state');
   if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
   try {
-    const res = await strava('sync');
-    if (stateEl) stateEl.textContent = 'Synced ' + (res.synced || 0) + ' activities — reloading…';
+    const res = await strava('sync', { full: !!full });
+    if (stateEl) stateEl.textContent = 'Pulled ' + (res.synced || 0) + ' activities — reloading…';
     await loadFromSupabase();
     await renderAll();
     if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
   } catch (e) {
     if (stateEl) stateEl.textContent = 'Sync failed: ' + (e.message || e);
-    if (btn) { btn.disabled = false; btn.textContent = 'Sync activities'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Sync now'; }
+  }
+}
+
+// On app load: if connected and it's been a while, quietly pull new activities.
+async function maybeAutoSyncStrava() {
+  try {
+    _stravaConn = await strava('status');
+    if (!_stravaConn || !_stravaConn.connected) return;
+    const last = _stravaConn.synced_at ? new Date(_stravaConn.synced_at).getTime() : 0;
+    if (Date.now() - last < 30 * 60 * 1000) return; // synced within 30 min — skip
+    const res = await strava('sync', { full: false });
+    if (res && res.synced > 0) { await loadFromSupabase(); await renderAll(); }
+  } catch (e) {
+    console.warn('Strava auto-sync skipped:', e.message || e);
   }
 }
 
@@ -3269,7 +3296,7 @@ _r('drawFeedStoryMap',drawFeedStoryMap);
 _r('getStravaToken',getStravaToken);_r('fetchStravaStreams',fetchStravaStreams);
 _r('loadAndRenderCharts',loadAndRenderCharts);_r('drawStreamChart',drawStreamChart);
 _r('connectStrava',connectStrava);_r('syncStrava',syncStrava);_r('disconnectStrava',disconnectStrava);
-_r('renderStravaSection',renderStravaSection);
+_r('renderStravaSection',renderStravaSection);_r('maybeAutoSyncStrava',maybeAutoSyncStrava);
 
 // ════════════════════════════════════════
 // AUTH GATE + BOOT

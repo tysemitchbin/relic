@@ -89,6 +89,7 @@ Deno.serve(async (req) => {
         connected: !!conn,
         athlete: conn?.athlete ?? null,
         athlete_id: conn?.athlete_id ?? null,
+        synced_at: conn?.synced_at ?? null,
       });
     }
 
@@ -116,16 +117,33 @@ Deno.serve(async (req) => {
     }
 
     if (action === "sync") {
-      // Preserve user edits: pull existing strava_* rows first
+      const full = !!body.full;
+
+      // Lean map of existing strava rows — only the fields we must not clobber
       const { data: existingRows } = await userClient
-        .from("activities").select("*").like("id", "strava\\_%");
+        .from("activities")
+        .select("id,name,name_edited,note,mood,custom_color,polyline,calories,suffer_score")
+        .like("id", "strava\\_%");
       const existing = new Map((existingRows ?? []).map((r) => [r.id, r]));
+
+      // Incremental: only ask Strava for activities newer than our most recent one
+      let afterParam = "";
+      if (!full && existingRows && existingRows.length) {
+        const { data: latest } = await userClient
+          .from("activities").select("date").eq("source", "strava")
+          .order("date", { ascending: false }).limit(1);
+        const newest = latest?.[0]?.date;
+        if (newest) {
+          const epoch = Math.floor(new Date(newest).getTime() / 1000) - 86400; // 1-day buffer
+          afterParam = `&after=${epoch}`;
+        }
+      }
 
       let page = 1, seen = 0;
       const PER = 100;
       for (;;) {
         const list = await fetch(
-          `https://www.strava.com/api/v3/athlete/activities?per_page=${PER}&page=${page}`,
+          `https://www.strava.com/api/v3/athlete/activities?per_page=${PER}&page=${page}${afterParam}`,
           { headers: { Authorization: `Bearer ${accessToken}` } },
         ).then((r) => r.json());
         if (!Array.isArray(list) || list.length === 0) break;
@@ -139,7 +157,11 @@ Deno.serve(async (req) => {
         if (list.length < PER) break;
         page++;
       }
-      return json({ ok: true, synced: seen });
+
+      await admin.from("strava_connections")
+        .update({ synced_at: new Date().toISOString() }).eq("user_id", user.id);
+
+      return json({ ok: true, synced: seen, mode: full ? "full" : "incremental" });
     }
 
     return json({ error: `unknown action: ${action}` }, 400);
