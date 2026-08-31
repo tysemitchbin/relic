@@ -249,23 +249,39 @@ at all — localStorage only).
 Drive JSON (`?action=data`), writes every activity/story via `supabase-js`,
 decodes + uploads every embedded base64 photo. Run once, then delete the tool.
 
-## Phase 6 — Strava streams Edge Function (not started)
+## Phase 6 — Strava "Connect" (per-user)
 
-Detail-panel charts currently call Strava with the hardcoded secret. Move to an
-Edge Function holding the rotated secret. v1: shared refresh token as a function
-secret (preserves current behaviour). v2: per-user Strava OAuth connect flow +
-`strava_connections` table.
+Any signed-in user links their own Strava from **Profile → Strava → Connect**.
+One Relic Strava API app (client id `215759`), each user OAuths through it.
 
-## Phase 7 — Retire the Apps Script (not started)
+**Code (already in the repo):**
+- `supabase/functions/strava/index.ts` — one Edge Function, routed by `action`:
+  `exchange` (first connect), `status`, `sync` (pull activities, keep user edits),
+  `streams` (detail-panel charts), `disconnect`. Holds the client secret.
+- `strava-callback.html` — OAuth redirect target; exchanges the code, returns to `/`.
+- `docs/supabase-strava.sql` — `strava_connections` table (RLS on, no policy —
+  only the Edge Function touches it via service role).
+- `index.html` — Profile "Strava" section + `fetchStravaStreams` routed to the function.
+
+**Deploy steps:**
+1. **SQL Editor** → run `docs/supabase-strava.sql`.
+2. **Strava** → <https://www.strava.com/settings/api> → set **Authorization
+   Callback Domain** to `relic-bju.pages.dev`. Note the **Client ID** and
+   **Client Secret** (rotate the secret here if it was ever exposed).
+3. **Supabase → Edge Functions → Deploy a new function** → name `strava` →
+   paste `supabase/functions/strava/index.ts` → **turn OFF "Verify JWT"**
+   (the function verifies the caller itself; this lets the CORS preflight through).
+4. **Edge Functions → `strava` → Secrets** → add:
+   - `STRAVA_CLIENT_ID` = your client id (e.g. `215759`)
+   - `STRAVA_CLIENT_SECRET` = your client secret
+   (`SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
+5. Deploy `main`, open Relic → Profile → **Connect Strava**.
+
+If `215759` isn't your app any more, change `STRAVA_CLIENT_ID` in `index.html`
+too (it's public — only the secret is sensitive).
+
+## Phase 7 — Retire the Apps Script write path (not started)
 
 Point `relic-bulk-import.html` at Supabase (`upsert`, and
-`delete().eq('source','kml_import')` for the purge). Decommission the Drive backend.
-
----
-
-## Open questions
-
-- How do activities currently get into the Drive JSON? (separate script / manual /
-  does the Apps Script pull Strava?) — determines whether Phase 6 needs a full
-  per-user OAuth flow.
-- Keep or delete `strava-map.html`?
+`delete().eq('source','kml_import')` for the purge). **Leave the Drive *read*
+endpoint deployed** — `archive/index.html` still uses it (see `archive/README.md`).

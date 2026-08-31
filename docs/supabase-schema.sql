@@ -130,3 +130,19 @@ create policy "own photo files" on storage.objects
   for all
   using   (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ── STRAVA CONNECTIONS (Phase 6) ──────────────────────────
+-- Also in docs/supabase-strava.sql for running standalone on an existing project.
+create table if not exists public.strava_connections (
+  user_id       uuid primary key references auth.users on delete cascade,
+  athlete_id    bigint,
+  access_token  text not null,
+  refresh_token text not null,
+  expires_at    bigint not null,
+  scope         text,
+  athlete       jsonb,
+  connected_at  timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+-- RLS on, NO policy: only the `strava` Edge Function (service role) touches this.
+alter table public.strava_connections enable row level security;

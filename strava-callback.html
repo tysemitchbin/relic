@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relic — Connecting Strava</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;500&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --ink:#1a1814; --paper:#f5f0e8; --warm:#c8b89a; --muted:#8a8278; --accent:#8b4513; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'JetBrains Mono',monospace; background:var(--ink); color:var(--paper);
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:18px; padding:24px; text-align:center;
+  }
+  .wm { font-family:'Cormorant Garamond',serif; font-size:44px; font-weight:300;
+    letter-spacing:16px; text-transform:uppercase; }
+  .msg { font-size:11px; letter-spacing:1px; color:var(--warm); line-height:1.7; max-width:340px; }
+  .msg.err { color:#e8a; }
+  a { color:var(--paper); font-size:10px; letter-spacing:2px; text-transform:uppercase;
+    border:1px solid var(--warm); padding:9px 16px; text-decoration:none; margin-top:6px; }
+  a:hover { background:var(--warm); color:var(--ink); }
+</style>
+</head>
+<body>
+  <div class="wm">Relic</div>
+  <div class="msg" id="msg">Connecting your Strava account…</div>
+  <a id="back" href="/" hidden>Back to Relic</a>
+
+<script>
+const SUPABASE_URL = 'https://vacmugisahiwhvkpyxgv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_P24sdAdsfNOKzJa5L9S-UQ_8SoI9koU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const msg = document.getElementById('msg');
+const back = document.getElementById('back');
+const fail = (t) => { msg.textContent = t; msg.classList.add('err'); back.hidden = false; };
+
+(async () => {
+  const p = new URLSearchParams(location.search);
+  if (p.get('error')) return fail('Strava authorisation was declined.');
+  const code = p.get('code');
+  const scope = p.get('scope') || '';
+  if (!code) return fail('No authorisation code from Strava.');
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return fail('Your Relic session expired. Sign in again, then reconnect Strava from Profile.');
+
+  const { data, error } = await sb.functions.invoke('strava', {
+    body: { action: 'exchange', code, scope },
+  });
+  if (error || !data?.ok) {
+    return fail('Could not connect: ' + (data?.error || error?.message || 'unknown error'));
+  }
+
+  msg.textContent = 'Connected. Taking you back…';
+  location.replace('/?strava=connected');
+})();
+</script>
+</body>
+</html>
