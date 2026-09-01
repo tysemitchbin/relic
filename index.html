@@ -865,16 +865,26 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   .sb-sort-btn, .pg-sort-btn, .sm-filter-btn { min-height: 32px; }
   .tp-tab { min-height: 40px; }
 
-  /* Map tools — larger touch targets, sits above the tab bar (inside #main) */
+  /* Map tools — larger touch targets */
   #map-tools { bottom: 16px; right: calc(10px + var(--safe-r)); }
   .mt-btn { width: 42px; height: 42px; font-size: 15px; -webkit-tap-highlight-color: transparent; }
-  /* Drop the pinch-redundant zoom buttons so the toolbar is short enough for the
-     filters panel to open above it without clipping under the header. */
-  .mt-btn[onclick*="zoomIn"], .mt-btn[onclick*="zoomOut"] { display: none; }
-  /* ONE scroll container for the filters/colors panel (was double-nested with
-     .tp-pane, which left the last activity type unreachable). */
-  #tools-panel { width: min(260px, 86vw); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-  #tools-panel.open { max-height: 52vh; }
+  .mt-btn[onclick*="zoomIn"], .mt-btn[onclick*="zoomOut"] { display: none; } /* pinch instead */
+
+  /* Filters/colors panel: pin it between the header and the tab bar (top+bottom
+     both set → its height can't run under the header), single scroll container.
+     Opens instantly rather than animating max-height, which can't tween to a
+     top/bottom-derived height. The ⚙ toggle stays in the bottom-right toolbar,
+     clear of the top-right panel. */
+  #tools-panel {
+    position: fixed; z-index: 150;
+    top: calc(48px + var(--safe-t) + 8px);
+    bottom: calc(var(--tabbar-h) + var(--safe-b) + 8px);
+    right: calc(60px + var(--safe-r));               /* clear of the toolbar column */
+    width: min(240px, calc(100vw - 76px));
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+    transition: none;
+  }
+  #tools-panel.open { max-height: none; }
   .tp-pane { max-height: none; }
   .tp-type-row { padding: 8px 8px; min-height: 40px; }
   .tp-color-row { padding: 8px 4px; }
