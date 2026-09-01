@@ -44,6 +44,24 @@ Gamified, rewarding moments — make opening the app feel good.
 - **Easier to click tracks** — widen the hit target on the tracks layer (invisible
   fat line under the visible one, or a click-nearest-track fallback) so you don't
   have to land exactly on a 2px line.
+- **Quick fly-in on activity click** — a snappy camera move when a track is
+  selected (short duration, ease into a tight fit-bounds), so selecting feels
+  responsive rather than a slow pan.
+
+## Social / sharing
+
+- **Trips are the shareable unit, not tracks** — a raw activity isn't a "post".
+  The thing you share / that shows in a feed is a Trip (a grouped set of
+  activities — same idea as Stories). Reframe the feed and sharing around trips.
+- **Co-owned tracks** — if two people did an activity together, both can claim
+  it; it appears in both archives and links the two accounts on that track.
+- **Shareable recap cards** — generate a polished image card (à la Strava /
+  Spotify Wrapped) for a trip, a year, or a milestone, sized for sharing.
+
+## AI
+
+- **AI-suggested stories** — cluster moments into proposed Stories automatically
+  and name them ("Dog walks this week", "Norway road trip"), one tap to accept.
 
 ## Investigate
 
