@@ -350,6 +350,8 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .fc-type-badge { font-size: 7px; padding: 2px 8px; letter-spacing: 1px; text-transform: uppercase; color: white; flex-shrink: 0; }
 .fc-map { width: 100%; height: 160px; background: var(--paper2); overflow: hidden; position: relative; }
 .fc-map canvas { width: 100%; height: 100%; }
+/* Mapbox static-tile image layered over the canvas track fallback */
+.static-map { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .fc-name { font-family: 'Cormorant Garamond', serif; font-size: 18px; font-weight: 500; color: var(--ink); padding: 12px 16px 4px; line-height: 1.3; }
 .fc-stats { display: flex; gap: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .fc-stat { flex: 1; padding: 10px 16px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 1px; }
@@ -2196,7 +2198,7 @@ function renderFeedMomentCard(container, mem, profile) {
   '</div>';
 
   if(coords&&coords.length>=2) {
-    html += '<div class="fc-map"><canvas id="fc-map-' + mem.id + '" width="620" height="160"></canvas></div>';
+    html += '<div class="fc-map"><canvas id="fc-map-' + mem.id + '" width="620" height="160"></canvas>' + staticMapImg(mem, color, 620, 160) + '</div>';
   }
 
   html += '<div class="fc-name">' + mem.name + '</div>';
@@ -2319,6 +2321,24 @@ function drawFeedStoryMap(story) {
     ctx.stroke();
   });
   ctx.globalAlpha = 1;
+}
+
+// Mapbox Static Images API — real map tiles behind the mini track (Strava-style).
+// Returns an <img> that layers over the canvas fallback; '' if no polyline / URL too long.
+function staticMapImg(mem, color, w, h, extraClass) {
+  let poly = mem._polyline;
+  if (!poly) {
+    const c = getCoords(mem);
+    if (!c || c.length < 2) return '';
+    try { poly = encodePolyline(c); } catch (e) { return ''; }
+  }
+  if (!poly) return '';
+  const stroke = (color || '#c0392b').replace('#', '');
+  const path = `path-4+${stroke}-0.9(${encodeURIComponent(poly)})`;
+  const url = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${path}/auto/${w}x${h}@2x`
+    + `?access_token=${encodeURIComponent(mapboxgl.accessToken)}&padding=18&logo=false&attribution=false`;
+  if (url.length > 8000) return ''; // Mapbox static URL cap — keep the canvas fallback
+  return `<img class="static-map ${extraClass || ''}" loading="lazy" decoding="async" alt="" src="${url}" onerror="this.remove()">`;
 }
 
 function drawFeedMap(memId, coords, color) {
@@ -2876,7 +2896,7 @@ function renderProfileHoneycomb() {
     } else {
       const coords = getCoords(mem);
       cell.innerHTML=`<div class="hex-bg" style="background:${color}20">
-        ${coords?`<canvas class="hex-map" id="phex-${mem.id}" width="160" height="184"></canvas>`:''}
+        ${coords?`<canvas class="hex-map" id="phex-${mem.id}" width="160" height="184"></canvas>${staticMapImg(mem,color,300,345)}`:''}
         <div style="position:absolute;inset:0;background:linear-gradient(135deg,${color}40,${color}15)"></div></div>
         <div class="hex-overlay"><div class="hex-name">${mem.name}</div><div class="hex-meta">${date}${dist?' · '+dist:''}</div></div>
         ${mood?`<div class="hex-mood">${mood.emoji}</div>`:''}`;
