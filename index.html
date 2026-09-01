@@ -780,16 +780,15 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   .wordmark-sub, .header-stats, .header-nav { display: none; }
   .hamburger, #mobile-menu { display: none !important; }
 
-  /* Main fills the space between header and tab bar */
-  #main {
-    position: fixed; top: 48px; left: 0; right: 0;
-    bottom: calc(var(--tabbar-h) + var(--safe-b));
-    overflow: hidden;
-  }
+  /* Header, main and tab bar are all normal flex children of #app (which is
+     100dvh). No position:fixed for layout — that fought iOS Safari's dynamic
+     toolbar and left the header hidden and a black band under the tab bar. */
+  #header { flex-shrink: 0; }
+  #main { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
-  /* Bottom tab bar */
+  /* Bottom tab bar — in flow at the bottom of the column */
   #mobile-tabbar {
-    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 450;
+    display: flex; flex-shrink: 0; z-index: 450;
     background: var(--paper); border-top: 1px solid var(--border);
     padding-bottom: var(--safe-b);
     box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
