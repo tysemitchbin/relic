@@ -2243,7 +2243,7 @@ function renderFeedStoryCard(container, story, profile) {
   '</div>';
 
   // Multi-track map
-  html += '<div class="fc-map"><canvas id="fc-smap-' + story.id + '" width="620" height="160"></canvas></div>';
+  html += '<div class="fc-map"><canvas id="fc-smap-' + story.id + '" width="620" height="160"></canvas>' + staticStoryMapImg(story, 620, 160) + '</div>';
 
   html += '<div class="fc-name">' + (story.title || 'Untitled Story') + '</div>';
 
@@ -2324,21 +2324,43 @@ function drawFeedStoryMap(story) {
 }
 
 // Mapbox Static Images API — real map tiles behind the mini track (Strava-style).
-// Returns an <img> that layers over the canvas fallback; '' if no polyline / URL too long.
-function staticMapImg(mem, color, w, h, extraClass) {
-  let poly = mem._polyline;
-  if (!poly) {
-    const c = getCoords(mem);
-    if (!c || c.length < 2) return '';
-    try { poly = encodePolyline(c); } catch (e) { return ''; }
-  }
-  if (!poly) return '';
-  const stroke = (color || '#c0392b').replace('#', '');
-  const path = `path-4+${stroke}-0.9(${encodeURIComponent(poly)})`;
-  const url = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${path}/auto/${w}x${h}@2x`
+// Returns an <img> that layers over the canvas fallback; '' if no track / URL too long.
+function encodedPolyOf(m) {
+  if (m._polyline) return m._polyline;
+  const c = getCoords(m);
+  if (!c || c.length < 2) return null;
+  try { return encodePolyline(c); } catch (e) { return null; }
+}
+function mapboxStaticImg(overlays, w, h) {
+  if (!overlays.length) return '';
+  const url = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${overlays.join(',')}/auto/${w}x${h}@2x`
     + `?access_token=${encodeURIComponent(mapboxgl.accessToken)}&padding=18&logo=false&attribution=false`;
   if (url.length > 8000) return ''; // Mapbox static URL cap — keep the canvas fallback
-  return `<img class="static-map ${extraClass || ''}" loading="lazy" decoding="async" alt="" src="${url}" onerror="this.remove()">`;
+  return `<img class="static-map" loading="lazy" decoding="async" alt="" src="${url}" onerror="this.remove()">`;
+}
+function staticMapImg(mem, color, w, h) {
+  const poly = encodedPolyOf(mem);
+  if (!poly) return '';
+  const stroke = (color || '#c0392b').replace('#', '');
+  return mapboxStaticImg([`path-4+${stroke}-0.9(${encodeURIComponent(poly)})`], w, h);
+}
+// Story = one map with every child moment's track, coloured per type. Adds tracks
+// until the URL budget runs out, so a big story still gets most of its tracks.
+function staticStoryMapImg(story, w, h) {
+  const overlays = [];
+  let budget = 7400;
+  (story.momentIds || []).forEach(id => {
+    const m = db[id];
+    if (!m || isStory(m)) return;
+    const poly = encodedPolyOf(m);
+    if (!poly) return;
+    const stroke = (m.customColor || getColor(m.type) || '#c0392b').replace('#', '');
+    const seg = `path-3+${stroke}-0.9(${encodeURIComponent(poly)})`;
+    if (seg.length + 1 > budget) return;
+    overlays.push(seg);
+    budget -= seg.length + 1;
+  });
+  return mapboxStaticImg(overlays, w, h);
 }
 
 function drawFeedMap(memId, coords, color) {
@@ -2724,7 +2746,7 @@ function renderProfileStories() {
     const card = document.createElement('div');
     card.className = 'story-card';
 
-    let mapHtml = '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>';
+    let mapHtml = '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>' + staticStoryMapImg(story, 440, 200);
     mapHtml += '<div class="story-card-badge">' + (story._momentCount || 0) + ' moments</div></div>';
 
     card.innerHTML = mapHtml +
