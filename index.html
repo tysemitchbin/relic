@@ -457,7 +457,9 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .strava-progress-label { font-size: 8px; letter-spacing: 0.5px; color: var(--muted); margin-top: 6px; }
 
 #empty-state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 60; pointer-events: none; }
-#empty-state .empty-inner { pointer-events: auto; background: var(--paper); border: 1px solid var(--border); padding: 30px 34px; text-align: center; max-width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+#empty-state .empty-inner { position: relative; pointer-events: auto; background: var(--paper); border: 1px solid var(--border); padding: 30px 34px; text-align: center; max-width: 320px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+.empty-close { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 18px; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px; }
+.empty-close:hover { color: var(--ink); }
 .empty-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; color: var(--ink); margin-bottom: 6px; }
 .empty-sub { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 18px; }
 .empty-actions { display: flex; flex-direction: column; gap: 8px; }
@@ -980,6 +982,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <!-- Empty state (no activities yet) -->
       <div id="empty-state" hidden>
         <div class="empty-inner">
+          <button class="empty-close" onclick="dismissEmptyState()" title="Dismiss">&times;</button>
           <div class="empty-title">Your archive is empty</div>
           <div class="empty-sub">Bring your history in to get started.</div>
           <div class="empty-actions">
@@ -1573,9 +1576,18 @@ async function renderAll() {
   updateEmptyState();
 }
 
+let _emptyDismissed = false;
+function dismissEmptyState() {
+  _emptyDismissed = true;
+  const el = document.getElementById('empty-state');
+  if (el) el.hidden = true;
+}
 function updateEmptyState() {
   const el = document.getElementById('empty-state');
-  if (el) el.hidden = !(allMemories.length === 0 && allStories.length === 0);
+  if (!el) return;
+  const empty = allMemories.length === 0 && allStories.length === 0;
+  if (!empty) _emptyDismissed = false; // reset so it can guide again if they clear everything
+  el.hidden = !(empty && !_emptyDismissed);
 }
 
 function buildTracksGeoJSON(memories) {
@@ -3393,7 +3405,7 @@ _r('getStravaToken',getStravaToken);_r('fetchStravaStreams',fetchStravaStreams);
 _r('loadAndRenderCharts',loadAndRenderCharts);_r('drawStreamChart',drawStreamChart);
 _r('connectStrava',connectStrava);_r('syncStrava',syncStrava);_r('disconnectStrava',disconnectStrava);
 _r('renderStravaSection',renderStravaSection);_r('maybeAutoSyncStrava',maybeAutoSyncStrava);
-_r('updateEmptyState',updateEmptyState);
+_r('updateEmptyState',updateEmptyState);_r('dismissEmptyState',dismissEmptyState);
 
 // ════════════════════════════════════════
 // AUTH GATE + BOOT
