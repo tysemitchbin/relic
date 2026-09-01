@@ -464,9 +464,14 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 @keyframes strava-indet { 0% { left: -35%; width: 35%; } 55% { left: 45%; width: 50%; } 100% { left: 100%; width: 35%; } }
 .strava-progress-label { font-size: 8px; letter-spacing: 0.5px; color: var(--muted); margin-top: 6px; }
 
-#empty-state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 60; pointer-events: none; }
-#empty-state .empty-inner { position: relative; pointer-events: auto; background: var(--paper); border: 1px solid var(--border); padding: 30px 34px; text-align: center; max-width: min(320px, calc(100vw - 40px)); box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
-.empty-close { position: absolute; top: 8px; right: 10px; background: none; border: none; font-size: 18px; line-height: 1; color: var(--muted); cursor: pointer; padding: 4px; }
+/* Shown only when the archive is empty. [hidden] is toggled from JS and MUST beat the
+   display rule below (a plain #empty-state{display:flex} would keep the card on screen
+   forever). No pointer-events:none here — a pointer-events:auto child inside a
+   pointer-events:none parent loses taps in iOS Safari, which broke the ✕ / buttons. */
+#empty-state { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
+#empty-state[hidden] { display: none; }
+#empty-state .empty-inner { position: relative; background: var(--paper); border: 1px solid var(--border); padding: 34px 34px 30px; text-align: center; max-width: min(320px, calc(100vw - 40px)); box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+.empty-close { position: absolute; top: 0; right: 0; width: 40px; height: 40px; background: none; border: none; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
 .empty-close:hover { color: var(--ink); }
 .empty-title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 500; color: var(--ink); margin-bottom: 6px; }
 .empty-sub { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 18px; }
@@ -811,7 +816,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
   }
   #sidebar:not(.collapsed) { transform: translateX(0); }
-  #sidebar.collapsed { transform: translateX(-100vw); }
+  #sidebar.collapsed { transform: translateX(-100vw); pointer-events: none; }
   .sidebar-toggle { display: none; }
 
   #sidebar .sb-header, #activity-list { padding-left: max(16px, var(--safe-l)); padding-right: max(16px, var(--safe-r)); }
@@ -842,7 +847,8 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     transform: translateX(100vw);
     transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
   }
-  #detail-panel.open { transform: translateX(0); }
+  #detail-panel { pointer-events: none; }
+  #detail-panel.open { transform: translateX(0); pointer-events: auto; }
   .detail-header { padding-top: calc(18px + var(--safe-t)); }
   .detail-close { top: calc(14px + var(--safe-t)); }
   .detail-close {
