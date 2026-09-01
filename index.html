@@ -329,8 +329,8 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 /* Lightbox */
 #lightbox { display: none; position: fixed; inset: 0; background: rgba(26,24,20,0.95); z-index: 9998; align-items: center; justify-content: center; }
 #lightbox.open { display: flex; }
-#lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; }
-#lightbox-close { position: absolute; top: 20px; right: 24px; background: none; border: none; color: var(--paper); font-size: 24px; cursor: pointer; }
+#lightbox img { max-width: 92vw; max-height: 88vh; max-height: 88dvh; object-fit: contain; }
+#lightbox-close { position: absolute; top: calc(12px + var(--safe-t)); right: calc(12px + var(--safe-r)); width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: var(--paper); font-size: 26px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #lightbox-caption { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); font-size: 9px; color: var(--warm); letter-spacing: 1px; text-align: center; }
 
 /* ── FEED VIEW (Strava style) ── */
@@ -645,10 +645,13 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .sm-status { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; }
 
 @media (max-width: 768px) {
-  .story-modal { width: 95vw; }
-  .story-modal-body { flex-direction: column; }
-  .story-modal-left { width: 100%; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--border); }
-  .story-modal-right { max-height: 40vh; }
+  /* Stack the two panes and make the body ONE scroll container: the moment list
+     keeps its own bounded scroll, the builder just flows below it. */
+  .story-modal-body { flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .story-modal-left { width: 100%; max-height: 48vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .story-modal-right { flex: none; overflow: visible; }
+  .sm-selected-list { max-height: none; }
+  .sm-builder { padding-bottom: 24px; }
 }
 
 /* ── PROFILE STORY CARDS ── */
@@ -866,8 +869,14 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   /* Map tools — larger touch targets, sits above the tab bar (inside #main) */
   #map-tools { bottom: 16px; right: calc(10px + var(--safe-r)); }
   .mt-btn { width: 42px; height: 42px; font-size: 15px; -webkit-tap-highlight-color: transparent; }
-  #tools-panel { width: min(260px, 86vw); overflow-y: auto; }
-  #tools-panel.open { max-height: 42vh; }
+  /* Drop the pinch-redundant zoom buttons so the toolbar is short enough for the
+     filters panel to open above it without clipping under the header. */
+  .mt-btn[onclick*="zoomIn"], .mt-btn[onclick*="zoomOut"] { display: none; }
+  /* ONE scroll container for the filters/colors panel (was double-nested with
+     .tp-pane, which left the last activity type unreachable). */
+  #tools-panel { width: min(260px, 86vw); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  #tools-panel.open { max-height: 52vh; }
+  .tp-pane { max-height: none; }
   .tp-type-row { padding: 8px 8px; min-height: 40px; }
   .tp-color-row { padding: 8px 4px; }
   .coord-bar { display: none; }
@@ -914,12 +923,12 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   /* Import / Story modals — full screen sheets */
   .modal-overlay { align-items: stretch; justify-content: stretch; }
   .modal {
-    width: 100vw; max-width: none; height: 100dvh; max-height: none;
+    width: 100vw; max-width: none; height: 100vh; height: 100dvh; max-height: none;
     padding: calc(20px + var(--safe-t)) 16px calc(16px + var(--safe-b));
     border: none;
   }
   .modal-title { font-size: 18px; }
-  .story-modal { width: 100vw; padding: 0; height: 100dvh; }
+  .story-modal { width: 100vw; padding: 0; height: 100vh; height: 100dvh; }
   .story-modal-header { padding: calc(18px + var(--safe-t)) 18px 12px; }
   .story-modal-footer { padding-bottom: calc(12px + var(--safe-b)); }
   .modal-actions { position: sticky; bottom: 0; background: var(--paper); padding-top: 12px; margin-top: 12px; }
