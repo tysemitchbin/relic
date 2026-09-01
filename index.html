@@ -58,6 +58,14 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .loading-status { font-size: 9px; letter-spacing: 1px; color: var(--muted); animation: fadeUp 1s ease 0.7s both; min-height: 14px; }
 .loading-bar { width: 180px; height: 1px; background: #2a2520; animation: fadeUp 1s ease 0.7s both; }
 .loading-fill { height: 100%; background: linear-gradient(90deg, var(--warm), var(--accent)); width: 0%; transition: width 0.5s ease; }
+#loading-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+#loading-actions button {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 10px 18px; border: 1px solid var(--paper); background: var(--paper); color: var(--ink);
+  cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.15s;
+}
+#loading-actions button:hover { opacity: 0.85; }
+#loading-actions button.ghost { background: transparent; color: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.2); }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── LAYOUT ── */
@@ -973,6 +981,10 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   <div class="loading-tagline">Your life, mapped</div>
   <div class="loading-status" id="loading-status">Initialising archive...</div>
   <div class="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+  <div id="loading-actions" hidden>
+    <button id="loading-retry" onclick="recoverAndReload()">Retry</button>
+    <button id="loading-signout" class="ghost" onclick="signOut()">Sign out &amp; sign in again</button>
+  </div>
 </div>
 
 <!-- APP -->
@@ -1593,8 +1605,23 @@ function initMap() {
       setProgress(70);
     } catch (e) {
       console.error(e);
-      setStatus('Could not load your data — ' + (e.message || e));
-      return;
+      // A stale/again-issued token (clock skew, "JWT issued at future", expired) walls
+      // off the whole UI. Try one silent refresh + retry before surfacing the error.
+      if (isAuthError(e)) {
+        try {
+          setStatus('Refreshing session…');
+          const { error: rErr } = await sb.auth.refreshSession();
+          if (rErr) throw rErr;
+          await loadFromSupabase();
+          setProgress(70);
+        } catch (e2) {
+          showLoadError(e2, true);
+          return;
+        }
+      } else {
+        showLoadError(e, false);
+        return;
+      }
     }
     setStatus('Rendering...'); await renderAll(); setProgress(100);
     setTimeout(()=>{ const el=document.getElementById('loading'); el.style.opacity='0'; setTimeout(()=>{el.style.display='none';map.resize();},700); },300);
@@ -3392,6 +3419,41 @@ function stableImportId(name,coords){let raw=name+'|'+(coords[0]?coords[0].map(v
 function setStatus(msg){document.getElementById('loading-status').textContent=msg;}
 function setProgress(pct){document.getElementById('loading-fill').style.width=pct+'%';}
 
+// ── Load-failure recovery ──
+function isAuthError(e){
+  const m = ((e && (e.message || e.msg)) || String(e || '')).toLowerCase();
+  return /jwt|token|issued at future|iat|exp|expired|nbf|not yet valid|invalid.*claim|401|unauthor/.test(m);
+}
+function decodeJwt(t){
+  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
+  catch(_) { return null; }
+}
+async function loadErrorDetail(){
+  try {
+    const { data:{ session } } = await sb.auth.getSession();
+    const p = session && decodeJwt(session.access_token);
+    if (!p) return '';
+    const now = Math.floor(Date.now()/1000);
+    const parts = [];
+    if (p.iat != null) parts.push('token iat vs this device: ' + (now - p.iat) + 's ' + (now >= p.iat ? 'ago' : 'in the FUTURE'));
+    if (p.exp != null) parts.push('expires in ' + (p.exp - now) + 's');
+    return parts.length ? ' (' + parts.join(', ') + ')' : '';
+  } catch(_) { return ''; }
+}
+async function showLoadError(e, wasAuth){
+  const detail = wasAuth ? await loadErrorDetail() : '';
+  setStatus('Could not load your data — ' + (e && (e.message || e)) + detail);
+  const actions = document.getElementById('loading-actions');
+  if (actions) actions.hidden = false;
+  document.getElementById('loading-retry').textContent = wasAuth ? 'Retry' : 'Reload';
+}
+async function recoverAndReload(){
+  setStatus('Retrying…');
+  document.getElementById('loading-actions').hidden = true;
+  try { await sb.auth.refreshSession(); } catch(_){}
+  location.reload();
+}
+
 function goToActivity(id) {
   switchView('map');
   setTimeout(()=>{const mem=db[id];showDetail(id);if(mem?.startLat)map.flyTo({center:[mem.startLng,mem.startLat],zoom:13,pitch:terrainOn?50:0,duration:1000});},150);
@@ -3467,6 +3529,7 @@ _r('loadAndRenderCharts',loadAndRenderCharts);_r('drawStreamChart',drawStreamCha
 _r('connectStrava',connectStrava);_r('syncStrava',syncStrava);_r('disconnectStrava',disconnectStrava);
 _r('renderStravaSection',renderStravaSection);_r('maybeAutoSyncStrava',maybeAutoSyncStrava);
 _r('updateEmptyState',updateEmptyState);_r('dismissEmptyState',dismissEmptyState);
+_r('recoverAndReload',recoverAndReload);
 
 // ════════════════════════════════════════
 // AUTH GATE + BOOT
