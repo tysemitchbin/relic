@@ -21,6 +21,30 @@ this is the "someday / next" list. Add freely; prune when shipped.
 - **Static map on the Story detail view** — feed + profile story cards now show
   real Mapbox tiles behind the tracks; the story detail panel still doesn't.
 
+## Dopamine / delight
+
+Gamified, rewarding moments — make opening the app feel good.
+
+- **First-connect "big reveal"** — when a new user connects Strava, don't draw
+  tracks as they trickle in. Hold them all, show a syncing counter that ticks up
+  ("1,204 activities… 87,000 km…") to build anticipation, then animate the whole
+  archive onto the map at once — fade/draw-on, fly-to-fit-bounds.
+- **Autoframe to the most recent activity** — on load, ease the map to frame the
+  newest track instead of the default world view.
+- **"% new ground" on a new activity** — after a sync, tell the user how much of
+  each new activity covered places they'd never been (compare its coords against
+  all prior tracks). Turns exploring new routes into a score.
+- **"On this day"** — surprise pop-up surfacing an activity from this calendar
+  date in a previous year.
+- **Personal records as trophies on the map** — plot PRs (fastest 5k, longest
+  ride, biggest climb, etc.) as emoji/trophy markers at the spot they happened.
+
+## Interaction
+
+- **Easier to click tracks** — widen the hit target on the tracks layer (invisible
+  fat line under the visible one, or a click-nearest-track fallback) so you don't
+  have to land exactly on a 2px line.
+
 ## Investigate
 
 - **272 "notes"** — the archive shows 272 activities with note text, but those
