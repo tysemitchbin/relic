@@ -152,3 +152,20 @@ create table if not exists public.strava_connections (
 );
 -- RLS on, NO policy: only the `strava` Edge Function (service role) touches this.
 alter table public.strava_connections enable row level security;
+
+-- ── BETA FEEDBACK ─────────────────────────────────────────
+-- Also in docs/supabase-feedback.sql for running standalone on an existing project.
+create table if not exists public.feedback (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users on delete cascade,
+  email       text,
+  message     text not null,
+  context     text,
+  user_agent  text,
+  created_at  timestamptz not null default now()
+);
+create index if not exists feedback_user_created_idx
+  on public.feedback (user_id, created_at desc);
+alter table public.feedback enable row level security;
+create policy "own feedback" on public.feedback
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());

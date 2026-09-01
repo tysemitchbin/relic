@@ -1030,6 +1030,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="nav-btn" id="nav-profile" onclick="switchView('profile')">Profile</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
       <button class="nav-btn" onclick="forceSync()">↺ Sync</button>
+      <button class="nav-btn" onclick="openFeedback()">💬 Feedback</button>
       <button class="nav-btn" onclick="signOut()">Sign out</button>
     </div>
     <button class="hamburger" id="hamburger-btn" onclick="toggleMobileMenu()">
@@ -1173,6 +1174,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         <div class="profile-mobile-actions">
           <button onclick="openImport()">+ Import</button>
           <button onclick="forceSync()">↺ Sync</button>
+          <button onclick="openFeedback()">💬 Feedback</button>
           <button onclick="signOut()">Sign out</button>
         </div>
         <div class="profile-hero">
@@ -1254,6 +1256,20 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeImport()">Cancel</button>
       <button class="btn-primary" id="import-btn" onclick="doImport()">Add to Archive</button>
+    </div>
+  </div>
+</div>
+
+<!-- FEEDBACK MODAL -->
+<div class="modal-overlay" id="feedback-modal">
+  <div class="modal">
+    <div class="modal-title">Send Feedback</div>
+    <div class="modal-sub">Bugs, ideas, anything that feels off — goes straight to me</div>
+    <textarea class="modal-input" id="fb-message" rows="6" style="min-height:130px;resize:vertical;font-family:'Cormorant Garamond',serif;font-size:14px;" placeholder="What's on your mind?"></textarea>
+    <div class="import-progress" id="fb-status"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeFeedback()">Cancel</button>
+      <button class="btn-primary" id="fb-send-btn" onclick="sendFeedback()">Send</button>
     </div>
   </div>
 </div>
@@ -3483,7 +3499,9 @@ function goToActivity(id) {
   setTimeout(()=>{const mem=db[id];showDetail(id);if(mem?.startLat)map.flyTo({center:[mem.startLng,mem.startLat],zoom:13,pitch:terrainOn?50:0,duration:1000});},150);
 }
 
+let currentView = 'map';
 function switchView(view) {
+  currentView = view;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(`${view}-view`).classList.add('active');
@@ -3494,6 +3512,40 @@ function switchView(view) {
   if(view==='feed') buildFeed();
   if(view==='profile') buildProfile();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
+}
+
+// ── Feedback ──
+function openFeedback() {
+  document.getElementById('fb-message').value = '';
+  document.getElementById('fb-status').textContent = '';
+  document.getElementById('feedback-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('fb-message').focus(), 50);
+}
+function closeFeedback() { document.getElementById('feedback-modal').classList.remove('open'); }
+async function sendFeedback() {
+  const message = document.getElementById('fb-message').value.trim();
+  if (!message) return;
+  const btn = document.getElementById('fb-send-btn');
+  const statusEl = document.getElementById('fb-status');
+  btn.disabled = true;
+  statusEl.textContent = 'Sending…';
+  try {
+    const { error } = await sb.from('feedback').insert({
+      user_id: currentUser.id,
+      email: currentUser.email || null,
+      message,
+      context: currentView,
+      user_agent: navigator.userAgent,
+    });
+    if (error) throw error;
+    statusEl.textContent = 'Thanks — got it.';
+    setTimeout(closeFeedback, 900);
+  } catch (e) {
+    console.error('Feedback send failed', e);
+    statusEl.textContent = 'Failed to send — ' + (e.message || e);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function toggleMobileMenu() {
@@ -3518,7 +3570,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -3526,6 +3578,7 @@ const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
+_r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
