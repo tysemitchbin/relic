@@ -71,6 +71,13 @@ The mobile work landed on the `mobile-friendly` branch (now merged).
 | `52bdf7a` 22:25 | **Detect password-recovery links synchronously at load.** supabase-js strips the URL hash during async session detection, so checking `location.hash` after an awaited `getSession()` could miss a recovery link and boot the app instead of showing the reset form. The recovery flag is now captured synchronously when the script first runs. |
 | `a2974eb` 22:49 | **Email templates.** `docs/email-templates/` — styled reset-password, magic-link, and confirm-signup templates matching Relic's palette, plus a README with paste-in instructions and deliverability notes. |
 
+### On the `map-filters` branch (for review)
+
+| Commit | Summary |
+|---|---|
+| `246c22f` | **Plan doc** (`docs/plans/map-filters.md`) + this worklog. |
+| `2efe13b` | **Filters overhaul.** One `filters` object + `matchMoment()` predicate shared by the map, the map sidebar list, and a new **Activities** view. New right-side **filter drawer** (type / source / date / distance / duration / elevation / HR / mood / attributes / colours) with an active-filter chip bar. **Archive tab → Activities** (sortable table; stats page parked). Map settings + last camera **persist** per user (`relic_mapprefs_v1_<uid>`). `?demo` mode seeds synthetic data behind a stub map for offline testing. |
+
 ---
 
 ## Not in git — session work, Sep 2
