@@ -100,7 +100,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 
 /* ── MAP VIEW ── */
 #map-view { position: relative; height: 100%; }
-#map { position: absolute; inset: 0; }
+#map { position: absolute; inset: 0; background: #e8e5df; }
 
 /* ── SIDEBAR (collapsible) ── */
 #sidebar {
@@ -1015,6 +1015,131 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   #login .loading-wordmark { font-size: 30px; letter-spacing: 8px; }
   #login input { font-size: 16px; } /* ≥16px avoids focus-zoom quirks */
 }
+
+/* ── FILTER DRAWER ── */
+#filter-backdrop {
+  position: fixed; inset: 0; background: rgba(26,24,20,0.35); z-index: 840;
+  opacity: 0; pointer-events: none; transition: opacity 0.28s ease;
+}
+#filter-backdrop.open { opacity: 1; pointer-events: auto; }
+#filter-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 340px; max-width: 100vw;
+  background: var(--paper); border-left: 1px solid var(--border); z-index: 850;
+  transform: translateX(100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+  display: flex; flex-direction: column;
+}
+#filter-drawer.open { transform: translateX(0); }
+.fd-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(16px + var(--safe-t)) 12px 12px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.fd-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; letter-spacing: 4px; text-transform: uppercase; color: var(--ink); }
+.fd-close { background: none; border: none; font-size: 22px; color: var(--muted); cursor: pointer; width: 40px; height: 40px; -webkit-tap-highlight-color: transparent; }
+.fd-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.fd-foot { flex-shrink: 0; border-top: 1px solid var(--border); padding: 12px 18px calc(12px + var(--safe-b)); display: flex; gap: 8px; }
+.fd-foot button { flex: 1; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; padding: 11px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.fd-apply { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+.fd-clear { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.fd-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+.fd-section { border-bottom: 1px solid var(--border); }
+.fd-sec-head {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 18px;
+  background: none; border: none; cursor: pointer; text-align: left;
+  font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink);
+}
+.fd-sec-head > span:first-child { flex: 1; }
+.fd-sec-head:hover { background: var(--paper2); }
+.fd-caret { color: var(--muted); transition: transform 0.15s; font-size: 9px; }
+.fd-section.collapsed .fd-caret { transform: rotate(-90deg); }
+.fd-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.fd-section:not(.has-active) .fd-dot { visibility: hidden; }
+.fd-sec-body { padding: 2px 18px 16px; }
+.fd-section.collapsed .fd-sec-body { display: none; }
+
+.fd-input {
+  width: 100%; background: var(--paper2); border: 1px solid var(--border); color: var(--ink);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 8px 10px; outline: none;
+}
+.fd-input:focus { border-color: var(--accent); }
+.fd-range-row { display: flex; align-items: center; gap: 8px; }
+.fd-range-row .fd-input { flex: 1; min-width: 0; }
+.fd-range-sep { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.fd-hint { font-size: 8px; color: var(--muted); margin-top: 6px; letter-spacing: 0.5px; line-height: 1.5; }
+
+.fd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fd-chip {
+  padding: 6px 10px; border: 1px solid var(--border); background: transparent;
+  font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); cursor: pointer; transition: all 0.12s; -webkit-tap-highlight-color: transparent;
+}
+.fd-chip:hover { border-color: var(--accent); color: var(--accent); }
+.fd-chip.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.fd-tri { display: flex; gap: 2px; }
+.fd-tri button {
+  flex: 1; padding: 7px 4px; border: 1px solid var(--border); background: transparent;
+  font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.fd-tri button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* Active-filter chip bar (map sidebar + activities view) */
+.filter-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 16px; align-items: center; }
+.filter-chips:empty { display: none; }
+.fc-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 4px 3px 8px;
+  background: var(--paper2); border: 1px solid var(--border); font-size: 8px;
+  letter-spacing: 0.5px; color: var(--ink); text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+}
+.fc-chip button { background: none; border: none; color: inherit; cursor: pointer; font-size: 12px; line-height: 1; opacity: 0.55; padding: 0 3px; }
+.fc-chip button:hover { opacity: 1; }
+.fc-chip.fc-clear { background: none; border: none; color: var(--accent); cursor: pointer; text-decoration: underline; padding: 3px 4px; }
+#sidebar .filter-chips .fc-chip { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); color: var(--paper); }
+#sidebar .filter-chips .fc-chip.fc-clear { color: var(--warm); background: none; border: none; }
+
+/* ── ACTIVITIES VIEW ── */
+#activities-view { background: var(--paper); flex-direction: column; overflow: hidden; }
+.av-wrap { display: flex; flex-direction: column; height: 100%; max-width: 1100px; width: 100%; margin: 0 auto; }
+.av-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 26px 24px 12px; flex-wrap: wrap; }
+.av-title { font-family: 'Cormorant Garamond', serif; font-size: 32px; font-weight: 300; letter-spacing: 6px; text-transform: uppercase; color: var(--ink); }
+.av-controls { display: flex; gap: 8px; align-items: center; }
+.av-search {
+  background: var(--paper2); border: 1px solid var(--border); color: var(--ink);
+  font-family: 'Cormorant Garamond', serif; font-size: 13px; font-style: italic; padding: 7px 12px; outline: none; width: 200px;
+}
+.av-search:focus { border-color: var(--accent); }
+.av-filter-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 8px 14px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer;
+  display: flex; align-items: center; gap: 6px; -webkit-tap-highlight-color: transparent;
+}
+.av-fcount { background: var(--accent); color: var(--paper); border-radius: 8px; padding: 0 5px; font-size: 7px; }
+.av-count { padding: 0 24px 8px; font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.av-table-wrap { flex: 1; overflow: auto; padding: 0 24px 24px; -webkit-overflow-scrolling: touch; }
+.av-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.av-table th {
+  position: sticky; top: 0; background: var(--paper); text-align: left; padding: 8px 10px;
+  font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--muted); border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap;
+}
+.av-table th:hover { color: var(--ink); }
+.av-arrow { color: var(--accent); }
+.av-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); color: var(--ink); white-space: nowrap; }
+.av-table tbody tr { cursor: pointer; }
+.av-table tbody tr:hover { background: var(--paper2); }
+.av-name-cell { font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 500; white-space: normal; min-width: 170px; }
+.av-type-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.av-empty { padding: 44px 24px; text-align: center; color: var(--muted); font-family: 'Cormorant Garamond', serif; font-size: 16px; font-style: italic; }
+
+@media (max-width: 768px) {
+  #filter-drawer { width: 100vw; border-left: none; }
+  .av-header { padding: calc(16px + var(--safe-t)) 16px 10px; }
+  .av-title { font-size: 24px; letter-spacing: 3px; }
+  .av-search { width: 140px; }
+  .av-table-wrap { padding: 0 8px calc(24px + var(--safe-b)); }
+  .av-table .av-col-opt { display: none; }
+  .av-count { padding: 0 16px 8px; }
+}
 </style>
 </head>
 <body>
@@ -1068,7 +1193,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <div class="header-nav">
       <button class="nav-btn active" id="nav-map" onclick="switchView('map')">Map</button>
       <button class="nav-btn" id="nav-feed" onclick="switchView('feed')">Feed</button>
-      <button class="nav-btn" id="nav-stats" onclick="switchView('stats')">Archive</button>
+      <button class="nav-btn" id="nav-activities" onclick="switchView('activities')">Activities</button>
       <button class="nav-btn" id="nav-profile" onclick="switchView('profile')">Profile</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
       <button class="nav-btn" onclick="forceSync()">↺ Sync</button>
@@ -1083,7 +1208,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   <div class="mobile-menu" id="mobile-menu">
     <button class="mobile-menu-item active" data-view="map" onclick="mobileNav('map')">◈ Map</button>
     <button class="mobile-menu-item" data-view="feed" onclick="mobileNav('feed')">◇ Feed</button>
-    <button class="mobile-menu-item" data-view="stats" onclick="mobileNav('stats')">◇ Archive</button>
+    <button class="mobile-menu-item" data-view="activities" onclick="mobileNav('activities')">◇ Activities</button>
     <button class="mobile-menu-item" data-view="profile" onclick="mobileNav('profile')">◇ Profile</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openImport()">+ Import</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); forceSync()">↺ Sync</button>
@@ -1123,7 +1248,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       </div>
 
       <!-- Filter FAB (mobile only) -->
-      <button id="filter-fab-mobile" onclick="toggleSidebar()">⚙</button>
+      <button id="filter-fab-mobile" onclick="openFilterDrawer()">⚑</button>
 
       <!-- Sidebar -->
       <div id="sidebar" class="collapsed">
@@ -1133,7 +1258,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           <button class="sb-mobile-close" onclick="toggleSidebar()">×</button>
         </div>
         <div class="sb-header">
-          <input class="sb-search" type="text" id="search" placeholder="Search memories..." oninput="applyFilters()">
+          <input class="sb-search" type="text" id="search" placeholder="Search memories..." oninput="onSearchInput(this.value)">
           <div class="sb-sort-row">
             <button class="sb-sort-btn active" data-sort="recent" onclick="setSidebarSort('recent')">Recent</button>
             <button class="sb-sort-btn" data-sort="name" onclick="setSidebarSort('name')">Name</button>
@@ -1143,6 +1268,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           </div>
         </div>
         <div class="sb-count" id="result-count"></div>
+        <div id="filter-chips-map" class="filter-chips"></div>
         <div id="activity-list"></div>
       </div>
 
@@ -1192,7 +1318,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           <button class="mt-btn" onclick="map.easeTo({pitch:0,bearing:0,duration:800})" title="North up">⊙</button>
           <button class="mt-btn" onclick="map.zoomIn()" title="Zoom in">+</button>
           <button class="mt-btn" onclick="map.zoomOut()" title="Zoom out">−</button>
-          <button class="mt-btn" id="tools-toggle-btn" onclick="toggleToolsPanel()" title="Filters & Colors">⚙</button>
+          <button class="mt-btn" id="tools-toggle-btn" onclick="openFilterDrawer()" title="Filters">⚑</button>
         </div>
       </div>
       <div class="coord-bar" id="coord-bar"></div>
@@ -1203,8 +1329,37 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <div class="feed-container" id="feed-container"></div>
     </div>
 
-    <!-- ARCHIVE VIEW -->
-    <div class="view" id="stats-view">
+    <!-- ACTIVITIES VIEW -->
+    <div class="view" id="activities-view">
+      <div class="av-wrap">
+        <div class="av-header">
+          <div class="av-title">Activities</div>
+          <div class="av-controls">
+            <input class="av-search" id="av-search" type="text" placeholder="Search…" oninput="onSearchInput(this.value)">
+            <button class="av-filter-btn" onclick="openFilterDrawer()">Filters <span class="av-fcount" id="av-fcount" hidden></span></button>
+          </div>
+        </div>
+        <div id="filter-chips-activities" class="filter-chips"></div>
+        <div class="av-count" id="av-count"></div>
+        <div class="av-table-wrap">
+          <table class="av-table">
+            <thead><tr>
+              <th data-col="name" onclick="setActivitiesSort('name')">Name</th>
+              <th data-col="date" onclick="setActivitiesSort('date')">Date</th>
+              <th data-col="type" onclick="setActivitiesSort('type')">Type</th>
+              <th data-col="distance" onclick="setActivitiesSort('distance')">Distance</th>
+              <th data-col="duration" class="av-col-opt" onclick="setActivitiesSort('duration')">Time</th>
+              <th data-col="elevation" class="av-col-opt" onclick="setActivitiesSort('elevation')">Elev</th>
+              <th class="av-col-opt">HR</th>
+            </tr></thead>
+            <tbody id="av-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARCHIVE / STATS VIEW — parked: no longer in the nav, kept for a later profile-stats pass (buildStats() still works) -->
+    <div class="view" id="stats-view" hidden>
       <div style="max-width:900px;margin:0 auto;width:100%">
         <div class="stats-page-title">Archive</div>
         <div class="stats-page-sub" id="stats-sub">Loading your story...</div>
@@ -1280,10 +1435,24 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   <nav id="mobile-tabbar">
     <button class="tab-item active" data-view="map" onclick="switchView('map')"><span class="tab-glyph">◈</span><span class="tab-label">Map</span></button>
     <button class="tab-item" data-view="feed" onclick="switchView('feed')"><span class="tab-glyph">▤</span><span class="tab-label">Feed</span></button>
-    <button class="tab-item" data-view="stats" onclick="switchView('stats')"><span class="tab-glyph">▦</span><span class="tab-label">Archive</span></button>
+    <button class="tab-item" data-view="activities" onclick="switchView('activities')"><span class="tab-glyph">▦</span><span class="tab-label">Activity</span></button>
     <button class="tab-item" data-view="profile" onclick="switchView('profile')"><span class="tab-glyph">◐</span><span class="tab-label">Profile</span></button>
   </nav>
 </div>
+
+<!-- FILTER DRAWER -->
+<div id="filter-backdrop" onclick="closeFilterDrawer()"></div>
+<aside id="filter-drawer">
+  <div class="fd-header">
+    <div class="fd-title">Filters</div>
+    <button class="fd-close" onclick="closeFilterDrawer()" aria-label="Close">&times;</button>
+  </div>
+  <div class="fd-body" id="fd-body"></div>
+  <div class="fd-foot">
+    <button class="fd-clear" onclick="clearFilters()">Clear all</button>
+    <button class="fd-apply" onclick="closeFilterDrawer()">Done</button>
+  </div>
+</aside>
 
 <!-- IMPORT MODAL -->
 <div class="modal-overlay" id="import-modal">
@@ -1426,6 +1595,10 @@ const COLORS_KEY = 'relic_colors_v1';
 const CACHE_KEY = 'relic_archive_v1';   // per-user instant-load cache (+ '_' + user id)
 const LAST_EMAIL_KEY = 'relic_last_email';
 
+// Local-only demo mode (?demo on localhost / file://): seeds synthetic activities
+// and skips the auth gate + Supabase, so the UI can be exercised without a deploy.
+const DEMO = /[?&]demo\b/.test(location.search) && /^(localhost|127\.0\.0\.1|)$/.test(location.hostname);
+
 // ── Supabase ──
 const SUPABASE_URL = 'https://vacmugisahiwhvkpyxgv.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_P24sdAdsfNOKzJa5L9S-UQ_8SoI9koU';
@@ -1445,9 +1618,119 @@ async function strava(action, extra) {
 
 let db = {}, map, terrainOn = false, satelliteOn = false;
 let allMemories = [], filteredMemories = [], allStories = [];
-let activeTypes = new Set(Object.keys(TYPE_CONFIG));
-let activeYears = new Set();
 let selectedId = null, saveTimer = null;
+
+// ── FILTER MODEL ─────────────────────────────────────────────────────────
+// One object drives the map tracks, the map sidebar list, and the Activities
+// view. null on a set-based field means "all" (so activity types / sources that
+// appear later are included automatically); an explicit array means only those.
+// Range fields are [min, max] with null for an open end.
+function defaultFilters() {
+  return {
+    search: '', types: null, sources: null, moods: null,
+    dateFrom: null, dateTo: null,
+    distKm: [null, null], durMin: [null, null], elevM: [null, null], hr: [null, null],
+    hasPhotos: null, hasNote: null, commute: null,
+  };
+}
+let filters = defaultFilters();
+// Data-derived bounds for slider hints + which sections to show
+let filterBounds = { distKm:[0,0], durMin:[0,0], elevM:[0,0], hr:[0,0], hasHR:false, sources:[] };
+
+function rangeActive(r) { return !!r && (r[0] != null || r[1] != null); }
+function activeFilterCount() {
+  let n = 0;
+  if (filters.search) n++;
+  if (filters.types) n++;
+  if (filters.sources) n++;
+  if (filters.moods) n++;
+  if (filters.dateFrom || filters.dateTo) n++;
+  ['distKm','durMin','elevM','hr'].forEach(k => { if (rangeActive(filters[k])) n++; });
+  ['hasPhotos','hasNote','commute'].forEach(k => { if (filters[k] != null) n++; });
+  return n;
+}
+function inRange(v, r) {
+  if (!r) return true;
+  if (r[0] != null && v < r[0]) return false;
+  if (r[1] != null && v > r[1]) return false;
+  return true;
+}
+function matchMoment(m, f) {
+  if (f.search && !(m.name || '').toLowerCase().includes(f.search.toLowerCase())) return false;
+  if (f.types && !f.types.includes(getGroup(m.type))) return false;
+  if (f.sources && !f.sources.includes(m.source || 'manual')) return false;
+  if (f.moods && !f.moods.includes(m.mood || '_none')) return false;
+  const d = (m.date || '').substring(0, 10);
+  if (f.dateFrom && (!d || d < f.dateFrom)) return false;
+  if (f.dateTo && (!d || d > f.dateTo)) return false;
+  if (!inRange((m.distance || 0) / 1000, f.distKm)) return false;
+  if (!inRange((m.duration || 0) / 60, f.durMin)) return false;
+  if (!inRange(m.elevation || 0, f.elevM)) return false;
+  if (rangeActive(f.hr) && (!m.avgHR || !inRange(m.avgHR, f.hr))) return false;
+  if (f.hasPhotos === true && !(m.photos && m.photos.length)) return false;
+  if (f.hasPhotos === false && (m.photos && m.photos.length)) return false;
+  if (f.hasNote === true && !m.note) return false;
+  if (f.hasNote === false && m.note) return false;
+  if (f.commute === true && !m.commute) return false;
+  if (f.commute === false && m.commute) return false;
+  return true;
+}
+function computeFilterBounds() {
+  let dMax = 0, tMax = 0, eMax = 0, hMax = 0, hasHR = false;
+  const src = new Set();
+  for (const m of allMemories) {
+    dMax = Math.max(dMax, (m.distance || 0) / 1000);
+    tMax = Math.max(tMax, (m.duration || 0) / 60);
+    eMax = Math.max(eMax, m.elevation || 0);
+    if (m.avgHR) { hasHR = true; hMax = Math.max(hMax, m.avgHR); }
+    src.add(m.source || 'manual');
+  }
+  filterBounds = {
+    distKm: [0, Math.ceil(dMax)], durMin: [0, Math.ceil(tMax)],
+    elevM: [0, Math.ceil(eMax)], hr: [0, Math.ceil(hMax)],
+    hasHR, sources: [...src].filter(Boolean).sort(),
+  };
+}
+
+// ── PERSISTED MAP PREFS (filters + sort + basemap + camera), per user ─────
+const MAPPREFS_KEY = 'relic_mapprefs_v1';
+function _prefsKey() { return currentUser ? MAPPREFS_KEY + '_' + currentUser.id : null; }
+let _prefsTimer = null, _lastCamera = null, _prefsLoaded = false, _basemapRestored = false;
+function saveMapPrefs() {
+  if (!_prefsLoaded) return;   // don't write before we've restored
+  clearTimeout(_prefsTimer);
+  _prefsTimer = setTimeout(() => {
+    const k = _prefsKey(); if (!k) return;
+    try {
+      localStorage.setItem(k, JSON.stringify({
+        v: 1, filters, sidebarSort, terrainOn, satelliteOn, camera: _lastCamera,
+      }));
+    } catch (e) { /* quota — prefs just won't persist */ }
+  }, 400);
+}
+function loadMapPrefs() {
+  const k = _prefsKey(); if (!k) return null;
+  try {
+    const raw = localStorage.getItem(k); if (!raw) return null;
+    const p = JSON.parse(raw);
+    return (p && p.v === 1) ? p : null;
+  } catch (e) { return null; }
+}
+function applyStoredFilters(p) {
+  if (!p) return;
+  if (p.filters) {
+    const d = defaultFilters();
+    for (const key of Object.keys(d)) if (key in p.filters) d[key] = p.filters[key];
+    filters = d;
+  }
+  if (p.sidebarSort) sidebarSort = p.sidebarSort;
+}
+function restoreBasemap(p) {
+  if (_basemapRestored || !p || DEMO) return;
+  _basemapRestored = true;
+  try { if (p.terrainOn && !terrainOn) toggleTerrain(); } catch (e) {}
+  try { if (p.satelliteOn && !satelliteOn) toggleSatellite(); } catch (e) {}
+}
 let sidebarSort = 'recent';
 let profileSort = 'recent';
 let statsBuilt = false;
@@ -1712,15 +1995,131 @@ async function persistMoments(entries) {
 // ════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════
+// ?demo runs fully offline (no Mapbox token / tiles) via a stub map object that
+// no-ops the GL calls. Track geometry is client-side so filters/rendering still
+// exercise for real; only the basemap imagery is absent.
+function makeStubMap() {
+  const H = {}, sources = {}, layers = {}, noop = () => {};
+  const m = {
+    _c: [10.4, 63.4], _z: 5, _p: 0, _b: 0,
+    on: (ev, a, b) => { (H[ev] = H[ev] || []).push(typeof a === 'function' ? a : b); return m; },
+    off: noop,
+    once: (ev, cb) => { setTimeout(() => cb({}), 0); return m; },
+    fire: (ev, ...args) => (H[ev] || []).forEach(h => { try { h(...args); } catch (e) {} }),
+    isStyleLoaded: () => true, loaded: () => true, areTilesLoaded: () => true,
+    getSource: (id) => sources[id],
+    addSource: (id, s) => { sources[id] = Object.assign({}, s, { setData: (d) => { sources[id]._data = d; } }); },
+    removeSource: (id) => { delete sources[id]; },
+    addLayer: (l) => { layers[l.id] = l; },
+    getLayer: (id) => layers[id],
+    removeLayer: (id) => { delete layers[id]; },
+    setPaintProperty: noop, setLayoutProperty: noop, setFilter: noop, setTerrain: noop, setFog: noop,
+    getStyle: () => ({ layers: Object.values(layers), sources }),
+    getCenter: () => ({ lng: m._c[0], lat: m._c[1] }),
+    getZoom: () => m._z, getPitch: () => m._p, getBearing: () => m._b,
+    _apply: (o) => { if (!o) return; if (o.center) m._c = Array.isArray(o.center) ? o.center : [o.center.lng, o.center.lat]; if (o.zoom != null) m._z = o.zoom; if (o.pitch != null) m._p = o.pitch; if (o.bearing != null) m._b = o.bearing; setTimeout(() => m.fire('moveend'), 0); },
+    jumpTo: (o) => m._apply(o), easeTo: (o) => m._apply(o), flyTo: (o) => m._apply(o),
+    fitBounds: () => { setTimeout(() => m.fire('moveend'), 0); },
+    resize: noop, remove: noop, zoomIn: noop, zoomOut: noop,
+    getCanvas: () => ({ style: {} }), getContainer: () => document.getElementById('map'),
+    queryRenderedFeatures: () => [],
+    touchZoomRotate: { enable: noop, disable: noop }, dragPan: { enable: noop, disable: noop },
+    scrollZoom: { enable: noop, disable: noop }, doubleClickZoom: { enable: noop, disable: noop },
+    keyboard: { enable: noop, disable: noop },
+  };
+  return m;
+}
+
+// Synthetic archive for local ?demo mode — enough variety to exercise every filter.
+function seedDemoData() {
+  const TYPES = ['Run','TrailRun','Ride','MountainBikeRide','Hike','Walk','AlpineSki','NordicSki','Flight','Drive'];
+  const MOOD_IDS = ['epic','good','tough','meh','peaceful',null];
+  const SRC = ['strava','import','manual'];
+  const [blng, blat] = [10.4, 63.4];
+  db = {};
+  for (let i = 0; i < 48; i++) {
+    const t = TYPES[i % TYPES.length];
+    const y = 2020 + (i % 6), mo = 1 + (i % 12), day = 1 + (i % 27);
+    const date = `${y}-${String(mo).padStart(2,'0')}-${String(day).padStart(2,'0')}T09:00:00Z`;
+    const lat = blat + Math.sin(i) * 1.6, lng = blng + Math.cos(i * 1.3) * 2.4;
+    const pts = [];
+    for (let j = 0; j < 10; j++) pts.push([lng + j * 0.012, lat + Math.sin(i + j) * 0.01]);
+    const distance = 1500 + ((i * 1373) % 78000);
+    const duration = Math.round(distance / (1.8 + (i % 5)));
+    const hasHR = ['Run','TrailRun','Ride','MountainBikeRide'].includes(t);
+    db['demo_' + i] = {
+      id: 'demo_' + i, name: `${TYPE_CONFIG[getGroup(t)]?.label || t} outing ${i + 1}`, type: t, date,
+      source: SRC[i % 3], stravaId: i % 3 === 0 ? 900000 + i : null,
+      coords: null, _polyline: encodePolyline(pts),
+      distance, duration, elevation: (i * 97) % 2400,
+      startLat: lat, startLng: lng,
+      note: i % 4 === 0 ? 'A short demo note about this one.' : '',
+      mood: MOOD_IDS[i % MOOD_IDS.length],
+      photos: i % 5 === 0 ? [{ dataUrl: '' }] : [],
+      customColor: null,
+      avgHR: hasHR ? 120 + (i % 45) : null, maxHR: hasHR ? 150 + (i % 30) : null,
+      avgSpeed: distance / duration, commute: i % 7 === 0,
+    };
+  }
+  _profile = { name: 'Demo User', bio: 'Local demo — synthetic data.', avatarPath: null, photo: null };
+}
+
 function initMap() {
+  // Read persisted prefs up front so we can restore the last camera without a jump.
+  const storedPrefs = loadMapPrefs();
+  const cam = storedPrefs && storedPrefs.camera;
+
+  if (DEMO) {
+    map = makeStubMap();
+    if (cam) { map._c = cam.center; map._z = cam.zoom; map._p = cam.pitch; map._b = cam.bearing; }
+    map.on('moveend', () => {
+      try {
+        const c = map.getCenter();
+        _lastCamera = { center: [+c.lng.toFixed(5), +c.lat.toFixed(5)], zoom: +map.getZoom().toFixed(2), pitch: +map.getPitch().toFixed(1), bearing: +map.getBearing().toFixed(1) };
+        saveMapPrefs();
+      } catch (e) {}
+    });
+    (async () => {
+      loadColors();
+      applyStoredFilters(storedPrefs);
+      _lastCamera = cam || null;
+      if (cam) _framedOnLoad = true;
+      _prefsLoaded = true;
+      setProgress(10);
+      try { seedDemoData(); await renderAll(); }
+      catch (e) { setStatus('DEMO ERR: ' + (e && (e.stack || e.message || e))); document.getElementById('loading-actions').hidden = false; return; }
+      revealApp();
+    })();
+    return;
+  }
+
   map = new mapboxgl.Map({
     container: 'map', style: 'mapbox://styles/mapbox/outdoors-v12',
-    center: [10.4, 63.4], zoom: 5, pitch: 0, bearing: 0, antialias: true
+    center: cam ? cam.center : [10.4, 63.4],
+    zoom: cam ? cam.zoom : 5,
+    pitch: cam ? cam.pitch : 0,
+    bearing: cam ? cam.bearing : 0,
+    antialias: true,
   });
     map.touchZoomRotate.enable();
     map.dragPan.enable();
+  // Remember where the user leaves the camera (debounced via saveMapPrefs).
+  map.on('moveend', () => {
+    try {
+      const c = map.getCenter();
+      _lastCamera = { center: [+c.lng.toFixed(5), +c.lat.toFixed(5)], zoom: +map.getZoom().toFixed(2), pitch: +map.getPitch().toFixed(1), bearing: +map.getBearing().toFixed(1) };
+      saveMapPrefs();
+    } catch (e) {}
+  });
   map.on('load', async () => {
-    addTerrainSource(); loadColors(); setProgress(10);
+    addTerrainSource(); loadColors();
+    // Restore stored filters + sort before the first render; skip the autoframe
+    // if we have a camera to resume.
+    applyStoredFilters(storedPrefs);
+    _lastCamera = (storedPrefs && storedPrefs.camera) || null;
+    if (storedPrefs && storedPrefs.camera) _framedOnLoad = true;
+    _prefsLoaded = true;
+    setProgress(10);
 
     // Instant load: if we have a cached copy of the archive, paint it now and drop
     // the loading screen straight away. The network refresh below then happens
@@ -1729,6 +2128,7 @@ function initMap() {
     if (loadArchiveCache()) {
       setProgress(55);
       await renderAll();
+      restoreBasemap(storedPrefs);
       frameArchiveOnLoad({ animate: false });
       revealApp();
       fromCache = true;
@@ -1763,6 +2163,7 @@ function initMap() {
       if (!recovered && fromCache) setSaveIndicator('Offline — showing last saved');
     }
     setStatus('Rendering...'); await renderAll(); setProgress(100);
+    restoreBasemap(storedPrefs);
     if (!fromCache) { frameArchiveOnLoad({ animate: true }); revealApp(); }
     else if (map) map.resize();
 
@@ -1898,10 +2299,9 @@ async function renderAll() {
   allStories = getStories();
   allStories.forEach(s => computeStoryStats(s));
   initMapLayers();
-  const years = new Set(allMemories.map(m=>m.date?.substring(0,4)).filter(Boolean));
-  [...years].sort().forEach(y=>activeYears.add(y));
-  updateHeaderStats(); buildToolsPanel(); applyFilters();
-  statsBuilt = false; // reset so Archive rebuilds with fresh data
+  computeFilterBounds();
+  updateHeaderStats(); buildFilterDrawer(); applyFilters();
+  statsBuilt = false; // parked Archive view rebuilds with fresh data if revived
   updateEmptyState();
 }
 
@@ -1942,7 +2342,7 @@ function initMapLayers() {
     map.on('mouseenter','tracks-hit',()=>map.getCanvas().style.cursor='pointer');
     map.on('mouseleave','tracks-hit',()=>map.getCanvas().style.cursor='');
   }
-  if(!map.getSource('satellite')) {
+  if(!DEMO && !map.getSource('satellite')) {
     map.addSource('satellite',{type:'raster',url:'mapbox://mapbox.satellite',tileSize:256});
     map.addLayer({id:'satellite-layer',type:'raster',source:'satellite',paint:{'raster-opacity':1}},'tracks-layer');
     map.setLayoutProperty('satellite-layer','visibility','none');
@@ -1965,22 +2365,30 @@ function updateTrackHighlight(memId) {
 // SIDEBAR + FILTERS
 // ════════════════════════════════════════
 function applyFilters() {
-  const search = document.getElementById('search').value.toLowerCase();
-  filteredMemories = allMemories.filter(m => {
-    const group = getGroup(m.type);
-    const year = m.date?.substring(0,4);
-    return activeTypes.has(group) && activeYears.has(year) && m.name.toLowerCase().includes(search);
-  });
-  // Sort — use string comparison for dates (ISO format sorts correctly) to avoid Date construction
+  filteredMemories = allMemories.filter(m => matchMoment(m, filters));
+  // Sort — string comparison for dates (ISO sorts correctly), avoids Date construction
   if(sidebarSort==='recent') filteredMemories.sort((a,b)=>(b.date||'')>(a.date||'')?1:-1);
   else if(sidebarSort==='name') filteredMemories.sort((a,b)=>a.name.localeCompare(b.name));
   else if(sidebarSort==='distance') filteredMemories.sort((a,b)=>(b.distance||0)-(a.distance||0));
   else if(sidebarSort==='elevation') filteredMemories.sort((a,b)=>(b.elevation||0)-(a.elevation||0));
   else if(sidebarSort==='type') filteredMemories.sort((a,b)=>getGroup(a.type).localeCompare(getGroup(b.type)));
 
-  if(map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
-  document.getElementById('result-count').textContent = `${filteredMemories.length} of ${allMemories.length} moments`;
+  if(map && map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  const countEl = document.getElementById('result-count');
+  if (countEl) countEl.textContent = `${filteredMemories.length} of ${allMemories.length} moments`;
   renderList();
+  renderActivitiesView();
+  renderFilterChips();
+  saveMapPrefs();
+}
+
+function onSearchInput(v) {
+  filters.search = v;
+  ['search','av-search'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && el !== document.activeElement) el.value = v;
+  });
+  applyFilters();
 }
 
 function setSidebarSort(sort) {
@@ -1988,6 +2396,260 @@ function setSidebarSort(sort) {
   document.querySelectorAll('.sb-sort-btn').forEach(b=>b.classList.toggle('active',b.dataset.sort===sort));
   applyFilters();
 }
+
+// ════════════════════════════════════════
+// FILTER DRAWER
+// ════════════════════════════════════════
+function openFilterDrawer() {
+  buildFilterDrawer();
+  document.getElementById('filter-drawer').classList.add('open');
+  document.getElementById('filter-backdrop').classList.add('open');
+}
+function closeFilterDrawer() {
+  document.getElementById('filter-drawer').classList.remove('open');
+  document.getElementById('filter-backdrop').classList.remove('open');
+}
+
+// Which sections start collapsed (persists across rebuilds within a session)
+let _fdCollapsed = new Set(['fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-color']);
+function toggleFilterSection(id) {
+  if (_fdCollapsed.has(id)) _fdCollapsed.delete(id); else _fdCollapsed.add(id);
+  document.getElementById(id)?.classList.toggle('collapsed');
+}
+
+const _SRC_LABEL = { strava:'Strava', import:'Import', kml_import:'KML', manual:'Manual' };
+
+function _fdRange(key, label, unit) {
+  const b = filterBounds[key] || [0,0];
+  const v = filters[key] || [null,null];
+  return `<div class="fd-range-row">
+      <input class="fd-input" type="number" inputmode="decimal" placeholder="min" value="${v[0] ?? ''}" onchange="setFilterRange('${key}',0,this.value)">
+      <span class="fd-range-sep">–</span>
+      <input class="fd-input" type="number" inputmode="decimal" placeholder="max" value="${v[1] ?? ''}" onchange="setFilterRange('${key}',1,this.value)">
+    </div>
+    <div class="fd-hint">${label} in ${unit} · your data spans ${b[0]}–${b[1]}</div>`;
+}
+
+function buildFilterDrawer() {
+  const body = document.getElementById('fd-body');
+  if (!body) return;
+  const sec = (id, title, html, active) => `
+    <div class="fd-section ${_fdCollapsed.has(id) ? 'collapsed' : ''} ${active ? 'has-active' : ''}" id="${id}">
+      <button class="fd-sec-head" onclick="toggleFilterSection('${id}')">
+        <span>${title}</span><span class="fd-dot"></span><span class="fd-caret">▾</span>
+      </button>
+      <div class="fd-sec-body">${html}</div>
+    </div>`;
+
+  const typesHtml = '<div class="tp-type-grid">' + Object.entries(TYPE_CONFIG).map(([k,c]) => {
+    const on = !filters.types || filters.types.includes(k);
+    return `<div class="tp-type-row" onclick="toggleFilterType('${k}')">
+      <div class="tp-type-dot" style="background:${c.color}"></div>
+      <div class="tp-type-label">${c.label}</div>
+      <div class="tp-type-toggle ${on ? 'on' : ''}"></div></div>`;
+  }).join('') + '</div>';
+
+  const srcHtml = '<div class="fd-chips">' + filterBounds.sources.map(s => {
+    const on = !filters.sources || filters.sources.includes(s);
+    return `<button class="fd-chip ${on ? 'on' : ''}" onclick="toggleFilterSource('${s}')">${_SRC_LABEL[s] || s}</button>`;
+  }).join('') + '</div>';
+
+  const moodOpts = [...MOODS, { id:'_none', emoji:'—', label:'No mood' }];
+  const moodHtml = '<div class="fd-chips">' + moodOpts.map(m => {
+    const on = !filters.moods || filters.moods.includes(m.id);
+    return `<button class="fd-chip ${on ? 'on' : ''}" onclick="toggleFilterMood('${m.id}')">${m.emoji} ${m.label}</button>`;
+  }).join('') + '</div>';
+
+  const dateHtml = `
+    <div class="fd-range-row">
+      <input class="fd-input" type="date" value="${filters.dateFrom || ''}" onchange="setFilterDate('dateFrom',this.value)">
+      <span class="fd-range-sep">–</span>
+      <input class="fd-input" type="date" value="${filters.dateTo || ''}" onchange="setFilterDate('dateTo',this.value)">
+    </div>
+    <div class="fd-chips" style="margin-top:8px">
+      <button class="fd-chip" onclick="setDatePreset('ytd')">This year</button>
+      <button class="fd-chip" onclick="setDatePreset('12m')">Last 12 mo</button>
+      <button class="fd-chip" onclick="setDatePreset('all')">All time</button>
+    </div>`;
+
+  const tri = (key, label) => {
+    const v = filters[key];
+    return `<div style="margin-bottom:10px"><div class="fd-hint" style="margin:0 0 4px">${label}</div>
+      <div class="fd-tri">
+        <button class="${v == null ? 'on' : ''}" onclick="setAttrFilter('${key}',null)">Any</button>
+        <button class="${v === true ? 'on' : ''}" onclick="setAttrFilter('${key}',true)">Yes</button>
+        <button class="${v === false ? 'on' : ''}" onclick="setAttrFilter('${key}',false)">No</button>
+      </div></div>`;
+  };
+  const attrHtml = tri('hasPhotos','Has photos') + tri('hasNote','Has story note') + tri('commute','Commute');
+
+  const colorHtml = Object.entries(TYPE_CONFIG).map(([k,c]) => `
+    <div class="tp-color-row">
+      <div class="tp-color-swatch" id="swatch-${k}" style="background:${c.color}">
+        <input type="color" value="${c.color}" oninput="updateTypeColor('${k}',this.value)"></div>
+      <div class="tp-color-label">${c.label}</div></div>`).join('');
+
+  let html = sec('fd-sec-type', 'Activity type', typesHtml, !!filters.types);
+  if (filterBounds.sources.length > 1) html += sec('fd-sec-source', 'Source', srcHtml, !!filters.sources);
+  html += sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
+  html += sec('fd-sec-dist', 'Distance', _fdRange('distKm','Distance','km'), rangeActive(filters.distKm));
+  html += sec('fd-sec-dur', 'Duration', _fdRange('durMin','Moving time','minutes'), rangeActive(filters.durMin));
+  html += sec('fd-sec-elev', 'Elevation gain', _fdRange('elevM','Elevation gain','metres'), rangeActive(filters.elevM));
+  if (filterBounds.hasHR) html += sec('fd-sec-hr', 'Heart rate', _fdRange('hr','Average HR','bpm'), rangeActive(filters.hr));
+  html += sec('fd-sec-mood', 'Mood', moodHtml, !!filters.moods);
+  html += sec('fd-sec-attr', 'Attributes', attrHtml, filters.hasPhotos != null || filters.hasNote != null || filters.commute != null);
+  html += sec('fd-sec-color', 'Track colours', colorHtml, false);
+  body.innerHTML = html;
+}
+
+function _setTypeSet(field, allKeys, key) {
+  const set = filters[field] ? new Set(filters[field]) : new Set(allKeys);
+  if (set.has(key)) set.delete(key); else set.add(key);
+  filters[field] = (set.size === allKeys.length) ? null : [...set];
+}
+function toggleFilterType(k) {
+  _setTypeSet('types', Object.keys(TYPE_CONFIG), k);
+  buildFilterDrawer(); applyFilters();
+}
+function toggleFilterSource(s) {
+  _setTypeSet('sources', filterBounds.sources, s);
+  buildFilterDrawer(); applyFilters();
+}
+function toggleFilterMood(id) {
+  _setTypeSet('moods', [...MOODS.map(m => m.id), '_none'], id);
+  buildFilterDrawer(); applyFilters();
+}
+function setFilterRange(key, idx, val) {
+  const num = (val === '' || val == null) ? null : Number(val);
+  const r = (filters[key] || [null,null]).slice();
+  r[idx] = (num == null || isNaN(num)) ? null : num;
+  filters[key] = r;
+  buildFilterDrawer(); applyFilters();
+}
+function setFilterDate(key, val) {
+  filters[key] = val || null;
+  buildFilterDrawer(); applyFilters();
+}
+function setDatePreset(p) {
+  const now = new Date();
+  if (p === 'all') { filters.dateFrom = null; filters.dateTo = null; }
+  else if (p === 'ytd') { filters.dateFrom = now.getFullYear() + '-01-01'; filters.dateTo = null; }
+  else if (p === '12m') {
+    const d = new Date(now); d.setFullYear(d.getFullYear() - 1);
+    filters.dateFrom = d.toISOString().substring(0, 10); filters.dateTo = null;
+  }
+  buildFilterDrawer(); applyFilters();
+}
+function setAttrFilter(key, val) {
+  filters[key] = val;
+  buildFilterDrawer(); applyFilters();
+}
+function clearFilters() {
+  filters = defaultFilters();
+  ['search','av-search'].forEach(i => { const e = document.getElementById(i); if (e) e.value = ''; });
+  buildFilterDrawer(); applyFilters();
+}
+
+// Active-filter chip bar (rendered into both the map sidebar and the Activities view)
+let _chipClears = [];
+function renderFilterChips() {
+  const defs = [];
+  const push = (t, clear) => defs.push({ t, clear });
+  if (filters.search) push('“' + filters.search + '”', () => {
+    filters.search = '';
+    ['search','av-search'].forEach(i => { const e = document.getElementById(i); if (e) e.value = ''; });
+  });
+  // "A, B, C" but flip to "all except X" once more than half are selected
+  const summarise = (sel, all, fmt) => {
+    if (!sel.length) return 'none';
+    if (sel.length > all.length / 2) {
+      const off = all.filter(x => !sel.includes(x));
+      return off.length ? 'all except ' + off.map(fmt).join(', ') : 'all';
+    }
+    return sel.map(fmt).join(', ');
+  };
+  if (filters.types) push('Type: ' + summarise(filters.types, Object.keys(TYPE_CONFIG), k => TYPE_CONFIG[k]?.label || k), () => filters.types = null);
+  if (filters.sources) push('Source: ' + summarise(filters.sources, filterBounds.sources, s => _SRC_LABEL[s] || s), () => filters.sources = null);
+  if (filters.moods) push('Mood: ' + summarise(filters.moods, [...MOODS.map(m => m.id), '_none'], m => m === '_none' ? 'none' : m), () => filters.moods = null);
+  if (filters.dateFrom || filters.dateTo) push('Date: ' + (filters.dateFrom || '…') + ' – ' + (filters.dateTo || '…'), () => { filters.dateFrom = null; filters.dateTo = null; });
+  const rc = (key, label, unit) => {
+    if (rangeActive(filters[key])) {
+      const r = filters[key];
+      push(label + ' ' + (r[0] ?? '0') + '–' + (r[1] ?? '∞') + ' ' + unit, () => filters[key] = [null, null]);
+    }
+  };
+  rc('distKm','Dist','km'); rc('durMin','Time','min'); rc('elevM','Elev','m'); rc('hr','HR','bpm');
+  const ta = (key, label) => { if (filters[key] != null) push(label + ': ' + (filters[key] ? 'yes' : 'no'), () => filters[key] = null); };
+  ta('hasPhotos','Photos'); ta('hasNote','Note'); ta('commute','Commute');
+
+  _chipClears = defs.map(d => d.clear);
+  const markup = defs.length
+    ? defs.map((d, i) => `<span class="fc-chip">${escapeHtml(d.t)}<button onclick="clearOneChip(${i})" aria-label="Remove">&times;</button></span>`).join('')
+      + '<button class="fc-chip fc-clear" onclick="clearFilters()">Clear all</button>'
+    : '';
+  ['filter-chips-map','filter-chips-activities'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.innerHTML = markup;
+  });
+  const fc = document.getElementById('av-fcount');
+  if (fc) { const n = activeFilterCount(); fc.textContent = n; fc.hidden = n === 0; }
+}
+function clearOneChip(i) {
+  if (_chipClears[i]) { _chipClears[i](); buildFilterDrawer(); applyFilters(); }
+}
+
+// ════════════════════════════════════════
+// ACTIVITIES VIEW (filterable list)
+// ════════════════════════════════════════
+let avSort = 'date', avSortDir = 'desc';
+function setActivitiesSort(col) {
+  if (avSort === col) avSortDir = avSortDir === 'asc' ? 'desc' : 'asc';
+  else { avSort = col; avSortDir = col === 'name' ? 'asc' : 'desc'; }
+  renderActivitiesView();
+}
+function renderActivitiesView() {
+  const tb = document.getElementById('av-tbody');
+  if (!tb) return;
+  const keyFn = {
+    name: m => (m.name || '').toLowerCase(),
+    date: m => m.date || '',
+    type: m => getGroup(m.type),
+    distance: m => m.distance || 0,
+    duration: m => m.duration || 0,
+    elevation: m => m.elevation || 0,
+  }[avSort] || (m => m.date || '');
+  const dir = avSortDir === 'asc' ? 1 : -1;
+  const rows = [...filteredMemories].sort((a, b) => {
+    const ka = keyFn(a), kb = keyFn(b);
+    return ka < kb ? -dir : ka > kb ? dir : 0;
+  });
+  const cap = 500;
+  const countEl = document.getElementById('av-count');
+  if (countEl) countEl.textContent = `${filteredMemories.length} of ${allMemories.length}` + (rows.length > cap ? ` · showing first ${cap}` : '');
+  tb.innerHTML = rows.slice(0, cap).map(m => {
+    const g = getGroup(m.type), color = m.customColor || getColor(m.type);
+    const date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '—';
+    return `<tr onclick="goToActivity('${m.id}')">
+      <td class="av-name-cell"><span class="av-type-dot" style="background:${color}"></span>${escapeHtml(m.name)}</td>
+      <td>${date}</td>
+      <td>${TYPE_CONFIG[g]?.label || m.type}</td>
+      <td>${m.distance ? (m.distance/1000).toFixed(1) + ' km' : '—'}</td>
+      <td class="av-col-opt">${m.duration ? formatDur(m.duration) : '—'}</td>
+      <td class="av-col-opt">${m.elevation ? Math.round(m.elevation) + ' m' : '—'}</td>
+      <td class="av-col-opt">${m.avgHR ? m.avgHR + ' bpm' : '—'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" class="av-empty">No activities match these filters.</td></tr>`;
+  document.querySelectorAll('#activities-view th[data-col]').forEach(th => {
+    th.querySelector('.av-arrow')?.remove();
+    if (th.dataset.col === avSort) {
+      const s = document.createElement('span');
+      s.className = 'av-arrow';
+      s.textContent = avSortDir === 'asc' ? ' ▲' : ' ▼';
+      th.appendChild(s);
+    }
+  });
+}
+
+function toggleToolsPanel() { openFilterDrawer(); }  // legacy shim
 
 function renderList() {
   const list = document.getElementById('activity-list'); list.innerHTML = '';
@@ -2013,74 +2675,19 @@ function toggleSidebar() {
   if(window.innerWidth <= 768) closeMobileMenu();
 }
 
-// ════════════════════════════════════════
-// MAP TOOLS PANEL
-// ════════════════════════════════════════
-function buildToolsPanel() {
-  const panel = document.getElementById('tools-panel');
-
-  let html = `<div class="tp-tabs">
-    <button class="tp-tab active" id="tp-tab-types" onclick="switchToolsTab('types')">Types</button>
-    <button class="tp-tab" id="tp-tab-colors" onclick="switchToolsTab('colors')">Colors</button>
-  </div>`;
-
-  // Types pane
-  html += '<div class="tp-pane active" id="tp-pane-types"><div class="tp-type-grid">';
-  Object.entries(TYPE_CONFIG).forEach(([key,cfg]) => {
-    const on = activeTypes.has(key);
-    html += `<div class="tp-type-row" onclick="toggleType('${key}',this)">
-      <div class="tp-type-dot" id="dot-${key}" style="background:${cfg.color}"></div>
-      <div class="tp-type-label">${cfg.label}</div>
-      <div class="tp-type-toggle ${on?'on':''}" id="toggle-${key}"></div>
-    </div>`;
-  });
-  html += '</div></div>';
-
-  // Colors pane
-  html += '<div class="tp-pane" id="tp-pane-colors">';
-  Object.entries(TYPE_CONFIG).forEach(([key,cfg]) => {
-    html += `<div class="tp-color-row">
-      <div class="tp-color-swatch" id="swatch-${key}" style="background:${cfg.color}">
-        <input type="color" value="${cfg.color}" oninput="updateTypeColor('${key}',this.value)">
-      </div>
-      <div class="tp-color-label">${cfg.label}</div>
-    </div>`;
-  });
-  html += '</div>';
-
-  panel.innerHTML = html;
-}
-
-function switchToolsTab(tab) {
-  ['types','colors'].forEach(t => {
-    document.getElementById(`tp-tab-${t}`)?.classList.toggle('active', t===tab);
-    document.getElementById(`tp-pane-${t}`)?.classList.toggle('active', t===tab);
-  });
-}
-
-function toggleType(key, row) {
-  if(activeTypes.has(key)) activeTypes.delete(key); else activeTypes.add(key);
-  const toggle = document.getElementById(`toggle-${key}`);
-  toggle.classList.toggle('on');
-  applyFilters();
-}
-
-function toggleToolsPanel() {
-  document.getElementById('tools-panel').classList.toggle('open');
-  document.getElementById('tools-toggle-btn').classList.toggle('active');
-}
-
 function toggleTerrain() {
   terrainOn=!terrainOn;
-  map.setTerrain(terrainOn?{source:'mapbox-dem',exaggeration:1.5}:null);
+  try { map.setTerrain(terrainOn?{source:'mapbox-dem',exaggeration:1.5}:null); } catch(e) {}
   map.easeTo({pitch:terrainOn?50:0,bearing:terrainOn?-10:0,duration:800});
   document.getElementById('terrain-btn').classList.toggle('active',terrainOn);
   document.getElementById('terrain-btn').textContent=terrainOn?'2D':'3D';
+  saveMapPrefs();
 }
 
 function toggleSatellite() {
   satelliteOn=!satelliteOn;
   document.getElementById('satellite-btn').classList.toggle('active',satelliteOn);
+  saveMapPrefs();
   if(satelliteOn) {
     map.setLayoutProperty('satellite-layer','visibility','visible');
     getSatelliteToggleLayers().forEach(id=>{if(map.getLayer(id))map.setLayoutProperty(id,'visibility','none');});
@@ -2097,8 +2704,8 @@ function getSatelliteToggleLayers() {
 function updateTypeColor(typeKey, color) {
   TYPE_CONFIG[typeKey].color = color;
   const sw = document.getElementById(`swatch-${typeKey}`); if(sw) sw.style.background=color;
-  const dot = document.getElementById(`dot-${typeKey}`); if(dot) dot.style.background=color;
-  if(map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  if(map && map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  renderActivitiesView();
   const saved = JSON.parse(localStorage.getItem(COLORS_KEY)||'{}'); saved[typeKey]=color; localStorage.setItem(COLORS_KEY,JSON.stringify(saved));
 }
 
@@ -3230,9 +3837,8 @@ async function doImport() {
 
   allMemories = getMoments().sort((a,b) => new Date(b.date) - new Date(a.date));
   allStories = getStories();
-  const years = new Set(allMemories.map(m => m.date?.substring(0,4)).filter(Boolean));
-  [...years].forEach(y => activeYears.add(y));
-  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+  computeFilterBounds();
+  initMapLayers(); updateHeaderStats(); buildFilterDrawer(); applyFilters();
 
   if(importedEntries.length) {
     progress.textContent = `Saving ${importedEntries.length} to your archive...`;
@@ -3704,6 +4310,7 @@ function drawStreamChart(canvasId, chart) {
 // HELPERS
 // ════════════════════════════════════════
 function haversine(lat1,lon1,lat2,lon2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function formatDur(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?`${h}h ${m}m`:`${m}m`;}
 function formatPace(mps,type){if(!mps)return'—';const g=getGroup(type);if(g==='Ride'||g==='Flight'||g==='Drive')return(mps*3.6).toFixed(1)+' km/h';const spk=1000/mps,mi=Math.floor(spk/60),si=Math.floor(spk%60);return`${mi}:${si.toString().padStart(2,'0')} /km`;}
 function decodePolyline(encoded){const pts=[];let i=0,lat=0,lng=0;while(i<encoded.length){let b,shift=0,result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lat+=(result&1)?~(result>>1):(result>>1);shift=0;result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lng+=(result&1)?~(result>>1):(result>>1);pts.push([lng/1e5,lat/1e5]);}return pts;}
@@ -3761,7 +4368,8 @@ function switchView(view) {
   document.getElementById(`nav-${view}`)?.classList.add('active');
   document.querySelectorAll('.mobile-menu-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   document.querySelectorAll('.tab-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  if(view==='stats') { if(!statsBuilt) { buildStats(); statsBuilt=true; } }
+  if(view==='stats') { if(!statsBuilt) { buildStats(); statsBuilt=true; } }  // parked view
+  if(view==='activities') renderActivitiesView();
   if(view==='feed') buildFeed();
   if(view==='profile') buildProfile();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
@@ -3823,7 +4431,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closeFilterDrawer();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -3838,7 +4446,12 @@ _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r
 _r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
-_r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);_r('toggleType',toggleType);_r('switchToolsTab',switchToolsTab);
+_r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
+_r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
+_r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);
+_r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);
+_r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
+_r('renderActivitiesView',renderActivitiesView);_r('buildFilterDrawer',buildFilterDrawer);
 _r('setProfileSort',setProfileSort);_r('showHeatmapDay',showHeatmapDay);_r('removeImportFile',removeImportFile);
 _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
 _r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
@@ -3945,6 +4558,7 @@ function startApp() {
 }
 
 async function bootRelic() {
+  if (DEMO) { currentUser = { id: 'demo', email: 'demo@local' }; startApp(); return; }
   if (_recovering) { showPasswordRecovery(); return; }
   const { data: { session } } = await sb.auth.getSession();
   if (_recovering) { showPasswordRecovery(); return; }

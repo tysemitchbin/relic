@@ -1,5 +1,9 @@
 # Plan — persistent map settings, richer filtering, nav cleanup
 
+**Status: built** (commit after `246c22f`). Decisions taken: resume the last map
+camera (overrides the autoframe); the stats/Archive page is parked, not moved.
+See "## What shipped" at the bottom.
+
 Branch: `map-filters` (off `main` @ `a2974eb`).
 Everything is in `index.html` (single-file app). Desktop layout stays put; new
 UI lives behind the existing `@media (max-width: 768px)` guards where it differs.
@@ -176,3 +180,50 @@ park them in a collapsed section until the profile redesign?
 4. Add the new filter sections (date, ranges, performance, attributes)
 5. Nav rename + Activities list view on the shared filter state
 6. Relocate stats to Profile
+
+---
+
+## What shipped
+
+All in `index.html`. `?demo` on localhost/`file://` seeds ~48 synthetic
+activities and runs offline behind a stub map (no Mapbox token needed) for
+testing.
+
+- **`filters` object + `matchMoment(m, f)`** — one predicate for the map tracks,
+  the map sidebar list, and the Activities list. Dimensions: search, type,
+  source, mood (incl. "no mood"), date range, distance, duration, elevation
+  gain, avg HR, has-photos, has-note, commute. `null` on a set field = "all"
+  (new types/sources appear automatically). Range bounds shown from data;
+  HR section hidden when no HR data.
+- **Filter drawer** (`#filter-drawer`) — right-side slide-over, opened from the
+  map toolbar ⚑, the mobile FAB, and the Activities "Filters" button. Collapsible
+  sections (type / source / date / distance / duration / elevation / HR / mood /
+  attributes / track colours), a dot on any section with an active filter.
+  Replaces the old 2-tab tools panel; `#tools-panel` is now dead, `toggleToolsPanel`
+  is a shim.
+- **Active-filter chip bar** — `#filter-chips-map` (sidebar) + `#filter-chips-activities`,
+  one removable chip per active filter + "Clear all". "all except X" phrasing
+  when most of a set is on. `#av-fcount` badge on the Activities Filters button.
+- **Activities view** (`#activities-view`) — replaces the Archive tab. Full
+  sortable table (name/date/type/distance/time/elev/HR), no 300-cap, driven by
+  the shared `filters`. Row click → `goToActivity()`. Nav renamed in all three
+  places; `switchView('activities')`.
+- **`stats-view` parked** — `hidden`, not in nav. `buildStats()` still defined.
+- **Persistence** — `relic_mapprefs_v1_<uid>`: `filters`, `sidebarSort`,
+  `terrainOn`, `satelliteOn`, `camera`. `saveMapPrefs()` (400ms debounce) from
+  every filter mutation, sort, basemap toggle, and `moveend`. `loadMapPrefs()` +
+  `applyStoredFilters()` restore before the first render.
+- **Camera resume** — `moveend` captures `{center,zoom,pitch,bearing}`; on load
+  the stored camera seeds the `Map` constructor and sets `_framedOnLoad` so the
+  autoframe is skipped. `relic_colors_v1` left as its own key (unchanged).
+
+### Not done (still deferred)
+Dual-range sliders (used number inputs), slider histograms, saved filter presets,
+moving stats onto Profile, profile redesign, visual redesign.
+
+### Follow-ups / risks
+- Real Mapbox path is unchanged and untested here (can't load tiles in this
+  env) — needs a `pages.dev` deploy check: filter drawer open, camera resume,
+  terrain/satellite restore.
+- `#tools-panel` element + `.tp-tab`/`.tp-pane` CSS are now dead — remove in a
+  later tidy.
