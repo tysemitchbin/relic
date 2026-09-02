@@ -3865,7 +3865,9 @@ _r('recoverAndReload',recoverAndReload);
 // AUTH GATE + BOOT
 // ════════════════════════════════════════
 let appBooted = false;
-let _recovering = false;
+// Captured synchronously at load — supabase-js strips the URL hash during its
+// async session detection, so a later check would miss a recovery link.
+let _recovering = /[#&?]type=recovery/.test(location.hash) || /[?&]type=recovery/.test(location.search);
 let _loginMode = 'signin'; // 'signin' | 'signup'
 
 const _esc = (s) => String(s || '').replace(/[<>&]/g, '');
@@ -3943,7 +3945,7 @@ function startApp() {
 }
 
 async function bootRelic() {
-  if (/type=recovery/.test(location.hash) || /type=recovery/.test(location.search)) _recovering = true;
+  if (_recovering) { showPasswordRecovery(); return; }
   const { data: { session } } = await sb.auth.getSession();
   if (_recovering) { showPasswordRecovery(); return; }
   if (session) { currentUser = session.user; startApp(); }
