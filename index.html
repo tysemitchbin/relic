@@ -482,6 +482,25 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .empty-actions button:hover { opacity: 0.85; }
 .empty-actions button.ghost { background: transparent; color: var(--muted); border-color: var(--border); }
 .empty-actions button.ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+/* First-connect "big reveal" — a counter that ticks up while Strava imports,
+   then the whole archive flies onto the map. */
+#reveal {
+  position: absolute; inset: 0; z-index: 400;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(26,24,20,0.93); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
+}
+#reveal.show { opacity: 1; }
+#reveal[hidden] { display: none; }
+.reveal-inner { text-align: center; padding: 0 24px; }
+.reveal-num {
+  font-family: 'Cormorant Garamond', serif; font-weight: 300;
+  font-size: clamp(64px, 14vw, 140px); letter-spacing: 2px; line-height: 1;
+  color: var(--paper); font-variant-numeric: tabular-nums;
+}
+.reveal-cap { margin-top: 16px; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--warm); }
+
 .profile-stat { background: var(--paper2); padding: 20px 16px; display: flex; flex-direction: column; gap: 4px; }
 .profile-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 400; color: var(--ink); }
 .profile-stat-label { font-size: 7px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
@@ -980,7 +999,8 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 }
 #login button:hover { opacity: 0.85; }
 #login button:disabled { opacity: 0.4; cursor: not-allowed; }
-#login-status { font-size: 10px; letter-spacing: 0.5px; color: var(--warm); min-height: 14px; text-align: center; line-height: 1.6; }
+#login-status { font-size: 10px; letter-spacing: 0.5px; color: var(--warm); min-height: 14px; text-align: center; line-height: 1.7; }
+#login-status b { color: var(--paper); font-weight: 500; }
 @media (max-width: 768px) {
   #login { gap: 16px; padding: 24px max(24px, var(--safe-l)); }
   #login .loading-wordmark { font-size: 30px; letter-spacing: 8px; }
@@ -1068,9 +1088,17 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           <div class="empty-title">Your archive is empty</div>
           <div class="empty-sub">Bring your history in to get started.</div>
           <div class="empty-actions">
-            <button onclick="switchView('profile')">Connect Strava</button>
+            <button onclick="connectStrava()">Connect Strava</button>
             <button class="ghost" onclick="openImport()">Import GPX / KML</button>
           </div>
+        </div>
+      </div>
+
+      <!-- First-connect reveal: import counter, then fly the archive onto the map -->
+      <div id="reveal" hidden>
+        <div class="reveal-inner">
+          <div class="reveal-num" id="reveal-num">0</div>
+          <div class="reveal-cap" id="reveal-cap">Connecting to Strava…</div>
         </div>
       </div>
 
@@ -1375,6 +1403,8 @@ function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#92400e'
 // DATA
 // ════════════════════════════════════════
 const COLORS_KEY = 'relic_colors_v1';
+const CACHE_KEY = 'relic_archive_v1';   // per-user instant-load cache (+ '_' + user id)
+const LAST_EMAIL_KEY = 'relic_last_email';
 
 // ── Supabase ──
 const SUPABASE_URL = 'https://vacmugisahiwhvkpyxgv.supabase.co';
@@ -1556,6 +1586,35 @@ async function loadFromSupabase() {
     const { data: u } = await sb.storage.from('photos').createSignedUrl(_profile.avatarPath, SIGNED_URL_TTL);
     _profile.photo = u?.signedUrl || null;
   }
+  saveArchiveCache();
+}
+
+// ── Instant-load cache ───────────────────────────────────────────────
+// The archive lives in Postgres, but every load blocking on a network round-trip
+// makes the app feel slow. So we mirror the assembled `db` into localStorage per
+// user: on boot we paint from that immediately, then refresh from Supabase and
+// re-render. Signed photo URLs in the cache may be stale (24h TTL) — that's fine
+// for a first paint; the refresh replaces them.
+function _cacheKey() { return currentUser ? CACHE_KEY + '_' + currentUser.id : null; }
+function saveArchiveCache() {
+  const k = _cacheKey(); if (!k) return;
+  try {
+    localStorage.setItem(k, JSON.stringify({
+      v: 1, at: Date.now(), db,
+      profile: { name: _profile.name, bio: _profile.bio, avatarPath: _profile.avatarPath, photo: _profile.photo },
+    }));
+  } catch (e) { /* quota / serialise failure — instant-load just won't be available */ }
+}
+function loadArchiveCache() {
+  const k = _cacheKey(); if (!k) return false;
+  try {
+    const raw = localStorage.getItem(k); if (!raw) return false;
+    const c = JSON.parse(raw);
+    if (!c || c.v !== 1 || !c.db || !Object.keys(c.db).length) return false;
+    db = c.db;
+    if (c.profile) _profile = { name: c.profile.name || '', bio: c.profile.bio || '', avatarPath: c.profile.avatarPath || null, photo: c.profile.photo || null };
+    return true;
+  } catch (e) { return false; }
 }
 
 // ── Debounced write-back of edited moments/stories ──
@@ -1573,6 +1632,7 @@ async function flushDirty() {
     if (acts.length) { const { error } = await sb.from('activities').upsert(acts); if (error) throw error; }
     if (stories.length) { const { error } = await sb.from('stories').upsert(stories); if (error) throw error; }
     renderList();
+    saveArchiveCache();
     setSaveIndicator('Saved ✓');
     setTimeout(() => setSaveIndicator(''), 2000);
   } catch (e) {
@@ -1641,7 +1701,21 @@ function initMap() {
     map.dragPan.enable();
   map.on('load', async () => {
     addTerrainSource(); loadColors(); setProgress(10);
-    setStatus('Loading your archive...'); setProgress(30);
+
+    // Instant load: if we have a cached copy of the archive, paint it now and drop
+    // the loading screen straight away. The network refresh below then happens
+    // behind an already-usable app.
+    let fromCache = false;
+    if (loadArchiveCache()) {
+      setProgress(55);
+      await renderAll();
+      frameArchiveOnLoad({ animate: false });
+      revealApp();
+      fromCache = true;
+    }
+
+    setStatus(fromCache ? 'Syncing…' : 'Loading your archive...');
+    if (!fromCache) setProgress(30);
     try {
       await loadFromSupabase();
       setProgress(70);
@@ -1649,6 +1723,7 @@ function initMap() {
       console.error(e);
       // A stale/again-issued token (clock skew, "JWT issued at future", expired) walls
       // off the whole UI. Try one silent refresh + retry before surfacing the error.
+      let recovered = false;
       if (isAuthError(e)) {
         try {
           setStatus('Refreshing session…');
@@ -1656,22 +1731,25 @@ function initMap() {
           if (rErr) throw rErr;
           await loadFromSupabase();
           setProgress(70);
+          recovered = true;
         } catch (e2) {
-          showLoadError(e2, true);
-          return;
+          if (!fromCache) { showLoadError(e2, true); return; }
         }
-      } else {
+      } else if (!fromCache) {
         showLoadError(e, false);
         return;
       }
+      // Cache already on screen — a failed refresh isn't fatal, just note it.
+      if (!recovered && fromCache) setSaveIndicator('Offline — showing last saved');
     }
     setStatus('Rendering...'); await renderAll(); setProgress(100);
-    setTimeout(()=>{ const el=document.getElementById('loading'); el.style.opacity='0'; setTimeout(()=>{el.style.display='none';map.resize();},700); },300);
-    // Returned from a Strava connect? land on Profile and pull activities once.
+    if (!fromCache) { frameArchiveOnLoad({ animate: true }); revealApp(); }
+    else if (map) map.resize();
+
+    // Returned from a Strava connect? Run the first-import reveal on the map.
     if (new URLSearchParams(location.search).get('strava') === 'connected') {
       history.replaceState(null, '', location.pathname);
-      switchView('profile');
-      setTimeout(() => syncStrava(false), 400);
+      startFirstConnectReveal();
     } else {
       maybeAutoSyncStrava();
     }
@@ -1686,6 +1764,113 @@ function addTerrainSource() {
   if(map.getSource('mapbox-dem')) return;
   map.addSource('mapbox-dem',{type:'raster-dem',url:'mapbox://mapbox.mapbox-terrain-dem-v1',tileSize:512,maxzoom:14});
   if(!map.getLayer('sky')) map.addLayer({id:'sky',type:'sky',paint:{'sky-type':'atmosphere','sky-atmosphere-sun':[0.0,90.0],'sky-atmosphere-sun-intensity':15}});
+}
+
+// Drop the loading screen. Safe to call more than once.
+let _appRevealed = false;
+function revealApp() {
+  if (_appRevealed) return;
+  _appRevealed = true;
+  const el = document.getElementById('loading');
+  el.style.opacity = '0';
+  setTimeout(() => { el.style.display = 'none'; if (map) map.resize(); }, 700);
+}
+
+// Bounds around every track in the archive (sampled — start/mid/end per track is
+// plenty for a fit, and cheap for thousands of activities).
+function archiveBounds() {
+  const b = new mapboxgl.LngLatBounds();
+  let any = false;
+  for (const m of allMemories) {
+    const c = getCoords(m);
+    if (c && c.length) {
+      b.extend(c[0]); b.extend(c[c.length - 1]);
+      const mid = c[Math.floor(c.length / 2)]; if (mid) b.extend(mid);
+      any = true;
+    } else if (m.startLng != null && m.startLat != null) {
+      b.extend([m.startLng, m.startLat]); any = true;
+    }
+  }
+  return any ? b : null;
+}
+
+// On the first load, frame the map to the user's own tracks instead of the
+// default world view. Empty archive → leave the default view (the empty-state
+// card is showing anyway).
+let _framedOnLoad = false;
+function frameArchiveOnLoad(opts) {
+  if (_framedOnLoad) return;
+  const b = archiveBounds();
+  if (!b) return;
+  _framedOnLoad = true;
+  try {
+    map.fitBounds(b, {
+      padding: window.innerWidth < 768 ? 36 : 80,
+      maxZoom: 12,
+      duration: (opts && opts.animate) ? 1400 : 0,
+    });
+  } catch (e) {}
+}
+
+// Snappy, tight camera move to a single track.
+function flyToTrack(mem, opts) {
+  if (!mem) return;
+  const dur = (opts && opts.duration) || 650;
+  const c = getCoords(mem);
+  if (c && c.length > 1) {
+    const b = new mapboxgl.LngLatBounds();
+    const step = Math.max(1, Math.floor(c.length / 120));
+    for (let i = 0; i < c.length; i += step) b.extend(c[i]);
+    b.extend(c[c.length - 1]);
+    try {
+      map.fitBounds(b, {
+        padding: window.innerWidth < 768 ? 48 : 120,
+        maxZoom: 15, duration: dur, pitch: terrainOn ? 50 : 0,
+      });
+      return;
+    } catch (e) {}
+  }
+  if (mem.startLat != null) map.flyTo({ center: [mem.startLng, mem.startLat], zoom: 13, pitch: terrainOn ? 50 : 0, duration: dur });
+}
+
+// Fade the whole tracks layer in (used after the first-connect reveal).
+function animateTracksIn() {
+  if (!map.getLayer('tracks-layer')) return;
+  try {
+    map.setPaintProperty('tracks-layer', 'line-opacity-transition', { duration: 1400, delay: 0 });
+    map.setPaintProperty('tracks-layer', 'line-opacity', 0);
+    setTimeout(() => { try { map.setPaintProperty('tracks-layer', 'line-opacity', 0.85); } catch (e) {} }, 80);
+    setTimeout(() => { try { map.setPaintProperty('tracks-layer', 'line-opacity-transition', { duration: 300, delay: 0 }); } catch (e) {} }, 1600);
+  } catch (e) {}
+}
+
+// First Strava connect: keep the user on the map, tick a counter up as activities
+// import, then fly the finished archive into view.
+let _revealHook = null;
+async function startFirstConnectReveal() {
+  switchView('map');
+  const ov = document.getElementById('reveal');
+  const num = document.getElementById('reveal-num');
+  const cap = document.getElementById('reveal-cap');
+  if (ov) { ov.hidden = false; requestAnimationFrame(() => ov.classList.add('show')); }
+  if (num) num.textContent = '0';
+  if (cap) cap.textContent = 'Importing your history…';
+  _revealHook = (n, label) => {
+    if (num) num.textContent = (n || 0).toLocaleString();
+    if (label && cap) cap.textContent = label;
+  };
+  try {
+    await syncStrava(false);
+  } catch (e) {
+    console.warn('First-connect sync failed:', e);
+  } finally {
+    _revealHook = null;
+  }
+  if (cap) cap.textContent = 'Your archive';
+  const b = archiveBounds();
+  if (b) { try { map.fitBounds(b, { padding: 60, maxZoom: 12, duration: 2200 }); } catch (e) {} }
+  animateTracksIn();
+  if (ov) setTimeout(() => { ov.classList.remove('show'); setTimeout(() => { ov.hidden = true; }, 650); }, 1500);
 }
 
 async function renderAll() {
@@ -1730,9 +1915,12 @@ function initMapLayers() {
       paint:{'line-color':['get','color'],'line-width':['interpolate',['linear'],['zoom'],2,0.8,6,1.5,10,2.5,14,3.5],'line-opacity':0.85}});
     map.addLayer({id:'tracks-highlight',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
       filter:['==',['get','id'],''],paint:{'line-color':['get','color'],'line-width':5,'line-opacity':1}});
-    map.on('click','tracks-layer',e=>{const id=e.features[0].properties.id;showDetail(id);const mem=db[id];if(mem?.startLat)map.flyTo({center:[mem.startLng,mem.startLat],zoom:13,pitch:terrainOn?50:0,duration:1000});});
-    map.on('mouseenter','tracks-layer',()=>map.getCanvas().style.cursor='pointer');
-    map.on('mouseleave','tracks-layer',()=>map.getCanvas().style.cursor='');
+    // Invisible fat line so you don't have to land a tap on a 2px stroke.
+    map.addLayer({id:'tracks-hit',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
+      paint:{'line-color':'#000','line-opacity':0,'line-width':18}});
+    map.on('click','tracks-hit',e=>{const id=e.features[0].properties.id;showDetail(id);flyToTrack(db[id]);});
+    map.on('mouseenter','tracks-hit',()=>map.getCanvas().style.cursor='pointer');
+    map.on('mouseleave','tracks-hit',()=>map.getCanvas().style.cursor='');
   }
   if(!map.getSource('satellite')) {
     map.addSource('satellite',{type:'raster',url:'mapbox://mapbox.satellite',tileSize:256});
@@ -1793,7 +1981,7 @@ function renderList() {
       <div class="ai-info"><div class="ai-name">${m.name}</div><div class="ai-meta"><span>${date}</span><span>${TYPE_CONFIG[getGroup(m.type)]?.label||m.type}</span></div></div>
       <div class="ai-right"><div class="ai-dist">${m.distance?(m.distance/1000).toFixed(1)+' km':'—'}</div>
       ${badges.length?`<div class="ai-badges">${badges.map(b=>`<span class="ai-badge">${b}</span>`).join('')}</div>`:''}</div>`;
-    item.onclick = () => { showDetail(m.id); if(m.startLat) map.flyTo({center:[m.startLng,m.startLat],zoom:13,pitch:50,duration:1000}); };
+    item.onclick = () => { showDetail(m.id); flyToTrack(m); };
     list.appendChild(item);
   });
 }
@@ -1883,7 +2071,7 @@ function toggleSatellite() {
 }
 
 function getSatelliteToggleLayers() {
-  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','satellite-layer','sky'].includes(l.id)).map(l=>l.id);
+  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','satellite-layer','sky'].includes(l.id)).map(l=>l.id);
 }
 
 function updateTypeColor(typeKey, color) {
@@ -2602,6 +2790,7 @@ async function syncStrava(full) {
   if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
   set('Syncing with Strava…');
   stravaProg(true, { text: 'Starting…' });
+  if (_revealHook) _revealHook(_syncTotal, 'Importing your history…');
 
   let page = null, pausedForRetry = false;
   try {
@@ -2613,6 +2802,7 @@ async function syncStrava(full) {
         pausedForRetry = true;
         stravaProg(true, { paused: true, text: _syncTotal + ' imported — paused, Strava rate limit' });
         set('Strava rate limit reached. Resuming automatically in ~15 min (keep this tab open), or press "Resume import" later.');
+        if (_revealHook) _revealHook(_syncTotal, 'Paused — Strava rate limit, resuming soon');
         const secs = (res.retryAfterSec || 900) + 5;
         setTimeout(() => { _syncing = false; syncStrava(full); }, secs * 1000);
         return; // _syncing / _syncTotal preserved for the retry
@@ -2621,6 +2811,7 @@ async function syncStrava(full) {
       page = res.nextPage;
       stravaProg(true, { text: _syncTotal + ' activities imported…' });
       set('Importing from Strava…');
+      if (_revealHook) _revealHook(_syncTotal, 'activities imported…');
     }
     stravaProg(true, { done: true, text: 'Done — ' + _syncTotal + ' activities' });
     set('Synced ' + _syncTotal + ' — reloading…');
@@ -3538,7 +3729,7 @@ async function recoverAndReload(){
 
 function goToActivity(id) {
   switchView('map');
-  setTimeout(()=>{const mem=db[id];showDetail(id);if(mem?.startLat)map.flyTo({center:[mem.startLng,mem.startLat],zoom:13,pitch:terrainOn?50:0,duration:1000});},150);
+  setTimeout(()=>{showDetail(id);flyToTrack(db[id]);},150);
 }
 
 let currentView = 'map';
@@ -3658,6 +3849,9 @@ let appBooted = false;
 function showLogin() {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('login').classList.add('show');
+  const emailEl = document.getElementById('login-email');
+  try { const last = localStorage.getItem(LAST_EMAIL_KEY); if (last && !emailEl.value) emailEl.value = last; } catch (e) {}
+  setTimeout(() => { try { emailEl.focus(); } catch (e) {} }, 60);
 }
 function startApp() {
   if (appBooted) return;
@@ -3695,9 +3889,13 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     options: { emailRedirectTo: location.origin + location.pathname }
   });
   btn.disabled = false;
-  statusEl.textContent = error
-    ? 'Error: ' + error.message
-    : 'Check your email for the sign-in link.';
+  if (error) {
+    statusEl.textContent = 'Error: ' + error.message;
+  } else {
+    try { localStorage.setItem(LAST_EMAIL_KEY, email); } catch (e) {}
+    btn.textContent = 'Resend link';
+    statusEl.innerHTML = 'Link sent to <b>' + email.replace(/[<>&]/g, '') + '</b>.<br>Open it on this device to sign in.';
+  }
 });
 
 bootRelic();

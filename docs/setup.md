@@ -234,6 +234,10 @@ Replace `fetchDriveData` / `mergeFromDrive` / `backgroundSyncFromDrive` /
 - **Load**: parallel `select` of activities + stories + photos + profile → assemble `db`.
 - **Save**: debounced `upsert` of the single changed row (replaces `scheduleSave`).
 - Per-user `localStorage` cache for instant load, then refresh from Supabase.
+  *(Shipped on `fast-onboarding`: `saveArchiveCache` / `loadArchiveCache`, key
+  `relic_archive_v1_<uid>`. Boot paints from cache and drops the loading screen
+  before the network `loadFromSupabase` completes; the refresh re-renders and a
+  failed refresh is non-fatal when the cache is already on screen.)*
 
 ## Phase 4 — Photos → Storage (not started)
 

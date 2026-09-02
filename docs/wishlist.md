@@ -25,12 +25,16 @@ this is the "someday / next" list. Add freely; prune when shipped.
 
 Gamified, rewarding moments — make opening the app feel good.
 
-- **First-connect "big reveal"** — when a new user connects Strava, don't draw
-  tracks as they trickle in. Hold them all, show a syncing counter that ticks up
-  ("1,204 activities… 87,000 km…") to build anticipation, then animate the whole
-  archive onto the map at once — fade/draw-on, fly-to-fit-bounds.
-- **Autoframe to the most recent activity** — on load, ease the map to frame the
-  newest track instead of the default world view.
+- **First-connect "big reveal"** — *first pass shipped (`fast-onboarding`)*: after
+  connecting Strava the user stays on the map behind a full-screen counter that
+  ticks up as activities import, then the archive fades in and the camera
+  fly-to-fits the whole thing. Still want: a km/distance counter alongside the
+  activity count, and holding tracks back entirely until the end rather than
+  letting the final `renderAll` pop them in before the fade.
+- **Autoframe on load** — *shipped (`fast-onboarding`)*: first load now fits the
+  map to the bounds of the user's own tracks (instant from cache, eased on a cold
+  load) instead of the fixed Norway view. Could still add an "ease to the newest
+  track" follow-up beat.
 - **"% new ground" on a new activity** — after a sync, tell the user how much of
   each new activity covered places they'd never been (compare its coords against
   all prior tracks). Turns exploring new routes into a score.
@@ -41,12 +45,11 @@ Gamified, rewarding moments — make opening the app feel good.
 
 ## Interaction
 
-- **Easier to click tracks** — widen the hit target on the tracks layer (invisible
-  fat line under the visible one, or a click-nearest-track fallback) so you don't
-  have to land exactly on a 2px line.
-- **Quick fly-in on activity click** — a snappy camera move when a track is
-  selected (short duration, ease into a tight fit-bounds), so selecting feels
-  responsive rather than a slow pan.
+- **Easier to click tracks** — *shipped (`fast-onboarding`)*: an invisible 18px
+  `tracks-hit` line under the visible stroke carries the click/hover now.
+- **Quick fly-in on activity click** — *shipped (`fast-onboarding`)*: selecting a
+  track now eases into a tight fit-bounds of that track (~650ms) via `flyToTrack`,
+  instead of a 1s pan to the start point.
 
 ## Social / sharing
 
