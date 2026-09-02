@@ -985,6 +985,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 #login.show { display: flex; }
 #login .loading-wordmark { font-size: 52px; }
 #login form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 300px; margin-top: 8px; }
+#login form[hidden] { display: none; }
 #login input {
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
   color: var(--paper); font-family: 'JetBrains Mono', monospace; font-size: 12px;
@@ -999,6 +1000,14 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 }
 #login button:hover { opacity: 0.85; }
 #login button:disabled { opacity: 0.4; cursor: not-allowed; }
+#login button.login-link {
+  background: none; color: rgba(255,255,255,0.45); border: none;
+  font-size: 8px; letter-spacing: 1px; text-transform: uppercase; padding: 3px 2px;
+}
+#login button.login-link:hover { color: var(--warm); opacity: 1; }
+#login .login-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 2px; }
+#login .login-link-sep { margin-top: 8px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
+#login .recovery-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--warm); text-align: center; }
 #login-status { font-size: 10px; letter-spacing: 0.5px; color: var(--warm); min-height: 14px; text-align: center; line-height: 1.7; }
 #login-status b { color: var(--paper); font-weight: 500; }
 @media (max-width: 768px) {
@@ -1016,7 +1025,18 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   <div class="loading-tagline">Your life, mapped</div>
   <form id="login-form">
     <input type="email" id="login-email" placeholder="you@email.com" autocomplete="email" required>
-    <button type="submit" id="login-btn">Send sign-in link</button>
+    <input type="password" id="login-password" placeholder="password" autocomplete="current-password" minlength="6" required>
+    <button type="submit" id="login-btn">Sign in</button>
+    <div class="login-links">
+      <button type="button" class="login-link" id="login-toggle-mode">Create account</button>
+      <button type="button" class="login-link" id="login-forgot">Forgot password</button>
+    </div>
+    <button type="button" class="login-link login-link-sep" id="login-magic">Email me a sign-in link instead</button>
+  </form>
+  <form id="recovery-form" hidden>
+    <div class="recovery-label">Set a new password</div>
+    <input type="password" id="recovery-password" placeholder="new password" autocomplete="new-password" minlength="6" required>
+    <button type="submit" id="recovery-btn">Save &amp; sign in</button>
   </form>
   <div id="login-status"></div>
 </div>
@@ -3845,14 +3865,51 @@ _r('recoverAndReload',recoverAndReload);
 // AUTH GATE + BOOT
 // ════════════════════════════════════════
 let appBooted = false;
+let _recovering = false;
+let _loginMode = 'signin'; // 'signin' | 'signup'
+
+const _esc = (s) => String(s || '').replace(/[<>&]/g, '');
+const _emailEl = () => document.getElementById('login-email');
+const _pwEl = () => document.getElementById('login-password');
+const _loginStatus = () => document.getElementById('login-status');
+
+function friendlyAuthError(err) {
+  const m = (err && (err.message || err.msg)) || String(err || '');
+  if (/invalid login credentials/i.test(m)) return 'Wrong email or password.';
+  if (/user already registered|already been registered/i.test(m)) return 'That email already has an account — sign in instead.';
+  if (/password should be at least|weak.?password/i.test(m)) return m.charAt(0).toUpperCase() + m.slice(1).replace(/\.?$/, '.');
+  if (/email not confirmed/i.test(m)) return 'Confirm your email first — check your inbox.';
+  if (/for security purposes|rate limit|too many/i.test(m)) return 'Too many attempts — wait a minute and try again.';
+  return 'Error: ' + m;
+}
+
+function setLoginMode(mode) {
+  _loginMode = mode;
+  const signup = mode === 'signup';
+  document.getElementById('login-btn').textContent = signup ? 'Create account' : 'Sign in';
+  document.getElementById('login-toggle-mode').textContent = signup ? 'Have an account? Sign in' : 'Create account';
+  _pwEl().setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
+  _loginStatus().textContent = '';
+}
 
 function showLogin() {
   document.getElementById('loading').style.display = 'none';
   document.getElementById('login').classList.add('show');
-  const emailEl = document.getElementById('login-email');
-  try { const last = localStorage.getItem(LAST_EMAIL_KEY); if (last && !emailEl.value) emailEl.value = last; } catch (e) {}
-  setTimeout(() => { try { emailEl.focus(); } catch (e) {} }, 60);
+  const el = _emailEl();
+  try { const last = localStorage.getItem(LAST_EMAIL_KEY); if (last && !el.value) el.value = last; } catch (e) {}
+  setTimeout(() => { try { (el.value ? _pwEl() : el).focus(); } catch (e) {} }, 60);
 }
+
+function showPasswordRecovery() {
+  _recovering = true;
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('login').classList.add('show');
+  document.getElementById('login-form').hidden = true;
+  document.getElementById('recovery-form').hidden = false;
+  _loginStatus().textContent = 'Enter a new password for your account.';
+  setTimeout(() => { try { document.getElementById('recovery-password').focus(); } catch (e) {} }, 60);
+}
+
 function startApp() {
   if (appBooted) return;
   appBooted = true;
@@ -3863,39 +3920,110 @@ function startApp() {
 }
 
 async function bootRelic() {
+  if (/type=recovery/.test(location.hash) || /type=recovery/.test(location.search)) _recovering = true;
   const { data: { session } } = await sb.auth.getSession();
+  if (_recovering) { showPasswordRecovery(); return; }
   if (session) { currentUser = session.user; startApp(); }
   else showLogin();
 }
 
 sb.auth.onAuthStateChange((event, session) => {
-  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && !appBooted) {
+  if (event === 'PASSWORD_RECOVERY') { showPasswordRecovery(); return; }
+  if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session && !appBooted && !_recovering) {
     currentUser = session.user;
     startApp();
   }
   if (event === 'SIGNED_OUT') location.reload();
 });
 
+// ── Sign in / create account (password) ──
 document.getElementById('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = document.getElementById('login-email').value.trim();
+  const email = _emailEl().value.trim();
+  const password = _pwEl().value;
   const btn = document.getElementById('login-btn');
-  const statusEl = document.getElementById('login-status');
-  if (!email) return;
+  const statusEl = _loginStatus();
+  if (!email || !password) return;
+  btn.disabled = true;
+  statusEl.textContent = _loginMode === 'signup' ? 'Creating account…' : 'Signing in…';
+  try {
+    if (_loginMode === 'signup') {
+      const { data, error } = await sb.auth.signUp({
+        email, password,
+        options: { emailRedirectTo: location.origin + location.pathname },
+      });
+      if (error) throw error;
+      try { localStorage.setItem(LAST_EMAIL_KEY, email); } catch (e) {}
+      if (data.session) {
+        statusEl.textContent = 'Account created — loading…'; // onAuthStateChange boots
+      } else {
+        statusEl.innerHTML = 'Account created. Check <b>' + _esc(email) + '</b> to confirm, then sign in.';
+        setLoginMode('signin');
+      }
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      try { localStorage.setItem(LAST_EMAIL_KEY, email); } catch (e) {}
+      statusEl.textContent = 'Signing in…'; // onAuthStateChange boots
+    }
+  } catch (err) {
+    statusEl.textContent = friendlyAuthError(err);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ── Toggle sign-in ⇄ create account ──
+document.getElementById('login-toggle-mode').addEventListener('click', () => {
+  setLoginMode(_loginMode === 'signin' ? 'signup' : 'signin');
+  try { _pwEl().focus(); } catch (e) {}
+});
+
+// ── Forgot password ──
+document.getElementById('login-forgot').addEventListener('click', async () => {
+  const email = _emailEl().value.trim();
+  const statusEl = _loginStatus();
+  if (!email) { statusEl.textContent = 'Enter your email first.'; _emailEl().focus(); return; }
+  statusEl.textContent = 'Sending reset link…';
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  statusEl.innerHTML = error ? friendlyAuthError(error)
+    : 'Password reset link sent to <b>' + _esc(email) + '</b>.<br>Open it on this device.';
+});
+
+// ── Magic-link fallback ──
+document.getElementById('login-magic').addEventListener('click', async (e) => {
+  const email = _emailEl().value.trim();
+  const btn = e.currentTarget;
+  const statusEl = _loginStatus();
+  if (!email) { statusEl.textContent = 'Enter your email first.'; _emailEl().focus(); return; }
   btn.disabled = true;
   statusEl.textContent = 'Sending…';
   const { error } = await sb.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: location.origin + location.pathname }
+    email, options: { emailRedirectTo: location.origin + location.pathname },
   });
   btn.disabled = false;
-  if (error) {
-    statusEl.textContent = 'Error: ' + error.message;
-  } else {
-    try { localStorage.setItem(LAST_EMAIL_KEY, email); } catch (e) {}
-    btn.textContent = 'Resend link';
-    statusEl.innerHTML = 'Link sent to <b>' + email.replace(/[<>&]/g, '') + '</b>.<br>Open it on this device to sign in.';
-  }
+  if (error) { statusEl.textContent = friendlyAuthError(error); return; }
+  try { localStorage.setItem(LAST_EMAIL_KEY, email); } catch (e) {}
+  btn.textContent = 'Resend link';
+  statusEl.innerHTML = 'Link sent to <b>' + _esc(email) + '</b>.<br>Open it on this device to sign in.';
+});
+
+// ── Set a new password (arrived via reset link) ──
+document.getElementById('recovery-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const password = document.getElementById('recovery-password').value;
+  const btn = document.getElementById('recovery-btn');
+  const statusEl = _loginStatus();
+  if (!password) return;
+  btn.disabled = true;
+  statusEl.textContent = 'Saving…';
+  const { error } = await sb.auth.updateUser({ password });
+  if (error) { btn.disabled = false; statusEl.textContent = friendlyAuthError(error); return; }
+  statusEl.textContent = 'Password updated — loading…';
+  history.replaceState(null, '', location.pathname);
+  _recovering = false;
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && !appBooted) { currentUser = session.user; startApp(); }
 });
 
 bootRelic();

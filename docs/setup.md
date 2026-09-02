@@ -8,7 +8,7 @@ with accounts, per-user data isolation, and real object storage for photos.
 | Choice | Value | Why |
 |---|---|---|
 | Backend | **Supabase** | Postgres + Auth + Storage + Edge Functions, static-frontend friendly, generous free tier |
-| Auth | **Magic link** (email OTP) | No passwords to manage or leak; least code |
+| Auth | **Email + password**, magic link kept as fallback | Returning users (esp. mobile) skip the email round-trip; magic link still there for password resets / pre-existing accounts |
 | Hosting | **Cloudflare Pages** | Free, no bandwidth cap, auto-deploy from GitHub, free custom domain |
 | Existing data | **Migrate** into the owner's account | Keep the full history |
 | Audience | Me + friends/family | Skip CAPTCHA / rate-limit hardening / legal pages for now |
@@ -75,8 +75,14 @@ policy from the schema file.
 
 ### 1d. Auth config
 
-- **Authentication → Sign In / Providers → Email**: enable, turn on
-  **Email OTP / Magic Link**. "Confirm email" can stay off.
+- **Authentication → Sign In / Providers → Email**: enable. Leave **Email OTP /
+  Magic Link** on (used as the fallback) *and* keep **password** sign-in on (the
+  default). "Confirm email" can stay off — with it off, `signUp` returns a
+  session immediately and the app boots; with it on, the login screen tells the
+  new user to confirm first.
+- **Authentication → Sign In / Providers**: "Allow new users to sign up" must
+  stay **on** — the login screen has a self-serve *Create account* link. RLS
+  means a stranger who signs up just sees an empty app.
 - **Authentication → URL Configuration**:
   - **Site URL**: `SITE_URL`
   - **Redirect URLs**: `SITE_URL/**` and `http://localhost:5173/**` for local dev
