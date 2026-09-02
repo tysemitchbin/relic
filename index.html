@@ -3873,13 +3873,36 @@ const _emailEl = () => document.getElementById('login-email');
 const _pwEl = () => document.getElementById('login-password');
 const _loginStatus = () => document.getElementById('login-status');
 
+// Supabase caps outbound auth email hard (built-in SMTP: a few per hour; even
+// custom SMTP has a per-address interval). Gate every email-sending button behind
+// one shared cooldown so a user can't burn the quota — and show the wait rather
+// than let Supabase return a cryptic error.
+let _emailSentAt = 0;
+const EMAIL_COOLDOWN = 60;
+function emailCooldownLeft() { return Math.max(0, EMAIL_COOLDOWN - Math.floor((Date.now() - _emailSentAt) / 1000)); }
+function runButtonCountdown(btn, restoreLabel) {
+  const tick = () => {
+    const left = emailCooldownLeft();
+    if (left <= 0) { btn.disabled = false; btn.textContent = restoreLabel; return; }
+    btn.disabled = true;
+    btn.textContent = restoreLabel + ' · ' + left + 's';
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+
 function friendlyAuthError(err) {
   const m = (err && (err.message || err.msg)) || String(err || '');
   if (/invalid login credentials/i.test(m)) return 'Wrong email or password.';
   if (/user already registered|already been registered/i.test(m)) return 'That email already has an account — sign in instead.';
   if (/password should be at least|weak.?password/i.test(m)) return m.charAt(0).toUpperCase() + m.slice(1).replace(/\.?$/, '.');
   if (/email not confirmed/i.test(m)) return 'Confirm your email first — check your inbox.';
-  if (/for security purposes|rate limit|too many/i.test(m)) return 'Too many attempts — wait a minute and try again.';
+  if (/signups? not allowed|disabled/i.test(m)) return 'Sign-ups are turned off right now.';
+  if (/for security purposes|rate limit|too many|over_email_send_rate/i.test(m)) {
+    const s = m.match(/after (\d+) seconds?/i);
+    return s ? 'Wait ' + s[1] + 's before requesting another email.'
+             : 'Too many email requests — wait a few minutes.';
+  }
   return 'Error: ' + m;
 }
 
@@ -3944,6 +3967,10 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   const btn = document.getElementById('login-btn');
   const statusEl = _loginStatus();
   if (!email || !password) return;
+  if (_loginMode === 'signup') {
+    const wait = emailCooldownLeft();
+    if (wait) { statusEl.textContent = 'Wait ' + wait + 's before trying again.'; return; }
+  }
   btn.disabled = true;
   statusEl.textContent = _loginMode === 'signup' ? 'Creating account…' : 'Signing in…';
   try {
@@ -3957,6 +3984,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       if (data.session) {
         statusEl.textContent = 'Account created — loading…'; // onAuthStateChange boots
       } else {
+        _emailSentAt = Date.now(); // a confirmation email went out
         statusEl.innerHTML = 'Account created. Check <b>' + _esc(email) + '</b> to confirm, then sign in.';
         setLoginMode('signin');
       }
@@ -3980,14 +4008,20 @@ document.getElementById('login-toggle-mode').addEventListener('click', () => {
 });
 
 // ── Forgot password ──
-document.getElementById('login-forgot').addEventListener('click', async () => {
+document.getElementById('login-forgot').addEventListener('click', async (e) => {
   const email = _emailEl().value.trim();
+  const btn = e.currentTarget;
   const statusEl = _loginStatus();
   if (!email) { statusEl.textContent = 'Enter your email first.'; _emailEl().focus(); return; }
+  const wait = emailCooldownLeft();
+  if (wait) { statusEl.textContent = 'Wait ' + wait + 's before requesting another email.'; return; }
+  btn.disabled = true;
   statusEl.textContent = 'Sending reset link…';
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-  statusEl.innerHTML = error ? friendlyAuthError(error)
-    : 'Password reset link sent to <b>' + _esc(email) + '</b>.<br>Open it on this device.';
+  if (error) { btn.disabled = false; statusEl.innerHTML = friendlyAuthError(error); return; }
+  _emailSentAt = Date.now();
+  statusEl.innerHTML = 'Password reset link sent to <b>' + _esc(email) + '</b>.<br>Open it on this device.';
+  runButtonCountdown(btn, 'Forgot password');
 });
 
 // ── Magic-link fallback ──
@@ -3996,16 +4030,18 @@ document.getElementById('login-magic').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   const statusEl = _loginStatus();
   if (!email) { statusEl.textContent = 'Enter your email first.'; _emailEl().focus(); return; }
+  const wait = emailCooldownLeft();
+  if (wait) { statusEl.textContent = 'Wait ' + wait + 's before requesting another email.'; return; }
   btn.disabled = true;
   statusEl.textContent = 'Sending…';
   const { error } = await sb.auth.signInWithOtp({
     email, options: { emailRedirectTo: location.origin + location.pathname },
   });
-  btn.disabled = false;
-  if (error) { statusEl.textContent = friendlyAuthError(error); return; }
+  if (error) { btn.disabled = false; statusEl.textContent = friendlyAuthError(error); return; }
+  _emailSentAt = Date.now();
   try { localStorage.setItem(LAST_EMAIL_KEY, email); } catch (e) {}
-  btn.textContent = 'Resend link';
   statusEl.innerHTML = 'Link sent to <b>' + _esc(email) + '</b>.<br>Open it on this device to sign in.';
+  runButtonCountdown(btn, 'Resend link');
 });
 
 // ── Set a new password (arrived via reset link) ──

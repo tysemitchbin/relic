@@ -85,8 +85,26 @@ policy from the schema file.
   means a stranger who signs up just sees an empty app.
 - **Authentication → URL Configuration**:
   - **Site URL**: `SITE_URL`
-  - **Redirect URLs**: `SITE_URL/**` and `http://localhost:5173/**` for local dev
-- Rate limits: defaults are fine.
+  - **Redirect URLs**: `SITE_URL/**`, the CF preview domains
+    (`https://*.relic-bju.pages.dev/**`), and `http://localhost:5173/**` for
+    local dev.
+
+### Email delivery — custom SMTP (do before real users)
+
+Supabase's built-in email is **rate-limited to a handful of messages per hour**
+and is explicitly not for production. Every magic link, signup confirmation, and
+password reset draws from that bucket, so testers hit
+"email rate limit exceeded" fast.
+
+Fix: **Authentication → Emails → SMTP Settings → Enable Custom SMTP.** Any
+provider works — Resend (free tier, easiest), Postmark, SendGrid, AWS SES. You
+need a sender address on a domain you control and the provider's SPF/DKIM DNS
+records. Then **Authentication → Rate Limits → "Rate limit for sending emails"**
+can be raised (e.g. 30–100/hour).
+
+Mitigations already in the client (`index.html`): password sign-in sends no
+email at all; the magic-link / forgot-password / signup buttons share a 60s
+cooldown and surface the wait instead of letting Supabase error.
 
 Invite-only signup is a later tweak — with RLS, a stranger who signs up just
 sees an empty app.
