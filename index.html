@@ -1503,7 +1503,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 <div class="modal-overlay" id="route-preview-modal">
   <div class="modal">
     <div class="modal-title">Preview</div>
-    <div class="modal-sub">Drag a waypoint to adjust the route, then save</div>
+    <div class="modal-sub">Drag any point to adjust it, or click the line to add one — then save</div>
     <div id="route-preview-map" style="width:100%;height:320px;border:1px solid var(--border);margin:10px 0"></div>
     <div class="import-progress" id="route-preview-status"></div>
     <div class="modal-actions">
@@ -1901,10 +1901,18 @@ function initMap() {
   // of what's under the cursor; the tracks-hit layer's click handler and each
   // pin marker's own click handler (initMapLayers/renderPinMarkers) guard
   // against firing at the same time via _pinDropMode/_drawMode checks, so
-  // there's no double-handling of a click.
+  // there's no double-handling of a click. In draw mode, a click that lands
+  // on the drawn route itself (draw-route-hit) inserts a new point there
+  // instead of appending one at the end — deliberately checked here, in the
+  // one handler, rather than as a second `map.on('click','draw-route-hit',…)`
+  // listener, so the two can't both fire for the same click.
   map.on('click', e => {
     if (_pinDropMode) { togglePinDropMode(); openPinModal(e.lngLat); return; }
-    if (_drawMode) { addDrawPoint(e.lngLat); }
+    if (_drawMode) {
+      const hits = map.queryRenderedFeatures(e.point, { layers: ['draw-route-hit'] });
+      if (hits.length) insertDrawWaypoint(hits[0].properties.legIndex, e.lngLat);
+      else addDrawPoint(e.lngLat);
+    }
   });
   initLongPress();
 
@@ -2162,6 +2170,10 @@ function initMapLayers() {
     map.addSource('draw-route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
     map.addLayer({id:'draw-route-layer',type:'line',source:'draw-route',layout:{'line-join':'round','line-cap':'round'},
       paint:{'line-color':'#2563eb','line-width':3,'line-dasharray':[2,1.5]}});
+    // Wide invisible hit-line so clicking near (not exactly on) the drawn
+    // route reliably registers as "insert a point here" rather than missing.
+    map.addLayer({id:'draw-route-hit',type:'line',source:'draw-route',layout:{'line-join':'round','line-cap':'round'},
+      paint:{'line-color':'#000','line-opacity':0,'line-width':18}});
   }
   if(!map.getSource('satellite')) {
     map.addSource('satellite',{type:'raster',url:'mapbox://mapbox.satellite',tileSize:256});
@@ -2340,7 +2352,7 @@ function toggleSatellite() {
 }
 
 function getSatelliteToggleLayers() {
-  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','satellite-layer','sky'].includes(l.id)).map(l=>l.id);
+  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','draw-route-hit','satellite-layer','sky'].includes(l.id)).map(l=>l.id);
 }
 
 function updateTypeColor(typeKey, color) {
@@ -2933,25 +2945,50 @@ async function buildParsedRoute(text, dateVal) {
   return { parsed, geocoded, legs };
 }
 
+// Recomputes one leg's geometry in place (shared by drag-adjust and insert).
+async function recomputePreviewLeg(leg) {
+  const { parsed } = _pendingParsedRoute;
+  const profile = { Drive:'driving', Ride:'cycling', Walk:'walking', Hike:'walking' }[parsed.mode] || 'driving';
+  const { a, b } = leg;
+  if (parsed.isFlight) {
+    leg.coords = greatCircleCoords(a.lat, a.lng, b.lat, b.lng, 32);
+    leg.distance = haversine(a.lat, a.lng, b.lat, b.lng);
+  } else {
+    const seg = await fetchDirectionsSegment([a.lng, a.lat], [b.lng, b.lat], profile);
+    if (seg && seg.coords.length > 1) { leg.coords = seg.coords; leg.distance = seg.distance; }
+    else { leg.coords = [[a.lng,a.lat],[b.lng,b.lat]]; leg.distance = haversine(a.lat, a.lng, b.lat, b.lng); }
+  }
+}
+
 // Re-snaps only the leg(s) touching waypoint index `idx` after a drag — not
 // a full re-parse.
 async function recomputeLegsAt(idx) {
   if (!_pendingParsedRoute) return;
-  const { parsed, legs } = _pendingParsedRoute;
-  const profile = { Drive:'driving', Ride:'cycling', Walk:'walking', Hike:'walking' }[parsed.mode] || 'driving';
+  const { legs } = _pendingParsedRoute;
   const touched = legs.filter((leg, i) => i === idx || i === idx - 1);
-  for (const leg of touched) {
-    const { a, b } = leg;
-    if (parsed.isFlight) {
-      leg.coords = greatCircleCoords(a.lat, a.lng, b.lat, b.lng, 32);
-      leg.distance = haversine(a.lat, a.lng, b.lat, b.lng);
-    } else {
-      const seg = await fetchDirectionsSegment([a.lng, a.lat], [b.lng, b.lat], profile);
-      if (seg && seg.coords.length > 1) { leg.coords = seg.coords; leg.distance = seg.distance; }
-      else { leg.coords = [[a.lng,a.lat],[b.lng,b.lat]]; leg.distance = haversine(a.lat, a.lng, b.lat, b.lng); }
-    }
-  }
+  await Promise.all(touched.map(recomputePreviewLeg));
   updatePreviewMapData();
+}
+
+// A click landed on the drawn route line itself (preview-route-hit), not on
+// an existing waypoint marker — split that leg in two, inserting a new
+// draggable point there. This is what lets you drag ANY point on the route,
+// not just its named start/via/end waypoints.
+async function insertPreviewWaypoint(legIndex, lngLat) {
+  if (!_pendingParsedRoute) return;
+  const { geocoded, legs } = _pendingParsedRoute;
+  if (legIndex == null || legIndex < 0 || legIndex >= legs.length) return;
+  const oldLeg = legs[legIndex];
+  const newWp = { name: 'Via point', lat: lngLat.lat, lng: lngLat.lng, placeName: null };
+  const insertAt = geocoded.indexOf(oldLeg.b);
+  geocoded.splice(insertAt < 0 ? geocoded.length : insertAt, 0, newWp);
+  const legA = { a: oldLeg.a, b: newWp, coords: null, distance: 0, duration: 0, type: oldLeg.type };
+  const legB = { a: newWp, b: oldLeg.b, coords: null, distance: 0, duration: 0, type: oldLeg.type };
+  legs.splice(legIndex, 1, legA, legB);
+  document.getElementById('route-preview-status').textContent = 'Re-routing…';
+  await Promise.all([recomputePreviewLeg(legA), recomputePreviewLeg(legB)]);
+  renderRoutePreviewMap(false); // false = don't re-fit bounds, camera shouldn't jump while fine-tuning
+  document.getElementById('route-preview-status').textContent = previewTotalDistanceText();
 }
 
 function previewTotalDistanceText() {
@@ -2994,15 +3031,22 @@ function openRoutePreviewMap() {
 }
 function closeRoutePreviewMap() { document.getElementById('route-preview-modal').classList.remove('open'); }
 
-function renderRoutePreviewMap() {
+function renderRoutePreviewMap(fit) {
   if (!_routePreviewMap || !_pendingParsedRoute) return;
-  const geo = { type:'FeatureCollection', features: _pendingParsedRoute.legs.map(l => ({ type:'Feature', geometry:{ type:'LineString', coordinates:l.coords }, properties:{} })) };
+  const geo = { type:'FeatureCollection', features: _pendingParsedRoute.legs.map((l,i) => ({ type:'Feature', geometry:{ type:'LineString', coordinates:l.coords }, properties:{ legIndex:i } })) };
   if (_routePreviewMap.getSource('preview-route')) {
     _routePreviewMap.getSource('preview-route').setData(geo);
   } else {
     _routePreviewMap.addSource('preview-route', { type:'geojson', data:geo });
     _routePreviewMap.addLayer({ id:'preview-route-layer', type:'line', source:'preview-route',
       layout:{ 'line-join':'round','line-cap':'round' }, paint:{ 'line-color':'#2563eb','line-width':4, 'line-dasharray': _pendingParsedRoute.parsed.isFlight?[2,1.5]:[1,0] } });
+    // Wide invisible hit-line so clicking near the route reliably registers
+    // as "insert a point here", same pattern as draw-route-hit on the main map.
+    _routePreviewMap.addLayer({ id:'preview-route-hit', type:'line', source:'preview-route',
+      layout:{ 'line-join':'round','line-cap':'round' }, paint:{ 'line-color':'#000','line-opacity':0,'line-width':16 } });
+    _routePreviewMap.on('click', 'preview-route-hit', e => insertPreviewWaypoint(e.features[0].properties.legIndex, e.lngLat));
+    _routePreviewMap.on('mouseenter', 'preview-route-hit', () => { _routePreviewMap.getCanvas().style.cursor = 'copy'; });
+    _routePreviewMap.on('mouseleave', 'preview-route-hit', () => { _routePreviewMap.getCanvas().style.cursor = ''; });
   }
   _routePreviewMarkers.forEach(m => m.remove());
   _routePreviewMarkers = _pendingParsedRoute.geocoded.map((wp, i) => {
@@ -3018,13 +3062,15 @@ function renderRoutePreviewMap() {
     });
     return marker;
   });
-  const b = new mapboxgl.LngLatBounds();
-  _pendingParsedRoute.geocoded.forEach(wp => b.extend([wp.lng, wp.lat]));
-  try { _routePreviewMap.fitBounds(b, { padding: 40, maxZoom: 12, duration: 0 }); } catch (e) {}
+  if (fit !== false) {
+    const b = new mapboxgl.LngLatBounds();
+    _pendingParsedRoute.geocoded.forEach(wp => b.extend([wp.lng, wp.lat]));
+    try { _routePreviewMap.fitBounds(b, { padding: 40, maxZoom: 12, duration: 0 }); } catch (e) {}
+  }
 }
 function updatePreviewMapData() {
   if (!_routePreviewMap || !_routePreviewMap.getSource('preview-route') || !_pendingParsedRoute) return;
-  _routePreviewMap.getSource('preview-route').setData({ type:'FeatureCollection', features: _pendingParsedRoute.legs.map(l => ({ type:'Feature', geometry:{ type:'LineString', coordinates:l.coords }, properties:{} })) });
+  _routePreviewMap.getSource('preview-route').setData({ type:'FeatureCollection', features: _pendingParsedRoute.legs.map((l,i) => ({ type:'Feature', geometry:{ type:'LineString', coordinates:l.coords }, properties:{ legIndex:i } })) });
   document.getElementById('route-preview-status').textContent = previewTotalDistanceText();
 }
 
@@ -3094,30 +3140,40 @@ async function saveParsedRoute() {
   btn.disabled = false;
 }
 
-// ── Draw-your-route (v1: no undo/redo, no point/segment context menus, no
-// elevation profile — all explicitly deferred; see CLAUDE.md "Draw-route
-// follow-ups"). Every tapped point gets a visible, draggable marker — same
-// pattern as the NL-parser preview map and "How Far Did I Run": drop a pin,
-// see it, drag it if the road-snap put it somewhere wrong. Dragging a
-// waypoint only re-snaps its adjacent leg(s), not the whole route. ──
+// ── Draw-your-route (v1: no undo/redo, no elevation profile — deferred; see
+// CLAUDE.md "Draw-route follow-ups"). Every control point gets a visible,
+// draggable marker (renderDrawMarkers) — same pattern as the NL-parser
+// preview map and "How Far Did I Run": drop a pin, see it, drag it if the
+// road-snap put it somewhere wrong. Clicking anywhere ON the drawn line
+// (not just at an existing marker) inserts a new draggable point there,
+// splitting that leg in two (insertDrawWaypoint) — this is what makes the
+// whole route draggable, not just its two ends. Dragging or inserting a
+// point only re-snaps its adjacent leg(s), not the whole route. ──
 const DRAW_PROFILES = {
   foot:{ directionsProfile:'walking', type:'Walk' },
   bike:{ directionsProfile:'cycling', type:'Ride' },
   car:{ directionsProfile:'driving', type:'Drive' },
   manual:{ directionsProfile:null, type:'Other' },
 };
-// _drawWaypoints[i] = {lng,lat} — the actual dropped/dragged pin positions.
-// _drawLegs[i] = {coords,distance} for the snapped segment between waypoint
-// i and i+1 (index-aligned with _drawWaypoints, one shorter).
+// _drawWaypoints[i] = {lng,lat} — every control point (dropped, dragged, or
+// inserted mid-line). _drawLegs[i] = {coords,distance} for the snapped
+// segment between waypoint i and i+1 (index-aligned, one shorter).
 let _drawProfile = null, _drawWaypoints = [], _drawLegs = [], _drawMarkers = [];
+// Bumped on cancel/(re)start so a Directions response that resolves AFTER
+// the user has already cancelled can't silently repopulate stale state —
+// without this guard, a slow in-flight request landing after Cancel could
+// redraw a leg the user thought they'd already cleared (this is why Cancel
+// could look like it "didn't work").
+let _drawSession = 0;
 
 function openDrawRoutePicker() { document.getElementById('draw-picker-modal').classList.add('open'); }
 function closeDrawPicker() { document.getElementById('draw-picker-modal').classList.remove('open'); }
 
 function startDrawMode(mode) {
   closeDrawPicker();
+  _drawSession++;
   _drawProfile = mode; _drawWaypoints = []; _drawLegs = [];
-  _drawMarkers.forEach(m => m.remove()); _drawMarkers = [];
+  renderDrawMarkers();
   _drawMode = true; _pinDropMode = false;
   map.getCanvas().style.cursor = 'crosshair';
   updateDrawPreview();
@@ -3135,8 +3191,11 @@ async function fetchDirectionsSegment(a, b, profile) {
   } catch (e) { console.warn('Directions segment failed', e); return null; }
 }
 
-// Recomputes the single leg between waypoints [legIdx, legIdx+1].
+// Recomputes the single leg between waypoints [legIdx, legIdx+1]. Checks
+// _drawSession before AND after the network call so a response that comes
+// back after Cancel/re-start is silently dropped instead of applied.
 async function recomputeDrawLeg(legIdx) {
+  const session = _drawSession;
   const a = _drawWaypoints[legIdx], b = _drawWaypoints[legIdx+1];
   if (!a || !b) return;
   let coords, distance;
@@ -3145,38 +3204,61 @@ async function recomputeDrawLeg(legIdx) {
     distance = haversine(a.lat, a.lng, b.lat, b.lng);
   } else {
     const seg = await fetchDirectionsSegment([a.lng,a.lat], [b.lng,b.lat], DRAW_PROFILES[_drawProfile].directionsProfile);
+    if (session !== _drawSession) return;
     if (seg && seg.coords.length > 1) { coords = seg.coords; distance = seg.distance; }
     else { coords = [[a.lng,a.lat],[b.lng,b.lat]]; distance = haversine(a.lat, a.lng, b.lat, b.lng); }
   }
+  if (session !== _drawSession) return;
   _drawLegs[legIdx] = { coords, distance };
 }
 
-function addDrawMarker(idx) {
-  const wp = _drawWaypoints[idx];
-  const el = document.createElement('div');
-  el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:grab';
-  const marker = new mapboxgl.Marker({ element: el, draggable: true }).setLngLat([wp.lng, wp.lat]).addTo(map);
-  marker.on('dragstart', () => { el.style.cursor = 'grabbing'; });
-  marker.on('dragend', async () => {
-    el.style.cursor = 'grab';
-    const ll = marker.getLngLat();
-    _drawWaypoints[idx] = { lng: ll.lng, lat: ll.lat };
-    document.getElementById('mode-banner-text').textContent = 'Re-routing…';
-    const jobs = [];
-    if (idx > 0) jobs.push(recomputeDrawLeg(idx-1));
-    if (idx < _drawWaypoints.length-1) jobs.push(recomputeDrawLeg(idx));
-    await Promise.all(jobs);
-    updateDrawPreview();
-    updateModeBanner();
+// Full rebuild of the marker set from _drawWaypoints — simpler and more
+// robust than patching individual markers in place, since inserting a
+// waypoint mid-route shifts every index after it; a stale closure over an
+// old index would otherwise drag/re-snap the wrong leg.
+function renderDrawMarkers() {
+  _drawMarkers.forEach(m => m.remove());
+  _drawMarkers = _drawWaypoints.map((wp, idx) => {
+    const el = document.createElement('div');
+    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:grab';
+    const marker = new mapboxgl.Marker({ element: el, draggable: true }).setLngLat([wp.lng, wp.lat]).addTo(map);
+    marker.on('dragstart', () => { el.style.cursor = 'grabbing'; });
+    marker.on('dragend', async () => {
+      el.style.cursor = 'grab';
+      const ll = marker.getLngLat();
+      _drawWaypoints[idx] = { lng: ll.lng, lat: ll.lat };
+      document.getElementById('mode-banner-text').textContent = 'Re-routing…';
+      const jobs = [];
+      if (idx > 0) jobs.push(recomputeDrawLeg(idx-1));
+      if (idx < _drawWaypoints.length-1) jobs.push(recomputeDrawLeg(idx));
+      await Promise.all(jobs);
+      updateDrawPreview();
+      updateModeBanner();
+    });
+    return marker;
   });
-  _drawMarkers.push(marker);
 }
 
 async function addDrawPoint(lngLat) {
   const idx = _drawWaypoints.length;
   _drawWaypoints.push({ lng: lngLat.lng, lat: lngLat.lat });
-  addDrawMarker(idx);
+  renderDrawMarkers();
   if (idx > 0) await recomputeDrawLeg(idx - 1);
+  updateDrawPreview();
+  updateModeBanner();
+}
+
+// A click landed on the drawn line itself (draw-route-hit), not on an
+// existing marker — split that leg into two, inserting a new draggable
+// waypoint at the clicked point. This (plus dragging any marker) is what
+// makes the whole route adjustable, not just its two ends.
+async function insertDrawWaypoint(legIndex, lngLat) {
+  if (legIndex == null || legIndex < 0 || legIndex >= _drawWaypoints.length - 1) return;
+  _drawWaypoints.splice(legIndex + 1, 0, { lng: lngLat.lng, lat: lngLat.lat });
+  _drawLegs.splice(legIndex, 1, undefined, undefined); // the old leg splits into two, both recomputed below
+  renderDrawMarkers();
+  document.getElementById('mode-banner-text').textContent = 'Re-routing…';
+  await Promise.all([recomputeDrawLeg(legIndex), recomputeDrawLeg(legIndex + 1)]);
   updateDrawPreview();
   updateModeBanner();
 }
@@ -3185,7 +3267,7 @@ function drawTotalDistance() { return _drawLegs.reduce((s,l) => s + (l ? l.dista
 
 function updateDrawPreview() {
   if (!map.getSource('draw-route')) return;
-  const features = _drawLegs.filter(Boolean).map(leg => ({ type:'Feature', geometry:{ type:'LineString', coordinates:leg.coords }, properties:{} }));
+  const features = _drawLegs.map((leg,i) => leg ? { type:'Feature', geometry:{ type:'LineString', coordinates:leg.coords }, properties:{ legIndex:i } } : null).filter(Boolean);
   map.getSource('draw-route').setData({ type:'FeatureCollection', features });
 }
 
@@ -3225,6 +3307,7 @@ async function finishDrawRoute() {
 // Clears draw state without touching pin-drop mode (used when arming pin-drop
 // while a draw was in progress).
 function cancelDrawOnly() {
+  _drawSession++; // invalidate any in-flight recomputeDrawLeg calls
   _drawMode = false; _drawWaypoints = []; _drawLegs = []; _drawProfile = null;
   _drawMarkers.forEach(m => m.remove()); _drawMarkers = [];
   if (map.getSource('draw-route')) map.getSource('draw-route').setData({ type:'FeatureCollection', features:[] });
@@ -3243,7 +3326,7 @@ function updateModeBanner() {
     document.getElementById('mode-banner-finish').hidden = true;
     el.hidden = false;
   } else if (_drawMode) {
-    document.getElementById('mode-banner-text').textContent = `Drawing (${DRAW_PROFILES[_drawProfile].type}) — ${(drawTotalDistance()/1000).toFixed(2)} km, ${_drawWaypoints.length} point${_drawWaypoints.length===1?'':'s'}. Drag a pin to fix it.`;
+    document.getElementById('mode-banner-text').textContent = `Drawing (${DRAW_PROFILES[_drawProfile].type}) — ${(drawTotalDistance()/1000).toFixed(2)} km, ${_drawWaypoints.length} point${_drawWaypoints.length===1?'':'s'}. Drag a pin, or click the line to add one.`;
     document.getElementById('mode-banner-finish').hidden = _drawWaypoints.length < 2;
     el.hidden = false;
   } else {

@@ -112,34 +112,60 @@ by concatenating its steps' decoded polylines.
 Clicking "Preview" (`previewParsedRoute`) geocodes + builds the route via the
 shared `buildParsedRoute(text, dateVal)` (also used by Save), then opens
 `#route-preview-modal` — a small standalone `mapboxgl.Map` instance
-(`_routePreviewMap`) showing a draggable marker per waypoint. Dragging one
-mutates that waypoint's `{lat,lng}` in place and calls `recomputeLegsAt(idx)`,
-which re-snaps only the leg(s) touching that waypoint (`fetchDirectionsSegment`
-for non-flight, `greatCircleCoords` for flight) — not the whole chain. `Save`
-(`saveParsedRoute`) reuses the already-built `_pendingParsedRoute` (so a drag
-adjustment is preserved) if its cache key (text+date) still matches the form,
-otherwise rebuilds fresh via `buildParsedRoute`. This only edits the discrete
-named waypoints, not arbitrary points along the interior line — full
-interior-point reshaping is a bigger feature, not built here.
+(`_routePreviewMap`) showing a draggable marker per waypoint, plus a wide
+invisible `preview-route-hit` line layer over the route itself. Dragging a
+marker mutates that waypoint's `{lat,lng}` in place and calls
+`recomputeLegsAt(idx)` (→ shared `recomputePreviewLeg`), which re-snaps only
+the leg(s) touching it — not the whole chain. **Clicking anywhere on the
+route line itself** (not just an existing marker) calls
+`insertPreviewWaypoint(legIndex, lngLat)`: splits that leg into two around a
+new synthetic waypoint (`name:'Via point'`, spliced into `geocoded` right
+before the leg's original endpoint so save-time leg naming stays correct),
+recomputes both halves, and does a full marker/line rebuild
+(`renderRoutePreviewMap(false)` — the `false` skips re-fitting the camera
+bounds, which would otherwise jump around distractingly on every edit). This
+is what makes the *whole* route draggable, not just its two/N named ends —
+added after a user found endpoint-only dragging insufficient to fix a bad
+road-snap. `Save` (`saveParsedRoute`) reuses the already-built
+`_pendingParsedRoute` (so any drag/insert adjustment is preserved) if its
+cache key (text+date) still matches the form, otherwise rebuilds fresh via
+`buildParsedRoute`.
 
 **Draw-your-route** (`openDrawRoutePicker`/`startDrawMode`/`addDrawPoint`/
 `finishDrawRoute`) — pick foot/bike/car (Mapbox Directions profiles) or
-manual (straight lines, no snapping) before tracing. Every tapped point gets
-a **visible, draggable `mapboxgl.Marker`** (`addDrawMarker`) — the app
-originally drew a live line with no markers at all, which made a bad road-
-snap impossible to see or fix; this was reworked after live testing showed
-it. State is `_drawWaypoints[i]={lng,lat}` (the actual dropped/dragged
-positions) and `_drawLegs[i]={coords,distance}` (the snapped segment between
-waypoint i and i+1) — index-aligned, one shorter than `_drawWaypoints`.
-Dragging a waypoint marker calls `recomputeDrawLeg` on its one or two
-adjacent legs only, same pattern as the NL-parser preview map above (and not
-a coincidence — copy that pattern, don't reinvent it, if a third "drag a
-point to fix a route" UI is ever needed). A live distance readout
-(`drawTotalDistance()`) shows in the `#mode-banner` UI. **v1 deliberately
-does not include** (add as new functions/UI when picked up, don't retrofit
-into the existing ones): drag-a-segment-to-insert-a-new-point, undo/redo,
-right-click/long-press context menus on points or segments, or an elevation
-profile display.
+manual (straight lines, no snapping) before tracing. Every control point
+gets a **visible, draggable `mapboxgl.Marker`** (`renderDrawMarkers` — a
+*full* rebuild of the marker set on every waypoint-array change, not an
+incremental patch, since inserting a point mid-route shifts every index
+after it and a stale per-marker closure over an old index would drag/re-snap
+the wrong leg). The app originally drew a live line with no markers at all,
+which made a bad road-snap impossible to see or fix; this was reworked after
+live testing showed it. **Clicking anywhere on the drawn line** (hit-tested
+against the `draw-route-hit` layer inside the single generic map click
+handler in `initMap` — deliberately one handler with a hit-test branch, not
+a second `map.on('click','draw-route-hit',…)` listener, so an insert-click
+can't also fire as an append-click) calls `insertDrawWaypoint(legIndex,
+lngLat)`, same split-the-leg-in-two approach as the preview map above (not a
+coincidence — this and the preview map's insert are the same pattern
+independently applied to two different Mapbox instances; copy it again for
+a third "drag a route" UI rather than reinventing it). State is
+`_drawWaypoints[i]={lng,lat}` and `_drawLegs[i]={coords,distance}`
+(index-aligned, one shorter than `_drawWaypoints`). A live distance readout
+(`drawTotalDistance()`) shows in the `#mode-banner` UI, along with Cancel
+(`cancelActiveMode`) and Finish (`finishDrawRoute`) — **`cancelDrawOnly`
+bumps a `_drawSession` counter**, and every async `recomputeDrawLeg` checks
+it against the value it started with (before AND after its network call)
+before writing to `_drawLegs`; without this, a slow Directions response that
+resolves after the user has already hit Cancel could silently repopulate a
+leg the user thought they'd cleared, making Cancel look broken. Straight
+segments in the drawn line are usually not a bug: Mapbox's Directions API
+has no dedicated hiking/trail profile, so `foot`→`walking` frequently has no
+path data for off-trail routes and falls back to a straight line between
+the two points — the insert/drag capability above is the intended fix for
+that, not a deeper snapping algorithm. **v1 deliberately does not include**
+(add as new functions/UI when picked up, don't retrofit into the existing
+ones): undo/redo, right-click/long-press context menus on points or
+segments, or an elevation profile display.
 
 **Airports view** (`switchView('airports')` → `buildAirportsView()`) is
 computed on every view-open from `computeAirportVisits()` — it scans
@@ -173,12 +199,11 @@ feature.
 
 ### Known follow-ups (not built here, deliberately deferred)
 
-- Draw-route: drag-to-reposition a waypoint IS built (see above) — what's
-  still deferred is drag-a-segment-to-insert-a-new-point, undo/redo,
-  point/segment context menus, elevation profile.
+- Draw-route: drag-to-reposition a point AND click-the-line-to-insert-a-point
+  ARE built (see above) — what's still deferred is undo/redo, point/segment
+  context menus, elevation profile.
 - NL parser: mixed-mode sentences ("drove to X, then flew to Y"). The
-  preview map's waypoint-drag only nudges the named waypoints, not arbitrary
-  points along a leg's interior line — full interior reshaping is unbuilt.
+  preview map's insert-on-click IS built (see above), same as draw-route.
 - Airports view: airports aren't rendered as map pins with a count badge
   (only listed in the Airports view itself) — a nice-to-have if it's ever
   wanted, not required by the current spec.
