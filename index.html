@@ -1118,13 +1118,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         </div>
       </div>
 
-      <!-- Pin onboarding nudge (Retrospective entry) -->
-      <div id="pin-nudge" hidden style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:54;background:var(--paper);border:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-width:min(420px,calc(100vw - 40px))">
-        <span style="font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--ink)">Where did you grow up? Where do you work?</span>
-        <button onclick="closeAddModal();dismissPinNudge();togglePinDropMode()" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:6px 10px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer;white-space:nowrap">Drop a pin</button>
-        <button class="empty-close" onclick="dismissPinNudge()" title="Dismiss" style="position:static;width:auto;height:auto">&times;</button>
-      </div>
-
       <!-- Active-mode banner: pin-drop / draw-route (Retrospective entry) -->
       <div id="mode-banner" hidden style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:55;background:var(--paper);border:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;box-shadow:0 4px 16px rgba(0,0,0,0.15)">
         <span id="mode-banner-text"></span>
@@ -1266,6 +1259,18 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           </div>
         </div>
         <div class="profile-stats-row" id="profile-stats-row"></div>
+
+        <!-- Pin onboarding nudge (Retrospective entry) — lives in Profile, not on the map -->
+        <div id="pin-nudge" hidden style="border:1px solid var(--border);padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+          <div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--ink)">Where did you grow up? Where do you work?</div>
+            <div style="font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-top:3px">Drop a few pins to start filling in the map beyond your tracked activities.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <button onclick="dismissPinNudge();openAddModal()" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:8px 12px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer;white-space:nowrap">Add a Pin</button>
+            <button class="empty-close" onclick="dismissPinNudge()" title="Dismiss" style="position:static;width:auto;height:auto">&times;</button>
+          </div>
+        </div>
 
         <div class="strava-section" id="strava-section">
           <div class="strava-row">
@@ -1482,8 +1487,22 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <div class="import-progress" id="nl-status"></div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeNLParserModal()">Cancel</button>
-      <button class="btn-ghost" id="nl-preview-btn" onclick="previewParsedRoute()">Preview</button>
-      <button class="btn-primary" id="nl-save-btn" onclick="saveParsedRoute()">Save Trip</button>
+      <button class="btn-primary" id="nl-preview-btn" onclick="previewParsedRoute()">Preview →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROUTE PREVIEW MAP MODAL — drag a waypoint to nudge it; only its adjacent
+     leg(s) re-snap, not the whole chain -->
+<div class="modal-overlay" id="route-preview-modal">
+  <div class="modal">
+    <div class="modal-title">Preview</div>
+    <div class="modal-sub">Drag a waypoint to adjust the route, then save</div>
+    <div id="route-preview-map" style="width:100%;height:320px;border:1px solid var(--border);margin:10px 0"></div>
+    <div class="import-progress" id="route-preview-status"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeRoutePreviewMap();document.getElementById('nl-parser-modal').classList.add('open')">← Back</button>
+      <button class="btn-primary" id="rpm-save-btn" onclick="saveParsedRoute()">Save Trip</button>
     </div>
   </div>
 </div>
@@ -2797,6 +2816,7 @@ async function saveManualEntry() {
 const FLIGHT_VERBS_RE = /\b(flew|fly|flying|flight)\b/i;
 const MODE_VERB_MAP = { drove:'Drive', driving:'Drive', drive:'Drive', rode:'Ride', ride:'Ride', riding:'Ride', biked:'Ride', biking:'Ride', cycled:'Ride', cycling:'Ride', walked:'Walk', walking:'Walk', walk:'Walk', hiked:'Hike', hiking:'Hike', hike:'Hike' };
 const LEADING_VERB_RE = /^(flew|fly|flying|flight|drove|driving|drive|rode|ride|riding|biked|biking|cycled|cycling|walked|walking|walk|hiked|hiking|hike)\s+/i;
+let _pendingParsedRoute = null; // { key, parsed, geocoded, legs } — set by previewParsedRoute, consumed by saveParsedRoute
 
 // Pure — no DOM, no network. Splits "X to Y [to Z ...]" into ordered waypoints
 // and detects a single transport mode for the whole sentence (v1 scope: one
@@ -2866,39 +2886,30 @@ function openNLParserModal() {
   document.getElementById('nl-date').value = '';
   document.getElementById('nl-status').textContent = '';
   document.getElementById('nl-preview').textContent = '';
+  _pendingParsedRoute = null;
   document.getElementById('nl-parser-modal').classList.add('open');
 }
 function closeNLParserModal() { document.getElementById('nl-parser-modal').classList.remove('open'); }
 
-function previewParsedRoute() {
-  const parsed = parseRouteText(document.getElementById('nl-text').value);
-  const el = document.getElementById('nl-preview');
-  el.textContent = parsed ? (parsed.isFlight ? '✈️ Flight' : parsed.mode) + ' — ' + parsed.waypoints.join(' → ') : 'Could not parse — try "X to Y" or "drove from X to Y".';
-}
-
-async function saveParsedRoute() {
-  const text = document.getElementById('nl-text').value;
-  const dateVal = document.getElementById('nl-date').value || new Date().toISOString().substring(0,10);
-  const statusEl = document.getElementById('nl-status');
+// Shared by Preview and Save — geocodes every waypoint, then either draws a
+// great-circle (flight) or calls Directions once for the whole non-flight
+// chain. `legs[i].a`/`legs[i].b` are references into `geocoded`, not copies,
+// so dragging a waypoint marker in the preview map (which mutates the
+// geocoded entry in place) is automatically reflected in any leg touching it.
+async function buildParsedRoute(text, dateVal) {
   const parsed = parseRouteText(text);
-  if (!parsed) { statusEl.textContent = 'Could not parse that — try "X to Y" or "drove from X to Y".'; return; }
-  const btn = document.getElementById('nl-save-btn'); btn.disabled = true;
-  statusEl.textContent = `Looking up ${parsed.waypoints.length} places…`;
-
+  if (!parsed) return { error: 'Could not parse that — try "X to Y" or "drove from X to Y".' };
   const geocoded = [];
   for (const wp of parsed.waypoints) {
     const g = await geocodeWaypoint(wp, parsed.isFlight);
-    if (!g) { statusEl.textContent = `Could not find "${wp}".`; btn.disabled = false; return; }
+    if (!g) return { error: `Could not find "${wp}".` };
     geocoded.push(Object.assign({ name: wp }, g));
   }
-
-  statusEl.textContent = 'Building route…';
   let directionsLegs = null;
   if (!parsed.isFlight) {
     const profile = { Drive:'driving', Ride:'cycling', Walk:'walking', Hike:'walking' }[parsed.mode] || 'driving';
     directionsLegs = await fetchDirectionsMultiLeg(geocoded.map(g => [g.lng, g.lat]), profile);
   }
-
   const legs = [];
   for (let i = 0; i < geocoded.length - 1; i++) {
     const a = geocoded[i], b = geocoded[i+1];
@@ -2911,16 +2922,133 @@ async function saveParsedRoute() {
     } else {
       coords = [[a.lng,a.lat],[b.lng,b.lat]]; distance = haversine(a.lat, a.lng, b.lat, b.lng);
     }
-    const id = (parsed.isFlight ? 'leg_flight_' : 'leg_') + crypto.randomUUID();
-    legs.push({
-      id, name: `${a.name} → ${b.name}`, type: parsed.isFlight ? 'Flight' : parsed.mode,
-      date: dateVal + 'T12:00:00Z', source: 'nlparse',
-      coords: null, _polyline: encodePolyline(coords), distance, duration, elevation: 0,
-      startLat: a.lat, startLng: a.lng, endLat: b.lat, endLng: b.lng,
-      startPlace: a.placeName || a.name, endPlace: b.placeName || b.name,
-      note: '', mood: null, photos: [], customColor: null,
-    });
+    legs.push({ a, b, coords, distance, duration, type: parsed.isFlight ? 'Flight' : parsed.mode });
   }
+  return { parsed, geocoded, legs };
+}
+
+// Re-snaps only the leg(s) touching waypoint index `idx` after a drag — not
+// a full re-parse.
+async function recomputeLegsAt(idx) {
+  if (!_pendingParsedRoute) return;
+  const { parsed, legs } = _pendingParsedRoute;
+  const profile = { Drive:'driving', Ride:'cycling', Walk:'walking', Hike:'walking' }[parsed.mode] || 'driving';
+  const touched = legs.filter((leg, i) => i === idx || i === idx - 1);
+  for (const leg of touched) {
+    const { a, b } = leg;
+    if (parsed.isFlight) {
+      leg.coords = greatCircleCoords(a.lat, a.lng, b.lat, b.lng, 32);
+      leg.distance = haversine(a.lat, a.lng, b.lat, b.lng);
+    } else {
+      const seg = await fetchDirectionsSegment([a.lng, a.lat], [b.lng, b.lat], profile);
+      if (seg && seg.coords.length > 1) { leg.coords = seg.coords; leg.distance = seg.distance; }
+      else { leg.coords = [[a.lng,a.lat],[b.lng,b.lat]]; leg.distance = haversine(a.lat, a.lng, b.lat, b.lng); }
+    }
+  }
+  updatePreviewMapData();
+}
+
+function previewTotalDistanceText() {
+  if (!_pendingParsedRoute) return '';
+  const km = _pendingParsedRoute.legs.reduce((s,l) => s + (l.distance||0), 0) / 1000;
+  return km.toFixed(1) + ' km total';
+}
+
+async function previewParsedRoute() {
+  const text = document.getElementById('nl-text').value;
+  const dateVal = document.getElementById('nl-date').value;
+  const el = document.getElementById('nl-preview');
+  const btn = document.getElementById('nl-preview-btn');
+  btn.disabled = true; el.textContent = 'Looking up places…';
+  const result = await buildParsedRoute(text, dateVal);
+  btn.disabled = false;
+  if (result.error) { el.textContent = result.error; _pendingParsedRoute = null; return; }
+  _pendingParsedRoute = Object.assign({ key: text + '|' + dateVal }, result);
+  el.textContent = (result.parsed.isFlight ? '✈️ Flight' : result.parsed.mode) + ' — ' + result.parsed.waypoints.join(' → ');
+  document.getElementById('nl-parser-modal').classList.remove('open');
+  openRoutePreviewMap();
+}
+
+// ── Route preview map — a small standalone Mapbox instance inside the
+// preview modal, with a draggable marker per waypoint. Dragging one only
+// re-snaps its adjacent leg(s) (recomputeLegsAt), not the whole chain.
+let _routePreviewMap = null, _routePreviewMarkers = [];
+function openRoutePreviewMap() {
+  document.getElementById('route-preview-status').textContent = previewTotalDistanceText();
+  document.getElementById('route-preview-modal').classList.add('open');
+  setTimeout(() => { // modal must be visible (non-zero size) before Mapbox measures the container
+    if (!_routePreviewMap) {
+      _routePreviewMap = new mapboxgl.Map({ container: 'route-preview-map', style: 'mapbox://styles/mapbox/outdoors-v12', center: [0,0], zoom: 2 });
+      _routePreviewMap.on('load', renderRoutePreviewMap);
+    } else {
+      _routePreviewMap.resize();
+      renderRoutePreviewMap();
+    }
+  }, 50);
+}
+function closeRoutePreviewMap() { document.getElementById('route-preview-modal').classList.remove('open'); }
+
+function renderRoutePreviewMap() {
+  if (!_routePreviewMap || !_pendingParsedRoute) return;
+  const geo = { type:'FeatureCollection', features: _pendingParsedRoute.legs.map(l => ({ type:'Feature', geometry:{ type:'LineString', coordinates:l.coords }, properties:{} })) };
+  if (_routePreviewMap.getSource('preview-route')) {
+    _routePreviewMap.getSource('preview-route').setData(geo);
+  } else {
+    _routePreviewMap.addSource('preview-route', { type:'geojson', data:geo });
+    _routePreviewMap.addLayer({ id:'preview-route-layer', type:'line', source:'preview-route',
+      layout:{ 'line-join':'round','line-cap':'round' }, paint:{ 'line-color':'#2563eb','line-width':4, 'line-dasharray': _pendingParsedRoute.parsed.isFlight?[2,1.5]:[1,0] } });
+  }
+  _routePreviewMarkers.forEach(m => m.remove());
+  _routePreviewMarkers = _pendingParsedRoute.geocoded.map((wp, i) => {
+    const el = document.createElement('div');
+    el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:grab';
+    const marker = new mapboxgl.Marker({ element: el, draggable: true }).setLngLat([wp.lng, wp.lat]).addTo(_routePreviewMap);
+    marker.on('dragend', async () => {
+      const ll = marker.getLngLat();
+      wp.lat = ll.lat; wp.lng = ll.lng;
+      document.getElementById('route-preview-status').textContent = 'Re-routing…';
+      await recomputeLegsAt(i);
+      document.getElementById('route-preview-status').textContent = previewTotalDistanceText();
+    });
+    return marker;
+  });
+  const b = new mapboxgl.LngLatBounds();
+  _pendingParsedRoute.geocoded.forEach(wp => b.extend([wp.lng, wp.lat]));
+  try { _routePreviewMap.fitBounds(b, { padding: 40, maxZoom: 12, duration: 0 }); } catch (e) {}
+}
+function updatePreviewMapData() {
+  if (!_routePreviewMap || !_routePreviewMap.getSource('preview-route') || !_pendingParsedRoute) return;
+  _routePreviewMap.getSource('preview-route').setData({ type:'FeatureCollection', features: _pendingParsedRoute.legs.map(l => ({ type:'Feature', geometry:{ type:'LineString', coordinates:l.coords }, properties:{} })) });
+  document.getElementById('route-preview-status').textContent = previewTotalDistanceText();
+}
+
+async function saveParsedRoute() {
+  const text = document.getElementById('nl-text').value;
+  const dateVal = document.getElementById('nl-date').value || new Date().toISOString().substring(0,10);
+  const statusEl = document.getElementById('route-preview-status');
+  const btn = document.getElementById('rpm-save-btn'); btn.disabled = true;
+
+  let result;
+  if (_pendingParsedRoute && _pendingParsedRoute.key === text + '|' + document.getElementById('nl-date').value) {
+    result = _pendingParsedRoute; // reuse — preserves any drag adjustments made in the preview map
+  } else {
+    statusEl.textContent = 'Looking up places…';
+    result = await buildParsedRoute(text, dateVal);
+    if (result.error) { statusEl.textContent = result.error; btn.disabled = false; return; }
+  }
+  const { parsed, geocoded, legs: builtLegs } = result;
+
+  const legs = builtLegs.map(l => {
+    const id = (l.type === 'Flight' ? 'leg_flight_' : 'leg_') + crypto.randomUUID();
+    return {
+      id, name: `${l.a.name} → ${l.b.name}`, type: l.type,
+      date: dateVal + 'T12:00:00Z', source: 'nlparse',
+      coords: null, _polyline: encodePolyline(l.coords), distance: l.distance, duration: l.duration||0, elevation: 0,
+      startLat: l.a.lat, startLng: l.a.lng, endLat: l.b.lat, endLng: l.b.lng,
+      startPlace: l.a.placeName || l.a.name, endPlace: l.b.placeName || l.b.name,
+      note: '', mood: null, photos: [], customColor: null,
+    };
+  });
 
   legs.forEach(leg => { db[leg.id] = leg; });
   let storyId = null;
@@ -2954,28 +3082,36 @@ async function saveParsedRoute() {
     if (error) { statusEl.textContent = 'Legs saved, but grouping them into a Story failed: ' + error.message; btn.disabled = false; return; }
   }
   statusEl.textContent = `Saved ${legs.length} leg${legs.length===1?'':'s'}.`;
-  setTimeout(closeNLParserModal, 900);
+  _pendingParsedRoute = null;
+  setTimeout(() => { closeRoutePreviewMap(); closeNLParserModal(); }, 900);
   if (legs[0].startLat) map.flyTo({ center: [legs[0].startLng, legs[0].startLat], zoom: 6, duration: 1000 });
   btn.disabled = false;
 }
 
-// ── Draw-your-route (v1: no drag-to-reposition/insert, no undo/redo, no
-// context menus, no elevation profile — all explicitly deferred; see
-// CLAUDE.md "Draw-route follow-ups") ──
+// ── Draw-your-route (v1: no undo/redo, no point/segment context menus, no
+// elevation profile — all explicitly deferred; see CLAUDE.md "Draw-route
+// follow-ups"). Every tapped point gets a visible, draggable marker — same
+// pattern as the NL-parser preview map and "How Far Did I Run": drop a pin,
+// see it, drag it if the road-snap put it somewhere wrong. Dragging a
+// waypoint only re-snaps its adjacent leg(s), not the whole route. ──
 const DRAW_PROFILES = {
   foot:{ directionsProfile:'walking', type:'Walk' },
   bike:{ directionsProfile:'cycling', type:'Ride' },
   car:{ directionsProfile:'driving', type:'Drive' },
   manual:{ directionsProfile:null, type:'Other' },
 };
-let _drawProfile = null, _drawPoints = [], _drawDistance = 0;
+// _drawWaypoints[i] = {lng,lat} — the actual dropped/dragged pin positions.
+// _drawLegs[i] = {coords,distance} for the snapped segment between waypoint
+// i and i+1 (index-aligned with _drawWaypoints, one shorter).
+let _drawProfile = null, _drawWaypoints = [], _drawLegs = [], _drawMarkers = [];
 
 function openDrawRoutePicker() { document.getElementById('draw-picker-modal').classList.add('open'); }
 function closeDrawPicker() { document.getElementById('draw-picker-modal').classList.remove('open'); }
 
 function startDrawMode(mode) {
   closeDrawPicker();
-  _drawProfile = mode; _drawPoints = []; _drawDistance = 0;
+  _drawProfile = mode; _drawWaypoints = []; _drawLegs = [];
+  _drawMarkers.forEach(m => m.remove()); _drawMarkers = [];
   _drawMode = true; _pinDropMode = false;
   map.getCanvas().style.cursor = 'crosshair';
   updateDrawPreview();
@@ -2993,44 +3129,76 @@ async function fetchDirectionsSegment(a, b, profile) {
   } catch (e) { console.warn('Directions segment failed', e); return null; }
 }
 
-async function addDrawPoint(lngLat) {
-  const pt = [lngLat.lng, lngLat.lat];
-  if (_drawProfile === 'manual' || _drawPoints.length === 0) {
-    if (_drawPoints.length > 0) {
-      const prev = _drawPoints[_drawPoints.length-1];
-      _drawDistance += haversine(prev[1], prev[0], pt[1], pt[0]);
-    }
-    _drawPoints.push(pt);
+// Recomputes the single leg between waypoints [legIdx, legIdx+1].
+async function recomputeDrawLeg(legIdx) {
+  const a = _drawWaypoints[legIdx], b = _drawWaypoints[legIdx+1];
+  if (!a || !b) return;
+  let coords, distance;
+  if (_drawProfile === 'manual') {
+    coords = [[a.lng,a.lat],[b.lng,b.lat]];
+    distance = haversine(a.lat, a.lng, b.lat, b.lng);
   } else {
-    const prev = _drawPoints[_drawPoints.length-1];
-    const seg = await fetchDirectionsSegment(prev, pt, DRAW_PROFILES[_drawProfile].directionsProfile);
-    if (seg && seg.coords.length > 1) {
-      _drawDistance += seg.distance;
-      _drawPoints.push(...seg.coords.slice(1));
-    } else {
-      _drawDistance += haversine(prev[1], prev[0], pt[1], pt[0]);
-      _drawPoints.push(pt);
-    }
+    const seg = await fetchDirectionsSegment([a.lng,a.lat], [b.lng,b.lat], DRAW_PROFILES[_drawProfile].directionsProfile);
+    if (seg && seg.coords.length > 1) { coords = seg.coords; distance = seg.distance; }
+    else { coords = [[a.lng,a.lat],[b.lng,b.lat]]; distance = haversine(a.lat, a.lng, b.lat, b.lng); }
   }
+  _drawLegs[legIdx] = { coords, distance };
+}
+
+function addDrawMarker(idx) {
+  const wp = _drawWaypoints[idx];
+  const el = document.createElement('div');
+  el.style.cssText = 'width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:grab';
+  const marker = new mapboxgl.Marker({ element: el, draggable: true }).setLngLat([wp.lng, wp.lat]).addTo(map);
+  marker.on('dragstart', () => { el.style.cursor = 'grabbing'; });
+  marker.on('dragend', async () => {
+    el.style.cursor = 'grab';
+    const ll = marker.getLngLat();
+    _drawWaypoints[idx] = { lng: ll.lng, lat: ll.lat };
+    document.getElementById('mode-banner-text').textContent = 'Re-routing…';
+    const jobs = [];
+    if (idx > 0) jobs.push(recomputeDrawLeg(idx-1));
+    if (idx < _drawWaypoints.length-1) jobs.push(recomputeDrawLeg(idx));
+    await Promise.all(jobs);
+    updateDrawPreview();
+    updateModeBanner();
+  });
+  _drawMarkers.push(marker);
+}
+
+async function addDrawPoint(lngLat) {
+  const idx = _drawWaypoints.length;
+  _drawWaypoints.push({ lng: lngLat.lng, lat: lngLat.lat });
+  addDrawMarker(idx);
+  if (idx > 0) await recomputeDrawLeg(idx - 1);
   updateDrawPreview();
   updateModeBanner();
 }
 
+function drawTotalDistance() { return _drawLegs.reduce((s,l) => s + (l ? l.distance : 0), 0); }
+
 function updateDrawPreview() {
   if (!map.getSource('draw-route')) return;
-  map.getSource('draw-route').setData({ type:'FeatureCollection', features: _drawPoints.length > 1 ? [{ type:'Feature', geometry:{ type:'LineString', coordinates:_drawPoints }, properties:{} }] : [] });
+  const features = _drawLegs.filter(Boolean).map(leg => ({ type:'Feature', geometry:{ type:'LineString', coordinates:leg.coords }, properties:{} }));
+  map.getSource('draw-route').setData({ type:'FeatureCollection', features });
 }
 
 async function finishDrawRoute() {
-  if (_drawPoints.length < 2) return;
-  const profile = _drawProfile, points = _drawPoints, distance = _drawDistance;
+  if (_drawWaypoints.length < 2) return;
+  const profile = _drawProfile, waypoints = _drawWaypoints, legs = _drawLegs, distance = drawTotalDistance();
+  const coords = [];
+  legs.forEach(leg => {
+    if (!leg) return;
+    if (coords.length && leg.coords.length) coords.pop(); // avoid duplicating the shared joint point
+    coords.push(...leg.coords);
+  });
   const id = 'draw_' + crypto.randomUUID();
   const entry = {
     id, name: `${DRAW_PROFILES[profile].type} (drawn)`, type: DRAW_PROFILES[profile].type,
     date: new Date().toISOString(), source: 'draw',
-    coords: null, _polyline: encodePolyline(points), distance, duration: 0, elevation: 0,
-    startLat: points[0][1], startLng: points[0][0],
-    endLat: points[points.length-1][1], endLng: points[points.length-1][0],
+    coords: null, _polyline: encodePolyline(coords), distance, duration: 0, elevation: 0,
+    startLat: waypoints[0].lat, startLng: waypoints[0].lng,
+    endLat: waypoints[waypoints.length-1].lat, endLng: waypoints[waypoints.length-1].lng,
     note: '', mood: null, photos: [], customColor: null,
   };
   db[id] = entry;
@@ -3051,7 +3219,8 @@ async function finishDrawRoute() {
 // Clears draw state without touching pin-drop mode (used when arming pin-drop
 // while a draw was in progress).
 function cancelDrawOnly() {
-  _drawMode = false; _drawPoints = []; _drawDistance = 0; _drawProfile = null;
+  _drawMode = false; _drawWaypoints = []; _drawLegs = []; _drawProfile = null;
+  _drawMarkers.forEach(m => m.remove()); _drawMarkers = [];
   if (map.getSource('draw-route')) map.getSource('draw-route').setData({ type:'FeatureCollection', features:[] });
 }
 function cancelActiveMode() {
@@ -3068,8 +3237,8 @@ function updateModeBanner() {
     document.getElementById('mode-banner-finish').hidden = true;
     el.hidden = false;
   } else if (_drawMode) {
-    document.getElementById('mode-banner-text').textContent = `Drawing (${DRAW_PROFILES[_drawProfile].type}) — ${(_drawDistance/1000).toFixed(2)} km, ${_drawPoints.length} point${_drawPoints.length===1?'':'s'}`;
-    document.getElementById('mode-banner-finish').hidden = _drawPoints.length < 2;
+    document.getElementById('mode-banner-text').textContent = `Drawing (${DRAW_PROFILES[_drawProfile].type}) — ${(drawTotalDistance()/1000).toFixed(2)} km, ${_drawWaypoints.length} point${_drawWaypoints.length===1?'':'s'}. Drag a pin to fix it.`;
+    document.getElementById('mode-banner-finish').hidden = _drawWaypoints.length < 2;
     el.hidden = false;
   } else {
     el.hidden = true;
@@ -3719,6 +3888,7 @@ function buildProfile() {
   renderProfileStories();
   renderProfileHoneycomb();
   renderStravaSection();
+  updatePinNudge();
 }
 
 function setProfileSort(sort) {
@@ -4618,7 +4788,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeDrawPicker();cancelActiveMode();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -4664,7 +4834,7 @@ _r('geocodePinAddress',geocodePinAddress);_r('savePin',savePin);_r('dismissPinNu
 _r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);
 _r('openManualEntryModal',openManualEntryModal);_r('closeManualEntryModal',closeManualEntryModal);_r('saveManualEntry',saveManualEntry);
 _r('openNLParserModal',openNLParserModal);_r('closeNLParserModal',closeNLParserModal);
-_r('previewParsedRoute',previewParsedRoute);_r('saveParsedRoute',saveParsedRoute);
+_r('previewParsedRoute',previewParsedRoute);_r('saveParsedRoute',saveParsedRoute);_r('closeRoutePreviewMap',closeRoutePreviewMap);
 _r('openDrawRoutePicker',openDrawRoutePicker);_r('closeDrawPicker',closeDrawPicker);
 _r('startDrawMode',startDrawMode);_r('finishDrawRoute',finishDrawRoute);_r('cancelActiveMode',cancelActiveMode);
 _r('getPins',getPins);_r('isPinMoment',isPinMoment);_r('buildAirportsView',buildAirportsView);
