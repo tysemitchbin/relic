@@ -2398,7 +2398,14 @@ function showDetail(memId) {
   // zeroed) activity stat tiles — always derived fresh from the underlying
   // Flight Moments, never stored on the pin (see syncAirportPins).
   if (pinCat && mem.pinCategory === 'airport') {
-    const group2 = computeAirportGroups().find(g => g.label === mem.startPlace);
+    // computeAirportGroups() itself never reverse-geocodes (that only
+    // happens once, in syncAirportPins, when the pin is created) — so a
+    // pin whose name came from reverse-geocoding a coordinate won't match
+    // by label here. Fall back to matching by the pin's own coordinates
+    // (which came directly from the group that created it) instead.
+    const allGroups = computeAirportGroups();
+    const group2 = allGroups.find(g => g.label === mem.startPlace)
+      || allGroups.find(g => mem.startLat != null && Math.abs(g.lat - mem.startLat) < 0.05 && Math.abs(g.lng - mem.startLng) < 0.05);
     if (group2) {
       const visitsDiv = document.createElement('div');
       visitsDiv.className = 'airport-visits detail-section';
@@ -3384,23 +3391,53 @@ function computeAirportGroups() {
 // after anything that could newly introduce a Flight Moment (import,
 // manual entry, the NL trip parser). Cheap when there's nothing new to add
 // (one array scan, no network calls) — safe to call liberally.
+// Strava/GPX-imported Flight moments have no startPlace/endPlace (only the
+// NL-parser-created ones do), so most real flight data hits this: resolve
+// the coordinate to a real name instead of leaving it unlabeled and
+// un-pinned — that (not a bug in the matching logic) is why no airport pins
+// showed up for pre-existing/imported flight data. This is a proximity-
+// biased forward search for "airport", not Mapbox's reverse-geocoding
+// endpoint — checked empirically, not just in theory: reverse geocoding
+// with `types=poi` returns zero results even for well-known landmarks (the
+// Eiffel Tower included) in this Mapbox setup, so it can't be relied on to
+// name a coordinate. A plain reverse lookup with no type filter works but
+// returns a street address, not a landmark name. Proximity search for
+// "airport" reliably returns a real, location-correct name (though often a
+// nearby road name like "Airport Road, Los Angeles" rather than the
+// airport's official name — Mapbox's indexing, not something to over-fix).
+async function reverseGeocodeAirport(lat, lng) {
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/airport.json?proximity=${lng},${lat}&access_token=${mapboxgl.accessToken}&limit=1`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const f = data.features && data.features[0];
+    return f ? f.place_name : null;
+  } catch (e) { console.warn('Reverse geocode failed', e); return null; }
+}
+
 async function syncAirportPins() {
   const groups = computeAirportGroups();
   const existingLabels = new Set(getPins().filter(p => p.pinCategory === 'airport' && p.startPlace).map(p => p.startPlace));
   const newPins = [];
-  groups.forEach(g => {
-    if (g.label === 'Unknown airport' || existingLabels.has(g.label)) return;
+  for (const g of groups) {
+    let label = g.label;
+    if (label === 'Unknown airport') {
+      const resolved = await reverseGeocodeAirport(g.lat, g.lng);
+      label = resolved || `Airport near ${g.lat.toFixed(2)}°, ${g.lng.toFixed(2)}°`;
+    }
+    if (existingLabels.has(label)) continue;
+    existingLabels.add(label); // guards against two groups resolving to the same name within this one pass
     const id = 'pin_airport_' + crypto.randomUUID();
     const entry = {
-      id, name: g.label, type: 'Other', isPin: true, pinCategory: 'airport',
+      id, name: label, type: 'Other', isPin: true, pinCategory: 'airport',
       date: g.visits[0].date, source: 'auto',
-      startLat: g.lat, startLng: g.lng, startPlace: g.label,
+      startLat: g.lat, startLng: g.lng, startPlace: label,
       coords: null, _polyline: null, distance: 0, duration: 0, elevation: 0,
       note: '', mood: null, photos: [], customColor: null,
     };
     db[id] = entry;
     newPins.push(entry);
-  });
+  }
   if (newPins.length) {
     initMapLayers();
     await persistMoments(newPins);

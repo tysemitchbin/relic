@@ -179,24 +179,44 @@ segments, or an elevation profile display.
 draft of this branch — the user explicitly asked to drop that and fold it
 into Pins instead, 2026-09-04). `computeAirportGroups()` scans `getMoments()`
 for `getGroup(type)==='Flight'`, reads each Moment's two endpoints (falling
-back to the decoded polyline's last coordinate for legacy Strava/GPX flights
-that predate `endLat`/`endPlace` — those are grouped under "Unknown airport"
-and deliberately never pinned, see below), and returns one group per airport
-with a sorted `visits` array (`{date, momentId}`). `syncAirportPins()` then
-creates a real Pin (category `airport`) for any airport that doesn't have one
-yet, matched by name (`startPlace`) against existing airport pins — so it's
-safe to call repeatedly/liberally (called from `renderAll()` and after
-anything that can newly produce a Flight Moment: `doImport`,
-`saveManualEntry`, `saveParsedRoute`). **The pin itself persists (so it shows
-up as a map marker like any other pin); its visit metadata does not** — a
-pin's detail panel (`showDetail`'s `pinCategory==='airport'` branch) always
-recomputes first-visit/count/all-visit-dates fresh from `computeAirportGroups()`
-rather than reading stored fields, so metadata can never drift out of sync
-with the flights it's derived from if one is later edited/deleted. Do not
-add a `visitCount`/`lastVisit`/etc. field to the pin itself and start writing
-it — that reintroduces the exact drift risk this design avoids (the same
-principle the old computed-only Airports view was built on, just now
-surfaced as a pin's detail instead of a separate page).
+back to the decoded polyline's last coordinate, grouped by rounded
+coordinate under label `'Unknown airport'`, for flights that predate
+`endLat`/`endPlace` — this is most real flight data, since only NL-parser-
+created Flight Moments populate those fields; Strava/GPX imports never do),
+and returns one group per airport with a sorted `visits` array
+(`{date, momentId}`). **`syncAirportPins()` resolves an `'Unknown airport'`
+group's real name via `reverseGeocodeAirport(lat,lng)` before pinning it —
+it does NOT skip unlabeled flights** (an earlier version of this code did
+skip them, which meant zero airport pins ever appeared for anyone whose
+flight data came from Strava/GPX rather than the NL parser — caught via user
+report, not by the test harness, since the harness only ever exercised
+NL-parser-created flights which already have labels). `reverseGeocodeAirport`
+is deliberately NOT Mapbox's reverse-geocoding endpoint — checked
+empirically: reverse geocoding with `types=poi` returns zero results even
+for the Eiffel Tower in this Mapbox setup, and an unfiltered reverse lookup
+returns a street address, not a landmark name. It's a proximity-biased
+*forward* search for the word `"airport"` instead, which reliably returns a
+real, location-correct name — often a nearby road ("Airport Road, Los
+Angeles") rather than the airport's official name, which is a Mapbox
+indexing quirk, not a bug worth fighting further. Falls back to
+`"Airport near {lat}°, {lng}°"` only if that search itself returns nothing.
+Because the resolved name is decided once (at pin-creation time) and
+`computeAirportGroups()` itself never resolves names, `showDetail`'s visit-
+metadata lookup for an airport pin matches by name OR by coordinate
+proximity (`Math.abs(g.lat-mem.startLat)<0.05`) — name-matching alone would
+silently show no visit history for any reverse-geocoded pin.
+`syncAirportPins()` creates a Pin (category `airport`) for any airport that
+doesn't have one yet, matched by name (`startPlace`) against existing
+airport pins — so it's safe to call repeatedly/liberally (called from
+`renderAll()` and after anything that can newly produce a Flight Moment:
+`doImport`, `saveManualEntry`, `saveParsedRoute`). **The pin itself persists
+(so it shows up as a map marker like any other pin); its visit metadata does
+not** — the detail panel always recomputes first-visit/count/all-visit-dates
+fresh from `computeAirportGroups()` rather than reading stored fields, so
+metadata can never drift out of sync with the flights it's derived from if
+one is later edited/deleted. Do not add a `visitCount`/`lastVisit`/etc.
+field to the pin itself and start writing it — that reintroduces the exact
+drift risk this design avoids.
 
 **Long-press track preview** — right-click (`contextmenu`) on desktop,
 touch-and-hold (~500ms, cancelled on move/release — `initLongPress()`) on
