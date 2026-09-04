@@ -38,6 +38,57 @@ future sessions would need.
   and colors in `relic_colors_v1` (localStorage) are for GPS-shaped Moments.
   Do not add pin categories into `TYPE_CONFIG` — see below.
 
+## Filters + Activities view (merged from `map-filters`, 2026-09-04)
+
+`retrospective-entry` originally branched off `main` *before* the separate
+`map-filters` branch (persistent map prefs, a richer filter model, an
+Activities table view) existed, so for most of this branch's life it only
+had the old, simpler search/type-toggle/sort filtering. The user asked for
+`map-filters`' work back partway through — it was merged in (`git merge
+map-filters`), replacing the old system. If you're looking for
+`activeTypes`/`activeYears`/`buildToolsPanel()`/`switchToolsTab()`/
+`toggleType()` from an older version of this file, **they're gone** — not a
+bug, this is what replaced them:
+
+- **One `filters` object** (`defaultFilters()`) drives everything: the map
+  tracks, the map sidebar list, and the Activities view, all via one
+  predicate, `matchMoment(m, filters)`. Extend `matchMoment` (and
+  `defaultFilters`) for a new filterable field, not a second predicate.
+- **`buildFilterDrawer()`** replaces `buildToolsPanel()` — one collapsible-
+  section drawer (`#filter-drawer`, opened via `openFilterDrawer()`/the ⚑
+  toolbar button) covering type/source/date/distance/duration/elevation/
+  heart-rate/mood/attributes, **plus a "Pins" section** (added during the
+  merge) driven by `PIN_CATEGORIES`/`activePinCategories` — kept structurally
+  separate from `filters` since Pins aren't tracked Moments and none of the
+  distance/duration/HR-style filters apply to them. Track colors moved into
+  this same drawer too ("Track colours" section, still `updateTypeColor()`).
+- **Activities view** (`#activities-view`, `renderActivitiesView()`) is a
+  sortable table reachable from the header nav, sharing `filteredMemories`
+  with the map. The old Archive/stats page (`buildStats()`, `#stats-view`)
+  is **parked** — code kept, not reachable from nav — per `map-filters`'
+  original design, not something this merge changed.
+- **Map prefs persist per-user** (`relic_mapprefs_v1_<uid>`): `filters`,
+  `sidebarSort`, `terrainOn`, `satelliteOn`, and last camera position, via
+  `saveMapPrefs()` (debounced) / `loadMapPrefs()` / `applyStoredFilters()`
+  restored before the first render. `relic_colors_v1` stayed a separate key
+  (a planned fold-in never actually shipped in `map-filters` before the
+  merge) — `loadColors()` still reads it directly, unchanged.
+- **`?demo` mode** (`DEMO` flag — `main` on `localhost`/no host + `?demo` in
+  the URL) boots from synthetic in-memory data via a lightweight
+  `makeStubMap()` instead of a real `mapboxgl.Map`, for offline testing
+  without Mapbox tiles/tokens. **The stub does not fully support
+  `mapboxgl.Marker`** (missing internal methods like `_addMarker`, beyond
+  the documented API) — it predates Pins/draw-route/the NL-parser preview
+  map, none of which existed when it was written. `renderPinMarkers()` and
+  `renderDrawMarkers()` wrap their marker creation in try/catch so this
+  degrades to "no visible pin/waypoint markers in demo mode" rather than
+  crashing the whole render chain — don't remove those try/catches thinking
+  they're dead code; they're load-bearing specifically for `?demo`. Real
+  usage always has a genuine `mapboxgl.Map`, so this never affects real
+  users. If `?demo` ever needs to visually exercise pins, the fix is
+  extending `makeStubMap()` (or giving Marker creation its own demo-mode
+  branch), not removing the try/catch.
+
 ## Data model — Retrospective entry (Pins, manual entry, NL parser, draw-route)
 
 Added on the `retrospective-entry` branch. Goal: let a user build their life
@@ -77,9 +128,12 @@ corrupt `getGroup()`'s reverse lookup (`TYPE_GROUP_MAP`), which assumes every
 key maps to GPS-shaped Strava type strings. Pin colors reuse the *same*
 `relic_colors_v1` localStorage blob as tracked-type colors (it's just a flat
 `{key: color}` map, and pin category keys don't collide with `TYPE_CONFIG`
-keys) — see `loadColors()`. The Colors/Types settings panel
-(`buildToolsPanel()`) has a third "Pins" tab driven by `PIN_CATEGORIES` and
-`activePinCategories`.
+keys) — see `loadColors()`. Pin category toggles/colors are their own "Pins"
+section inside `buildFilterDrawer()` (the `map-filters` branch's filter
+drawer, merged into this branch 2026-09-04 — see "Filters + Activities view"
+below), driven by `PIN_CATEGORIES` and `activePinCategories`; NOT part of
+the `filters`/`matchMoment()` object, since distance/duration/HR-style
+filtering makes no sense for a point Pin.
 
 **Pins render as DOM `mapboxgl.Marker` elements** (`renderPinMarkers()`), not
 a GL symbol layer with an emoji `text-field`. Mapbox GL's text-field glyph
