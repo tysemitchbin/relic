@@ -791,6 +791,31 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 /* Mobile-only action row on Profile (Import / Sync / Sign out) */
 .profile-mobile-actions { display: none; }
 
+/* Profile hamburger menu (Sync/Import/Feedback/Sign out + future settings) —
+   replaces the old mobile-only action row, works on every screen size. */
+.profile-wrap { position: relative; }
+#profile-menu-btn {
+  position: absolute; top: 24px; right: 24px; width: 36px; height: 36px;
+  border: 1px solid var(--border); background: var(--paper); cursor: pointer;
+  font-size: 16px; color: var(--ink); z-index: 5;
+}
+#profile-menu-btn:hover { border-color: var(--warm); color: var(--warm); }
+#profile-menu {
+  position: absolute; top: 64px; right: 24px; z-index: 6; min-width: 170px;
+  flex-direction: column; background: var(--paper); border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.14);
+}
+#profile-menu { display: flex; }
+#profile-menu[hidden] { display: none; }
+.profile-menu-item {
+  display: block; width: 100%; text-align: left; padding: 10px 14px; border: none;
+  border-bottom: 1px solid var(--border); background: transparent;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.5px;
+  color: var(--ink); cursor: pointer;
+}
+.profile-menu-item:last-child { border-bottom: none; }
+.profile-menu-item:hover { background: var(--paper2); }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -1194,6 +1219,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           </div>
           <div class="info-rows" id="d-rows"></div>
           <div id="d-strava-link"></div>
+          <div id="d-delete-row" style="padding:16px 18px"></div>
         </div>
         <div class="save-indicator" id="save-indicator"></div>
       </div>
@@ -1236,11 +1262,12 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <!-- PROFILE VIEW -->
     <div class="view" id="profile-view">
       <div class="profile-wrap">
-        <div class="profile-mobile-actions">
-          <button onclick="openImport()">+ Import</button>
-          <button onclick="forceSync()">↺ Sync</button>
-          <button onclick="openFeedback()">💬 Feedback</button>
-          <button onclick="signOut()">Sign out</button>
+        <button id="profile-menu-btn" onclick="toggleProfileMenu(event)" title="Menu">☰</button>
+        <div id="profile-menu" hidden>
+          <button class="profile-menu-item" onclick="openImport()">+ Import</button>
+          <button class="profile-menu-item" onclick="forceSync()">↺ Sync</button>
+          <button class="profile-menu-item" onclick="openFeedback()">💬 Feedback</button>
+          <button class="profile-menu-item" onclick="signOut()">Sign out</button>
         </div>
         <div class="profile-hero">
           <div class="profile-photo-wrap" onclick="document.getElementById('profile-photo-input').click()">
@@ -2412,6 +2439,7 @@ function showDetail(memId) {
   document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
   document.getElementById('d-rows').style.display='';
   document.getElementById('d-strava-link').style.display='';
+  document.getElementById('d-delete-row').style.display='';
   // Airport pins show computed visit metadata instead of the (meaningless,
   // zeroed) activity stat tiles — always derived fresh from the underlying
   // Flight Moments, never stored on the pin (see syncAirportPins).
@@ -2454,6 +2482,7 @@ function showDetail(memId) {
   ].filter(([k,v])=>v!=='—');
   document.getElementById('d-rows').innerHTML=rows.map(([k,v])=>`<div class="info-row"><span class="ir-key">${k}</span><span class="ir-val">${v}</span></div>`).join('');
   document.getElementById('d-strava-link').innerHTML=mem.stravaId?`<a class="strava-link" href="https://www.strava.com/activities/${mem.stravaId}" target="_blank">↗ View on Strava</a>`:'';
+  document.getElementById('d-delete-row').innerHTML=`<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b;width:100%" onclick="deleteMoment('${memId}')">Delete ${mem.isPin?'Pin':'Track'}</button>`;
   // Charts: hide for non-Strava or load streams
   var chartsSection = document.getElementById('d-charts-section');
   if (mem.stravaId) {
@@ -2501,6 +2530,7 @@ function showStoryDetail(storyId) {
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = 'none'; });
   document.getElementById('d-rows').style.display = 'none';
   document.getElementById('d-strava-link').style.display = 'none';
+  document.getElementById('d-delete-row').style.display = 'none';
 
   // Remove any previous story detail elements
   document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .airport-visits').forEach(function(el) { el.remove(); });
@@ -2591,6 +2621,7 @@ function closeDetail() {
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
+  document.getElementById('d-delete-row').style.display = '';
 }
 function onNameEdit() { if(!selectedId) return; db[selectedId].name=document.getElementById('d-name-input').value; db[selectedId]._nameEdited=true; markDirty(selectedId); }
 function onNoteEdit() { if(!selectedId) return; db[selectedId].note=document.getElementById('d-note').value; markDirty(selectedId); }
@@ -4305,6 +4336,24 @@ async function deleteStory(storyId) {
   if (error) console.warn('Story delete failed', error);
 }
 
+async function deleteMoment(memId) {
+  const mem = db[memId];
+  if (!mem || isStory(mem)) return;
+  const label = mem.isPin ? 'pin' : 'track';
+  if (!confirm(`Delete this ${label}? This can't be undone.`)) return;
+  const photoPaths = (mem.photos || []).map(p => p._path).filter(Boolean);
+  delete db[memId];
+  delete coordCache[memId];
+  closeDetail();
+  allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  allStories = getStories(); allStories.forEach(s => computeStoryStats(s));
+  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+  const { error } = await sb.from('activities').delete().eq('id', memId);
+  if (error) console.warn('Moment delete failed', error);
+  if (photoPaths.length) sb.storage.from('photos').remove(photoPaths).catch(e => console.warn('Photo cleanup failed', e));
+  sb.from('activity_photos').delete().eq('activity_id', memId).then(({error:e}) => { if (e) console.warn('Photo row cleanup failed', e); });
+}
+
 function renderProfileHoneycomb() {
   const container = document.getElementById('profile-honeycomb');
   container.innerHTML = '';
@@ -4972,6 +5021,7 @@ function goToActivity(id) {
 let currentView = 'map';
 function switchView(view) {
   currentView = view;
+  closeProfileMenu();
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(`${view}-view`).classList.add('active');
@@ -5023,6 +5073,16 @@ function toggleMobileMenu() {
   menu.classList.toggle('open');btn.classList.toggle('open');
 }
 function closeMobileMenu() { document.getElementById('mobile-menu').classList.remove('open'); document.getElementById('hamburger-btn').classList.remove('open'); }
+
+function toggleProfileMenu(e) {
+  if (e) e.stopPropagation(); // don't let the immediate document click listener below close it again
+  document.getElementById('profile-menu').hidden = !document.getElementById('profile-menu').hidden;
+}
+function closeProfileMenu() { document.getElementById('profile-menu').hidden = true; }
+document.addEventListener('click', e => {
+  const menu = document.getElementById('profile-menu');
+  if (menu && !menu.hidden && !menu.contains(e.target) && e.target.id !== 'profile-menu-btn') closeProfileMenu();
+});
 function mobileNav(view) {
   closeMobileMenu();
   document.getElementById('sidebar').classList.add('collapsed');
@@ -5040,7 +5100,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeProfileMenu();closeFeedback();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -5055,6 +5115,7 @@ _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r
 _r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
+_r('toggleProfileMenu',toggleProfileMenu);_r('closeProfileMenu',closeProfileMenu);
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);_r('toggleType',toggleType);_r('switchToolsTab',switchToolsTab);
 _r('setProfileSort',setProfileSort);_r('showHeatmapDay',showHeatmapDay);_r('removeImportFile',removeImportFile);
 _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
@@ -5067,7 +5128,7 @@ _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
 _r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
-_r('deleteStory',deleteStory);_r('drawStoryCardMap',drawStoryCardMap);
+_r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
 _r('showStoryDetail',showStoryDetail);_r('setStoryDetailMood',setStoryDetailMood);
 _r('renderFeedMomentCard',renderFeedMomentCard);_r('renderFeedStoryCard',renderFeedStoryCard);
 _r('drawFeedStoryMap',drawFeedStoryMap);
