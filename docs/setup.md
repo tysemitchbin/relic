@@ -171,6 +171,13 @@ create table public.activities (
   workout_type      integer,
   commute           boolean     not null default false,
   elapsed_time      double precision,
+  -- Retrospective entry (Pins, manual entry, NL parser, draw-route) — see docs/supabase-retrospective.sql
+  is_pin            boolean     not null default false,
+  pin_category      text,
+  end_lat           double precision,
+  end_lng           double precision,
+  start_place       text,
+  end_place         text,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   primary key (user_id, id)
@@ -202,6 +209,7 @@ create table public.activity_photos (
   caption      text        not null default '',
   taken_at     timestamptz,
   sort_order   integer     not null default 0,
+  is_cover     boolean     not null default false, -- Retrospective entry: cover photo (long-press preview)
   created_at   timestamptz not null default now()
 );
 create index activity_photos_user_activity_idx

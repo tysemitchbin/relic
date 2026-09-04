@@ -1070,6 +1070,8 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="nav-btn" id="nav-feed" onclick="switchView('feed')">Feed</button>
       <button class="nav-btn" id="nav-stats" onclick="switchView('stats')">Archive</button>
       <button class="nav-btn" id="nav-profile" onclick="switchView('profile')">Profile</button>
+      <button class="nav-btn" id="nav-airports" onclick="switchView('airports')">Airports</button>
+      <button class="nav-btn" onclick="openAddModal()">+ Add</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
       <button class="nav-btn" onclick="forceSync()">↺ Sync</button>
       <button class="nav-btn" onclick="openFeedback()">💬 Feedback</button>
@@ -1085,6 +1087,8 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <button class="mobile-menu-item" data-view="feed" onclick="mobileNav('feed')">◇ Feed</button>
     <button class="mobile-menu-item" data-view="stats" onclick="mobileNav('stats')">◇ Archive</button>
     <button class="mobile-menu-item" data-view="profile" onclick="mobileNav('profile')">◇ Profile</button>
+    <button class="mobile-menu-item" data-view="airports" onclick="mobileNav('airports')">◇ Airports</button>
+    <button class="mobile-menu-item" onclick="mobileNav(null); openAddModal()">+ Add</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openImport()">+ Import</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); forceSync()">↺ Sync</button>
     <button class="mobile-menu-item" onclick="signOut()">Sign out</button>
@@ -1112,6 +1116,20 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
             <button class="ghost" onclick="openImport()">Import GPX / KML</button>
           </div>
         </div>
+      </div>
+
+      <!-- Pin onboarding nudge (Retrospective entry) -->
+      <div id="pin-nudge" hidden style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:54;background:var(--paper);border:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-width:min(420px,calc(100vw - 40px))">
+        <span style="font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--ink)">Where did you grow up? Where do you work?</span>
+        <button onclick="closeAddModal();dismissPinNudge();togglePinDropMode()" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:6px 10px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer;white-space:nowrap">Drop a pin</button>
+        <button class="empty-close" onclick="dismissPinNudge()" title="Dismiss" style="position:static;width:auto;height:auto">&times;</button>
+      </div>
+
+      <!-- Active-mode banner: pin-drop / draw-route (Retrospective entry) -->
+      <div id="mode-banner" hidden style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:55;background:var(--paper);border:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;box-shadow:0 4px 16px rgba(0,0,0,0.15)">
+        <span id="mode-banner-text"></span>
+        <button id="mode-banner-finish" hidden onclick="finishDrawRoute()" style="font-family:inherit;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer">Finish</button>
+        <button onclick="cancelActiveMode()" style="font-family:inherit;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>
       </div>
 
       <!-- First-connect reveal: import counter, then fly the archive onto the map -->
@@ -1215,6 +1233,15 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         <div class="type-breakdown" id="type-breakdown"></div>
         <div class="stats-section-title">Year by Year</div>
         <div class="year-timeline" id="year-timeline"></div>
+      </div>
+    </div>
+
+    <!-- AIRPORTS VIEW (Retrospective entry — computed from Flight Moments, never stored) -->
+    <div class="view" id="airports-view">
+      <div style="max-width:900px;margin:0 auto;width:100%">
+        <div class="stats-page-title">Airports</div>
+        <div class="stats-page-sub">Computed from your flight moments — visit counts, not stored separately</div>
+        <div id="airports-grid" style="display:flex;flex-direction:column;gap:8px;margin-top:20px"></div>
       </div>
     </div>
 
@@ -1381,6 +1408,103 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   </div>
 </div>
 
+<!-- ADD MODAL: chooser for non-GPS ways to add to the map (Retrospective entry) -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-title">Add to Your Map</div>
+    <div class="modal-sub">Ways to add memories without live GPS tracking</div>
+    <div class="modal-actions" style="flex-direction:column;gap:8px;align-items:stretch">
+      <button class="btn-ghost" onclick="closeAddModal();togglePinDropMode()">📍 Drop a Pin on the Map</button>
+      <button class="btn-ghost" onclick="closeAddModal();openPinModal()">🔍 Add a Pin by Address</button>
+      <button class="btn-ghost" onclick="closeAddModal();openManualEntryModal()">📝 Manual Entry</button>
+      <button class="btn-ghost" onclick="closeAddModal();openNLParserModal()">💬 Describe a Trip</button>
+      <button class="btn-ghost" onclick="closeAddModal();openDrawRoutePicker()">✎ Draw a Route</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeAddModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN MODAL -->
+<div class="modal-overlay" id="pin-modal">
+  <div class="modal">
+    <div class="modal-title">Drop a Pin</div>
+    <div class="modal-sub" id="pin-modal-sub">Click the map, or search an address below</div>
+    <select class="modal-select" id="pin-category"></select>
+    <input class="modal-input" type="text" id="pin-name" placeholder="Label (e.g. Grandma's house)">
+    <div style="display:flex;gap:8px">
+      <input class="modal-input" type="text" id="pin-address" placeholder="Search an address..." style="flex:1">
+      <button class="btn-ghost" onclick="geocodePinAddress()">Search</button>
+    </div>
+    <div class="import-progress" id="pin-status"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closePinModal()">Cancel</button>
+      <button class="btn-primary" id="pin-save-btn" onclick="savePin()">Save Pin</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL ENTRY MODAL -->
+<div class="modal-overlay" id="manual-entry-modal">
+  <div class="modal">
+    <div class="modal-title">Manual Entry</div>
+    <div class="modal-sub">For memories with no GPS — add locations, a date, and notes</div>
+    <select class="modal-select" id="me-type">
+      <option value="Run">Run</option><option value="Ride">Ride</option><option value="Hike">Hike</option>
+      <option value="Walk">Walk</option><option value="AlpineSki">Alpine Ski</option><option value="NordicSki">Nordic Ski</option>
+      <option value="BackcountrySki">Backcountry Ski</option><option value="Flight">Flight</option>
+      <option value="Drive">Drive</option><option value="Other">Other</option>
+    </select>
+    <input class="modal-input" type="text" id="me-start" placeholder="Start location (e.g. Denver, CO)">
+    <input class="modal-input" type="text" id="me-end" placeholder="End location (optional)">
+    <div style="display:flex;gap:8px">
+      <input class="modal-input" type="date" id="me-date-start" style="flex:1">
+      <input class="modal-input" type="date" id="me-date-end" style="flex:1">
+    </div>
+    <textarea class="modal-input" id="me-notes" rows="3" placeholder="Notes..." style="min-height:70px;resize:vertical;font-family:'Cormorant Garamond',serif;font-size:14px"></textarea>
+    <div class="import-progress" id="me-status"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeManualEntryModal()">Cancel</button>
+      <button class="btn-primary" id="me-save-btn" onclick="saveManualEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- NL ROUTE PARSER MODAL -->
+<div class="modal-overlay" id="nl-parser-modal">
+  <div class="modal">
+    <div class="modal-title">Describe a Trip</div>
+    <div class="modal-sub">"Drove from LA to Denver" or "Denver to LA to Seattle to Chicago"</div>
+    <textarea class="modal-input" id="nl-text" rows="3" placeholder="I drove from LA to Denver..." style="min-height:70px;resize:vertical;font-family:'Cormorant Garamond',serif;font-size:14px" oninput="document.getElementById('nl-preview').textContent=''"></textarea>
+    <input class="modal-input" type="date" id="nl-date">
+    <div id="nl-preview" style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;line-height:1.6;padding:0 2px"></div>
+    <div class="import-progress" id="nl-status"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeNLParserModal()">Cancel</button>
+      <button class="btn-ghost" id="nl-preview-btn" onclick="previewParsedRoute()">Preview</button>
+      <button class="btn-primary" id="nl-save-btn" onclick="saveParsedRoute()">Save Trip</button>
+    </div>
+  </div>
+</div>
+
+<!-- DRAW-ROUTE MODE PICKER -->
+<div class="modal-overlay" id="draw-picker-modal">
+  <div class="modal">
+    <div class="modal-title">Draw a Route</div>
+    <div class="modal-sub">Choose how you travelled, then tap points on the map</div>
+    <div class="modal-actions" style="flex-direction:column;gap:8px;align-items:stretch">
+      <button class="btn-ghost" onclick="startDrawMode('foot')">🚶 Foot</button>
+      <button class="btn-ghost" onclick="startDrawMode('bike')">🚴 Bike</button>
+      <button class="btn-ghost" onclick="startDrawMode('car')">🚗 Car</button>
+      <button class="btn-ghost" onclick="startDrawMode('manual')">✎ Manual (no snapping)</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeDrawPicker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- LIGHTBOX -->
 <div id="lightbox">
   <button id="lightbox-close" onclick="closeLightbox()">×</button>
@@ -1419,6 +1543,24 @@ Object.entries(TYPE_CONFIG).forEach(([k,cfg]) => cfg.types.forEach(t => { TYPE_G
 function getGroup(type) { return TYPE_GROUP_MAP[type] || 'Other'; }
 function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#92400e'; }
 
+// Pins (point Moments — no polyline). Kept separate from TYPE_CONFIG so pin
+// categories never enter TYPE_GROUP_MAP's reverse lookup, which assumes
+// GPS-shaped tracked activities.
+const PIN_CATEGORIES = {
+  home: { label:'Childhood Home', color:'#c0392b', icon:'🏠' },
+  school: { label:'School', color:'#2563eb', icon:'🎓' },
+  work: { label:'Workplace', color:'#374151', icon:'💼' },
+  special: { label:'Special Place', color:'#e11d48', icon:'✨' },
+  restaurant: { label:'Restaurant', color:'#d97706', icon:'🍽️' },
+  nature: { label:'Nature Spot', color:'#16a34a', icon:'🌿' },
+  milestone: { label:'Milestone', color:'#6d28d9', icon:'🏁' },
+  airport: { label:'Airport', color:'#0891b2', icon:'✈️' },
+  other: { label:'Other', color:'#92400e', icon:'📍' },
+};
+let activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
+function getPinCategory(cat) { return PIN_CATEGORIES[cat] || PIN_CATEGORIES.other; }
+function getPinColor(cat) { return getPinCategory(cat).color; }
+
 // ════════════════════════════════════════
 // DATA
 // ════════════════════════════════════════
@@ -1445,6 +1587,8 @@ async function strava(action, extra) {
 
 let db = {}, map, terrainOn = false, satelliteOn = false;
 let allMemories = [], filteredMemories = [], allStories = [];
+let _pinDropMode = false; // click-to-drop-pin mode (Pins feature)
+let _drawMode = false; // draw-your-route tracing mode
 let activeTypes = new Set(Object.keys(TYPE_CONFIG));
 let activeYears = new Set();
 let selectedId = null, saveTimer = null;
@@ -1456,7 +1600,9 @@ let _profileTimer = null;
 
 // Story helpers
 function isStory(obj) { return obj && obj.type === 'story'; }
-function getMoments() { return Object.values(db).filter(o => !isStory(o)); }
+function isPinMoment(o) { return !!(o && !isStory(o) && o.isPin); }
+function getMoments() { return Object.values(db).filter(o => !isStory(o) && !o.isPin); }
+function getPins() { return Object.values(db).filter(o => isPinMoment(o)); }
 function getStories() { return Object.values(db).filter(o => isStory(o)); }
 function computeStoryStats(story) {
   let dist = 0, elev = 0, dur = 0, types = {};
@@ -1515,6 +1661,9 @@ function rowToMoment(r) {
     prCount: r.pr_count, achievementCount: r.achievement_count,
     elevHigh: r.elev_high, elevLow: r.elev_low, gearId: r.gear_id,
     workoutType: r.workout_type, commute: !!r.commute, elapsedTime: r.elapsed_time,
+    isPin: !!r.is_pin, pinCategory: r.pin_category || null,
+    endLat: r.end_lat ?? null, endLng: r.end_lng ?? null,
+    startPlace: r.start_place || null, endPlace: r.end_place || null,
   };
 }
 function momentToRow(m) {
@@ -1533,6 +1682,9 @@ function momentToRow(m) {
     pr_count: m.prCount ?? null, achievement_count: m.achievementCount ?? null,
     elev_high: m.elevHigh ?? null, elev_low: m.elevLow ?? null, gear_id: m.gearId || null,
     workout_type: m.workoutType ?? null, commute: !!m.commute, elapsed_time: m.elapsedTime ?? null,
+    is_pin: !!m.isPin, pin_category: m.pinCategory || null,
+    end_lat: m.endLat ?? null, end_lng: m.endLng ?? null,
+    start_place: m.startPlace || null, end_place: m.endPlace || null,
   };
 }
 function rowToStory(r) {
@@ -1588,7 +1740,7 @@ async function loadFromSupabase() {
   photoRows.forEach(p => {
     (photosByActivity[p.activity_id] ||= []).push({
       dataUrl: signedByPath[p.storage_path] || '', lat: p.lat, lng: p.lng,
-      caption: p.caption || '', _id: p.id, _path: p.storage_path,
+      caption: p.caption || '', _id: p.id, _path: p.storage_path, _isCover: !!p.is_cover,
     });
   });
 
@@ -1665,7 +1817,7 @@ async function flushDirty() {
 function setSaveIndicator(msg) {
   const el = document.getElementById('save-indicator'); if (el) el.textContent = msg;
 }
-function loadColors() { try { const r = localStorage.getItem(COLORS_KEY); if(r) { const s = JSON.parse(r); Object.entries(s).forEach(([k,v])=>{ if(TYPE_CONFIG[k]) TYPE_CONFIG[k].color=v; }); } } catch(e) {} }
+function loadColors() { try { const r = localStorage.getItem(COLORS_KEY); if(r) { const s = JSON.parse(r); Object.entries(s).forEach(([k,v])=>{ if(TYPE_CONFIG[k]) TYPE_CONFIG[k].color=v; else if(PIN_CATEGORIES[k]) PIN_CATEGORIES[k].color=v; }); } } catch(e) {} }
 
 function stravaToMemory(a) {
   const existing = db[`strava_${a.id}`] || {};
@@ -1719,6 +1871,18 @@ function initMap() {
   });
     map.touchZoomRotate.enable();
     map.dragPan.enable();
+
+  // Generic click handler for pin-drop / draw-route modes — fires regardless
+  // of what's under the cursor; the tracks-hit layer's click handler and each
+  // pin marker's own click handler (initMapLayers/renderPinMarkers) guard
+  // against firing at the same time via _pinDropMode/_drawMode checks, so
+  // there's no double-handling of a click.
+  map.on('click', e => {
+    if (_pinDropMode) { togglePinDropMode(); openPinModal(e.lngLat); return; }
+    if (_drawMode) { addDrawPoint(e.lngLat); }
+  });
+  initLongPress();
+
   map.on('load', async () => {
     addTerrainSource(); loadColors(); setProgress(10);
 
@@ -1917,6 +2081,7 @@ function updateEmptyState() {
   const empty = allMemories.length === 0 && allStories.length === 0;
   if (!empty) _emptyDismissed = false; // reset so it can guide again if they clear everything
   el.hidden = !(empty && !_emptyDismissed);
+  updatePinNudge();
 }
 
 function buildTracksGeoJSON(memories) {
@@ -1925,6 +2090,30 @@ function buildTracksGeoJSON(memories) {
     if(!coords||coords.length<2) return null;
     return { type:'Feature', properties:{id:mem.id,color:mem.customColor||getColor(mem.type)}, geometry:{type:'LineString',coordinates:coords} };
   }).filter(Boolean) };
+}
+
+// Pins render as DOM mapboxgl.Marker elements (not a GL symbol layer) — Mapbox
+// GL's text-field glyph pipeline is server-rendered SDF fonts that typically
+// don't cover emoji pictograph ranges, so an emoji text-field can render as
+// blank glyphs. A DOM marker uses the browser's own emoji font and is the
+// same pattern this file already uses for photo pins (addPhotoMarker).
+let _pinMarkers = [];
+function renderPinMarkers() {
+  _pinMarkers.forEach(m => m.remove());
+  _pinMarkers = [];
+  getPins().forEach(p => {
+    if (p.startLat == null || p.startLng == null) return;
+    if (!activePinCategories.has(p.pinCategory || 'other')) return;
+    const cat = getPinCategory(p.pinCategory);
+    const el = document.createElement('div');
+    el.style.cssText = `width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${p.customColor||cat.color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer`;
+    const inner = document.createElement('span');
+    inner.style.cssText = 'transform:rotate(45deg);font-size:15px;line-height:1';
+    inner.textContent = cat.icon;
+    el.appendChild(inner);
+    el.addEventListener('click', e => { e.stopPropagation(); if (_pinDropMode || _drawMode) return; showDetail(p.id); });
+    _pinMarkers.push(new mapboxgl.Marker(el).setLngLat([p.startLng, p.startLat]).addTo(map));
+  });
 }
 
 function initMapLayers() {
@@ -1938,9 +2127,16 @@ function initMapLayers() {
     // Invisible fat line so you don't have to land a tap on a 2px stroke.
     map.addLayer({id:'tracks-hit',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
       paint:{'line-color':'#000','line-opacity':0,'line-width':18}});
-    map.on('click','tracks-hit',e=>{const id=e.features[0].properties.id;showDetail(id);flyToTrack(db[id]);});
-    map.on('mouseenter','tracks-hit',()=>map.getCanvas().style.cursor='pointer');
+    map.on('click','tracks-hit',e=>{if(_pinDropMode||_drawMode)return;const id=e.features[0].properties.id;showDetail(id);flyToTrack(db[id]);});
+    map.on('contextmenu','tracks-hit',e=>{e.preventDefault();showTrackPreviewPopup(e.features[0].properties.id,e.lngLat);});
+    map.on('mouseenter','tracks-hit',()=>{if(!_pinDropMode&&!_drawMode)map.getCanvas().style.cursor='pointer';});
     map.on('mouseleave','tracks-hit',()=>map.getCanvas().style.cursor='');
+  }
+  renderPinMarkers();
+  if(!map.getSource('draw-route')) {
+    map.addSource('draw-route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+    map.addLayer({id:'draw-route-layer',type:'line',source:'draw-route',layout:{'line-join':'round','line-cap':'round'},
+      paint:{'line-color':'#2563eb','line-width':3,'line-dasharray':[2,1.5]}});
   }
   if(!map.getSource('satellite')) {
     map.addSource('satellite',{type:'raster',url:'mapbox://mapbox.satellite',tileSize:256});
@@ -2022,6 +2218,7 @@ function buildToolsPanel() {
   let html = `<div class="tp-tabs">
     <button class="tp-tab active" id="tp-tab-types" onclick="switchToolsTab('types')">Types</button>
     <button class="tp-tab" id="tp-tab-colors" onclick="switchToolsTab('colors')">Colors</button>
+    <button class="tp-tab" id="tp-tab-pins" onclick="switchToolsTab('pins')">Pins</button>
   </div>`;
 
   // Types pane
@@ -2048,11 +2245,25 @@ function buildToolsPanel() {
   });
   html += '</div>';
 
+  // Pins pane — same shape as Types+Colors combined, driven by PIN_CATEGORIES
+  html += '<div class="tp-pane" id="tp-pane-pins"><div class="tp-type-grid">';
+  Object.entries(PIN_CATEGORIES).forEach(([key,cfg]) => {
+    const on = activePinCategories.has(key);
+    html += `<div class="tp-type-row">
+      <div class="tp-color-swatch" id="pin-swatch-${key}" style="background:${cfg.color};width:16px;height:16px;margin-right:8px">
+        <input type="color" value="${cfg.color}" oninput="updatePinCategoryColor('${key}',this.value)">
+      </div>
+      <div class="tp-type-label" onclick="togglePinCategory('${key}')" style="flex:1;cursor:pointer">${cfg.icon} ${cfg.label}</div>
+      <div class="tp-type-toggle ${on?'on':''}" id="pin-toggle-${key}" onclick="togglePinCategory('${key}')"></div>
+    </div>`;
+  });
+  html += '</div></div>';
+
   panel.innerHTML = html;
 }
 
 function switchToolsTab(tab) {
-  ['types','colors'].forEach(t => {
+  ['types','colors','pins'].forEach(t => {
     document.getElementById(`tp-tab-${t}`)?.classList.toggle('active', t===tab);
     document.getElementById(`tp-pane-${t}`)?.classList.toggle('active', t===tab);
   });
@@ -2063,6 +2274,19 @@ function toggleType(key, row) {
   const toggle = document.getElementById(`toggle-${key}`);
   toggle.classList.toggle('on');
   applyFilters();
+}
+
+function togglePinCategory(key) {
+  if(activePinCategories.has(key)) activePinCategories.delete(key); else activePinCategories.add(key);
+  document.getElementById(`pin-toggle-${key}`)?.classList.toggle('on');
+  renderPinMarkers();
+}
+
+function updatePinCategoryColor(key, color) {
+  PIN_CATEGORIES[key].color = color;
+  const sw = document.getElementById(`pin-swatch-${key}`); if(sw) sw.style.background = color;
+  renderPinMarkers();
+  const saved = JSON.parse(localStorage.getItem(COLORS_KEY)||'{}'); saved[key]=color; localStorage.setItem(COLORS_KEY,JSON.stringify(saved));
 }
 
 function toggleToolsPanel() {
@@ -2091,7 +2315,7 @@ function toggleSatellite() {
 }
 
 function getSatelliteToggleLayers() {
-  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','satellite-layer','sky'].includes(l.id)).map(l=>l.id);
+  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','satellite-layer','sky'].includes(l.id)).map(l=>l.id);
 }
 
 function updateTypeColor(typeKey, color) {
@@ -2111,12 +2335,14 @@ function showDetail(memId) {
   if (isStory(obj)) { showStoryDetail(memId); return; }
 
   const mem=obj;
-  const group=getGroup(mem.type), color=mem.customColor||TYPE_CONFIG[group]?.color||'#92400e';
+  const pinCat = mem.isPin ? getPinCategory(mem.pinCategory) : null;
+  const group=getGroup(mem.type), color=mem.customColor||(pinCat?pinCat.color:TYPE_CONFIG[group]?.color)||'#92400e';
   document.getElementById('d-type-dot').style.background=color;
-  document.getElementById('d-type-label').textContent=TYPE_CONFIG[group]?.label||mem.type;
+  document.getElementById('d-type-label').textContent=pinCat?`${pinCat.icon} ${pinCat.label}`:(TYPE_CONFIG[group]?.label||mem.type);
   document.getElementById('d-name-input').value=mem.name;
   document.getElementById('d-name-input').oninput=onNameEdit;
   document.getElementById('d-date').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
+  const hasTrack = !!(mem._polyline || (Array.isArray(mem.coords)&&mem.coords.length>1));
   document.getElementById('d-stats').innerHTML=[
     {val:mem.distance?(mem.distance/1000).toFixed(1)+' km':'—',label:'Distance'},
     {val:mem.duration?formatDur(mem.duration):'—',label:'Moving Time'},
@@ -2124,7 +2350,8 @@ function showDetail(memId) {
     {val:mem.avgSpeed?formatPace(mem.avgSpeed,mem.type):'—',label:'Pace / Speed'},
     {val:mem.maxSpeed?(getGroup(mem.type)==='Ride'||getGroup(mem.type)==='Drive'||getGroup(mem.type)==='Flight'?(mem.maxSpeed*3.6).toFixed(1)+' km/h':formatPace(mem.maxSpeed,mem.type)):'—',label:'Max Speed'},
     {val:mem.avgHR?mem.avgHR+' bpm':'—',label:'Avg Heart Rate'},
-  ].map(s=>`<div class="dstat"><div class="dstat-val">${s.val}</div><div class="dstat-label">${s.label}</div></div>`).join('');
+  ].filter(s=>hasTrack||!['Distance','Pace / Speed','Max Speed'].includes(s.label))
+   .map(s=>`<div class="dstat"><div class="dstat-val">${s.val}</div><div class="dstat-label">${s.label}</div></div>`).join('');
   document.getElementById('d-note').value=mem.note||'';
   document.getElementById('d-note').style.display='';
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
@@ -2296,8 +2523,9 @@ function scheduleSave() { clearTimeout(saveTimer); setSaveIndicator('Saving…')
 function renderPhotos(memId) {
   const mem=db[memId], grid=document.getElementById('d-photos'); grid.innerHTML='';
   (mem.photos||[]).forEach((photo,i)=>{
-    const wrap=document.createElement('div'); wrap.className='photo-thumb-wrap';
-    wrap.innerHTML=`<img src="${photo.dataUrl}" alt="" onclick="openLightbox(${i})"><button class="photo-remove" onclick="removePhoto('${memId}',${i})">×</button>`;
+    const wrap=document.createElement('div'); wrap.className='photo-thumb-wrap'; wrap.style.position='relative';
+    wrap.innerHTML=`<img src="${photo.dataUrl}" alt="" onclick="openLightbox(${i})"><button class="photo-remove" onclick="removePhoto('${memId}',${i})">×</button>
+      <button title="${photo._isCover?'Cover photo':'Set as cover'}" onclick="setCoverPhoto('${memId}',${i})" style="position:absolute;bottom:4px;left:4px;background:${photo._isCover?'var(--accent)':'rgba(0,0,0,0.5)'};color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:11px;line-height:20px;cursor:pointer;padding:0">★</button>`;
     if(photo.lat){const tag=document.createElement('div');tag.className='photo-geo-tag';tag.textContent=`${photo.lat.toFixed(3)}°N ${photo.lng.toFixed(3)}°E`;wrap.appendChild(tag);}
     grid.appendChild(wrap);
   });
@@ -2362,6 +2590,572 @@ function readRationals(v,o,c,le){const vals=[];for(let i=0;i<c;i++){const n=v.ge
 function addPhotoMarker(lat,lng,dataUrl,idx){const el=document.createElement('div');el.style.cssText=`width:28px;height:28px;border-radius:50%;border:2px solid white;background:url(${dataUrl}) center/cover;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3)`;el.onclick=()=>openLightbox(idx);new mapboxgl.Marker(el).setLngLat([lng,lat]).addTo(map);}
 function openLightbox(idx){if(!selectedId)return;const p=db[selectedId].photos[idx];document.getElementById('lightbox-img').src=p.dataUrl;document.getElementById('lightbox-caption').textContent=p.lat?`${p.lat.toFixed(4)}°N  ${p.lng.toFixed(4)}°E`:'';document.getElementById('lightbox').classList.add('open');}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
+
+async function setCoverPhoto(memId, idx) {
+  const photos = (db[memId] && db[memId].photos) || [];
+  const target = photos[idx];
+  if (!target || !target._id) return;
+  photos.forEach((p,i) => { p._isCover = (i === idx); });
+  renderPhotos(memId);
+  try {
+    await sb.from('activity_photos').update({ is_cover: false }).eq('activity_id', memId);
+    await sb.from('activity_photos').update({ is_cover: true }).eq('id', target._id);
+  } catch (e) { console.warn('Set cover photo failed', e); }
+}
+
+// ════════════════════════════════════════
+// RETROSPECTIVE ENTRY — Pins, manual entry, NL route parser, draw-route,
+// Airports view, long-press track preview. See CLAUDE.md for the data-model
+// notes (Moment.isPin, pinCategory, endLat/endLng, startPlace/endPlace).
+// Explicitly out of scope here: live/background GPS tracking of any kind.
+// ════════════════════════════════════════
+
+// ── Shared geocoding (Pins, Manual Entry, NL parser all use this) ──
+async function geocodeAddress(query) {
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const f = data.features && data.features[0];
+    if (!f) return null;
+    return { lat: f.center[1], lng: f.center[0], placeName: f.place_name };
+  } catch (e) { console.warn('Geocode failed', e); return null; }
+}
+
+// A dozen major airports as a documented fallback only — Mapbox Geocoding
+// (queried as "<name> airport") is the primary path.
+const IATA_FALLBACK = {
+  LAX:[33.9416,-118.4085,'Los Angeles International Airport'],
+  JFK:[40.6413,-73.7781,'John F. Kennedy International Airport'],
+  ORD:[41.9742,-87.9073,"O'Hare International Airport"],
+  DEN:[39.8561,-104.6737,'Denver International Airport'],
+  DIA:[39.8561,-104.6737,'Denver International Airport'],
+  SEA:[47.4502,-122.3088,'Seattle-Tacoma International Airport'],
+  SFO:[37.6213,-122.3790,'San Francisco International Airport'],
+  ATL:[33.6407,-84.4277,'Hartsfield-Jackson Atlanta International Airport'],
+  DFW:[32.8998,-97.0403,'Dallas/Fort Worth International Airport'],
+  MIA:[25.7959,-80.2870,'Miami International Airport'],
+  BOS:[42.3656,-71.0096,'Logan International Airport'],
+  LAS:[36.0840,-115.1537,'Harry Reid International Airport'],
+  PHX:[33.4373,-112.0078,'Phoenix Sky Harbor International Airport'],
+  IAH:[29.9902,-95.3368,'George Bush Intercontinental Airport'],
+  MSP:[44.8848,-93.2223,'Minneapolis-Saint Paul International Airport'],
+  DTW:[42.2124,-83.3534,'Detroit Metropolitan Airport'],
+  LHR:[51.4700,-0.4543,'London Heathrow Airport'],
+  CDG:[49.0097,2.5479,'Charles de Gaulle Airport'],
+};
+async function geocodeWaypoint(name, isFlight) {
+  if (!isFlight) return await geocodeAddress(name);
+  const code = name.trim().toUpperCase();
+  const isCode = /^[A-Z]{3}$/.test(code);
+  // Bare 3-letter codes geocode unreliably against Mapbox's general-purpose
+  // text search (e.g. "LAX airport" can resolve to an unrelated place with
+  // "Airport" in its name) — checked empirically, not just in theory. So a
+  // known code is resolved from the static table FIRST (precise), and
+  // geocoding is only the primary path for a full airport name/city.
+  if (isCode && IATA_FALLBACK[code]) { const [lat,lng,label] = IATA_FALLBACK[code]; return { lat, lng, placeName: label }; }
+  const query = isCode ? code + ' international airport' : (/airport/i.test(name) ? name : name + ' airport');
+  return await geocodeAddress(query);
+}
+
+// ── Add-modal chooser ──
+function openAddModal() { document.getElementById('add-modal').classList.add('open'); }
+function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); }
+
+// ── Pins ──
+function dismissPinNudge() { localStorage.setItem('relic_pin_nudge_v1','1'); document.getElementById('pin-nudge').hidden = true; }
+function updatePinNudge() {
+  const el = document.getElementById('pin-nudge'); if (!el) return;
+  const dismissed = localStorage.getItem('relic_pin_nudge_v1') === '1';
+  el.hidden = dismissed || getPins().length > 0;
+}
+
+function togglePinDropMode() {
+  _pinDropMode = !_pinDropMode;
+  if (_pinDropMode) cancelDrawOnly();
+  map.getCanvas().style.cursor = _pinDropMode ? 'crosshair' : '';
+  updateModeBanner();
+}
+
+let _pendingPinLatLng = null;
+function openPinModal(lngLat) {
+  _pendingPinLatLng = lngLat ? { lat: lngLat.lat, lng: lngLat.lng } : null;
+  const sel = document.getElementById('pin-category');
+  sel.innerHTML = Object.entries(PIN_CATEGORIES).filter(([k])=>k!=='airport').map(([k,cfg]) => `<option value="${k}">${cfg.icon} ${cfg.label}</option>`).join('');
+  sel.value = 'special';
+  document.getElementById('pin-name').value = '';
+  document.getElementById('pin-address').value = '';
+  document.getElementById('pin-modal-sub').textContent = _pendingPinLatLng ? 'Dropped at your map click — add details below' : 'Search an address below to place this pin';
+  document.getElementById('pin-status').textContent = '';
+  document.getElementById('pin-modal').classList.add('open');
+}
+function closePinModal() { document.getElementById('pin-modal').classList.remove('open'); }
+
+async function geocodePinAddress() {
+  const q = document.getElementById('pin-address').value.trim();
+  if (!q) return;
+  document.getElementById('pin-status').textContent = 'Searching…';
+  const r = await geocodeAddress(q);
+  if (!r) { document.getElementById('pin-status').textContent = 'No results found.'; return; }
+  _pendingPinLatLng = { lat: r.lat, lng: r.lng };
+  document.getElementById('pin-address').value = r.placeName;
+  document.getElementById('pin-status').textContent = 'Found: ' + r.placeName;
+}
+
+async function savePin() {
+  if (!_pendingPinLatLng) { document.getElementById('pin-status').textContent = 'Click the map or search an address first.'; return; }
+  const category = document.getElementById('pin-category').value;
+  const name = document.getElementById('pin-name').value.trim() || getPinCategory(category).label;
+  const btn = document.getElementById('pin-save-btn'); btn.disabled = true;
+  document.getElementById('pin-status').textContent = 'Saving…';
+  const id = 'pin_' + crypto.randomUUID();
+  const entry = {
+    id, name, type: 'Other', isPin: true, pinCategory: category,
+    date: new Date().toISOString(), source: 'manual',
+    startLat: _pendingPinLatLng.lat, startLng: _pendingPinLatLng.lng,
+    startPlace: document.getElementById('pin-address').value.trim() || null,
+    coords: null, _polyline: null, distance: 0, duration: 0, elevation: 0,
+    note: '', mood: null, photos: [], customColor: null,
+  };
+  db[id] = entry;
+  initMapLayers();
+  updatePinNudge();
+  const result = await persistMoments([entry]);
+  if (result.ok) {
+    document.getElementById('pin-status').textContent = 'Pin saved.';
+    setTimeout(closePinModal, 700);
+  } else {
+    delete db[id]; initMapLayers(); updatePinNudge();
+    document.getElementById('pin-status').textContent = 'Save failed: ' + (result.error || 'unknown error');
+  }
+  btn.disabled = false;
+}
+
+// ── Manual entry for past events ──
+function openManualEntryModal() {
+  ['me-start','me-end','me-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('me-date-start').value = '';
+  document.getElementById('me-date-end').value = '';
+  document.getElementById('me-type').value = 'Other';
+  document.getElementById('me-status').textContent = '';
+  document.getElementById('manual-entry-modal').classList.add('open');
+}
+function closeManualEntryModal() { document.getElementById('manual-entry-modal').classList.remove('open'); }
+
+async function saveManualEntry() {
+  const type = document.getElementById('me-type').value;
+  const startQuery = document.getElementById('me-start').value.trim();
+  const endQuery = document.getElementById('me-end').value.trim();
+  const dateStart = document.getElementById('me-date-start').value;
+  const dateEnd = document.getElementById('me-date-end').value;
+  const notes = document.getElementById('me-notes').value;
+  const statusEl = document.getElementById('me-status');
+  if (!startQuery) { statusEl.textContent = 'Please enter a start location.'; return; }
+  if (!dateStart) { statusEl.textContent = 'Please enter a date.'; return; }
+  const btn = document.getElementById('me-save-btn'); btn.disabled = true;
+  statusEl.textContent = 'Looking up locations…';
+  const start = await geocodeAddress(startQuery);
+  if (!start) { statusEl.textContent = `Could not find "${startQuery}".`; btn.disabled = false; return; }
+  let end = null;
+  if (endQuery) {
+    end = await geocodeAddress(endQuery);
+    if (!end) { statusEl.textContent = `Could not find "${endQuery}".`; btn.disabled = false; return; }
+  }
+  let note = notes;
+  if (dateEnd && dateEnd !== dateStart) note = (notes ? notes + '\n\n' : '') + `Date range: ${dateStart} to ${dateEnd}`;
+  const id = 'manual_' + crypto.randomUUID();
+  // A straight point-to-point line when both ends are known — no GPS trace to
+  // road-match against, so this is deliberately a straight line, not a route.
+  const polyline = end ? encodePolyline([[start.lng,start.lat],[end.lng,end.lat]]) : null;
+  const distance = end ? haversine(start.lat, start.lng, end.lat, end.lng) : 0;
+  const entry = {
+    id, name: end ? `${startQuery} → ${endQuery}` : startQuery, type,
+    date: dateStart + 'T12:00:00Z', source: 'manual',
+    coords: null, _polyline: polyline, distance, duration: 0, elevation: 0,
+    startLat: start.lat, startLng: start.lng, startPlace: start.placeName,
+    endLat: end ? end.lat : null, endLng: end ? end.lng : null, endPlace: end ? end.placeName : null,
+    note, mood: null, photos: [], customColor: null,
+  };
+  db[id] = entry;
+  allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+  const result = await persistMoments([entry]);
+  if (result.ok) {
+    statusEl.textContent = 'Saved.';
+    setTimeout(closeManualEntryModal, 700);
+    showDetail(id);
+  } else {
+    delete db[id];
+    allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+    initMapLayers(); applyFilters();
+    statusEl.textContent = 'Save failed: ' + (result.error || 'unknown error');
+  }
+  btn.disabled = false;
+}
+
+// ── Natural-language route parser (incl. multi-stop chains + flight legs) ──
+const FLIGHT_VERBS_RE = /\b(flew|fly|flying|flight)\b/i;
+const MODE_VERB_MAP = { drove:'Drive', driving:'Drive', drive:'Drive', rode:'Ride', ride:'Ride', riding:'Ride', biked:'Ride', biking:'Ride', cycled:'Ride', cycling:'Ride', walked:'Walk', walking:'Walk', walk:'Walk', hiked:'Hike', hiking:'Hike', hike:'Hike' };
+const LEADING_VERB_RE = /^(flew|fly|flying|flight|drove|driving|drive|rode|ride|riding|biked|biking|cycled|cycling|walked|walking|walk|hiked|hiking|hike)\s+/i;
+
+// Pure — no DOM, no network. Splits "X to Y [to Z ...]" into ordered waypoints
+// and detects a single transport mode for the whole sentence (v1 scope: one
+// mode per sentence; mode-switching mid-trip is a deferred stretch goal).
+function parseRouteText(text) {
+  const raw = (text || '').trim();
+  if (!raw) return null;
+  const isFlight = FLIGHT_VERBS_RE.test(raw);
+  let mode = 'Drive';
+  const lower = raw.toLowerCase();
+  for (const verb of Object.keys(MODE_VERB_MAP)) {
+    if (new RegExp('\\b' + verb + '\\b').test(lower)) { mode = MODE_VERB_MAP[verb]; break; }
+  }
+  if (isFlight) mode = 'Flight';
+  const body = raw.replace(/^i\s+/i,'').replace(LEADING_VERB_RE,'').replace(/^from\s+/i,'');
+  const waypoints = body.split(/\s+to\s+/i).map(s => s.trim()).filter(Boolean);
+  if (waypoints.length < 2) return null;
+  return { mode, isFlight, waypoints };
+}
+
+// Great-circle interpolation — flights don't follow roads, so this is used
+// instead of the Directions API for Flight legs.
+function greatCircleCoords(lat1, lng1, lat2, lng2, steps) {
+  steps = steps || 32;
+  const toRad = d => d * Math.PI / 180, toDeg = r => r * 180 / Math.PI;
+  const phi1 = toRad(lat1), lam1 = toRad(lng1), phi2 = toRad(lat2), lam2 = toRad(lng2);
+  const d = 2 * Math.asin(Math.sqrt(Math.sin((phi2-phi1)/2)**2 + Math.cos(phi1)*Math.cos(phi2)*Math.sin((lam2-lam1)/2)**2));
+  if (!d) return [[lng1,lat1],[lng2,lat2]];
+  const coords = [];
+  for (let i = 0; i <= steps; i++) {
+    const f = i / steps;
+    const A = Math.sin((1-f)*d) / Math.sin(d), B = Math.sin(f*d) / Math.sin(d);
+    const x = A*Math.cos(phi1)*Math.cos(lam1) + B*Math.cos(phi2)*Math.cos(lam2);
+    const y = A*Math.cos(phi1)*Math.sin(lam1) + B*Math.cos(phi2)*Math.sin(lam2);
+    const z = A*Math.sin(phi1) + B*Math.sin(phi2);
+    const phi = Math.atan2(z, Math.sqrt(x*x+y*y)), lam = Math.atan2(y,x);
+    coords.push([toDeg(lam), toDeg(phi)]);
+  }
+  return coords;
+}
+
+// One Directions call with every waypoint (per Mapbox's multi-waypoint
+// support), steps=true so each leg's road-matched geometry can be
+// reconstructed by concatenating its steps' geometries.
+async function fetchDirectionsMultiLeg(points, profile) {
+  try {
+    const coordStr = points.map(p => p[0] + ',' + p[1]).join(';');
+    const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${coordStr}?geometries=polyline&steps=true&overview=full&access_token=${mapboxgl.accessToken}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const route = data.routes && data.routes[0];
+    if (!route) return null;
+    return route.legs.map(leg => {
+      const coords = [];
+      (leg.steps || []).forEach(step => {
+        const stepCoords = decodePolyline(step.geometry);
+        if (coords.length && stepCoords.length) coords.pop();
+        coords.push(...stepCoords);
+      });
+      return { coords: coords.length > 1 ? coords : null, distance: leg.distance || 0, duration: leg.duration || 0 };
+    });
+  } catch (e) { console.warn('Directions failed', e); return null; }
+}
+
+function openNLParserModal() {
+  document.getElementById('nl-text').value = '';
+  document.getElementById('nl-date').value = '';
+  document.getElementById('nl-status').textContent = '';
+  document.getElementById('nl-preview').textContent = '';
+  document.getElementById('nl-parser-modal').classList.add('open');
+}
+function closeNLParserModal() { document.getElementById('nl-parser-modal').classList.remove('open'); }
+
+function previewParsedRoute() {
+  const parsed = parseRouteText(document.getElementById('nl-text').value);
+  const el = document.getElementById('nl-preview');
+  el.textContent = parsed ? (parsed.isFlight ? '✈️ Flight' : parsed.mode) + ' — ' + parsed.waypoints.join(' → ') : 'Could not parse — try "X to Y" or "drove from X to Y".';
+}
+
+async function saveParsedRoute() {
+  const text = document.getElementById('nl-text').value;
+  const dateVal = document.getElementById('nl-date').value || new Date().toISOString().substring(0,10);
+  const statusEl = document.getElementById('nl-status');
+  const parsed = parseRouteText(text);
+  if (!parsed) { statusEl.textContent = 'Could not parse that — try "X to Y" or "drove from X to Y".'; return; }
+  const btn = document.getElementById('nl-save-btn'); btn.disabled = true;
+  statusEl.textContent = `Looking up ${parsed.waypoints.length} places…`;
+
+  const geocoded = [];
+  for (const wp of parsed.waypoints) {
+    const g = await geocodeWaypoint(wp, parsed.isFlight);
+    if (!g) { statusEl.textContent = `Could not find "${wp}".`; btn.disabled = false; return; }
+    geocoded.push(Object.assign({ name: wp }, g));
+  }
+
+  statusEl.textContent = 'Building route…';
+  let directionsLegs = null;
+  if (!parsed.isFlight) {
+    const profile = { Drive:'driving', Ride:'cycling', Walk:'walking', Hike:'walking' }[parsed.mode] || 'driving';
+    directionsLegs = await fetchDirectionsMultiLeg(geocoded.map(g => [g.lng, g.lat]), profile);
+  }
+
+  const legs = [];
+  for (let i = 0; i < geocoded.length - 1; i++) {
+    const a = geocoded[i], b = geocoded[i+1];
+    let coords, distance, duration = 0;
+    if (parsed.isFlight) {
+      coords = greatCircleCoords(a.lat, a.lng, b.lat, b.lng, 32);
+      distance = haversine(a.lat, a.lng, b.lat, b.lng);
+    } else if (directionsLegs && directionsLegs[i] && directionsLegs[i].coords) {
+      coords = directionsLegs[i].coords; distance = directionsLegs[i].distance; duration = directionsLegs[i].duration;
+    } else {
+      coords = [[a.lng,a.lat],[b.lng,b.lat]]; distance = haversine(a.lat, a.lng, b.lat, b.lng);
+    }
+    const id = (parsed.isFlight ? 'leg_flight_' : 'leg_') + crypto.randomUUID();
+    legs.push({
+      id, name: `${a.name} → ${b.name}`, type: parsed.isFlight ? 'Flight' : parsed.mode,
+      date: dateVal + 'T12:00:00Z', source: 'nlparse',
+      coords: null, _polyline: encodePolyline(coords), distance, duration, elevation: 0,
+      startLat: a.lat, startLng: a.lng, endLat: b.lat, endLng: b.lng,
+      startPlace: a.placeName || a.name, endPlace: b.placeName || b.name,
+      note: '', mood: null, photos: [], customColor: null,
+    });
+  }
+
+  legs.forEach(leg => { db[leg.id] = leg; });
+  let storyId = null;
+  if (legs.length > 1) {
+    storyId = stableStoryId(text.slice(0,60));
+    const story = {
+      id: storyId, type: 'story', title: `${geocoded[0].name} → ${geocoded[geocoded.length-1].name}`,
+      subtitle: '', coverPhoto: null, momentIds: legs.map(l => l.id), narrative: text, mood: null,
+      tags: [], published: false, createdAt: new Date().toISOString(), lastModified: new Date().toISOString(),
+      _totalDistance: 0, _totalElevation: 0, _totalDuration: 0, _momentCount: 0, _typeBreakdown: {},
+    };
+    computeStoryStats(story);
+    db[storyId] = story;
+  }
+
+  allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  allStories = getStories(); allStories.forEach(s => computeStoryStats(s));
+  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+
+  statusEl.textContent = 'Saving…';
+  const legsResult = await persistMoments(legs);
+  if (!legsResult.ok) {
+    legs.forEach(l => delete db[l.id]); if (storyId) delete db[storyId];
+    allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+    initMapLayers(); applyFilters();
+    statusEl.textContent = 'Save failed: ' + (legsResult.error || 'unknown error');
+    btn.disabled = false; return;
+  }
+  if (storyId) {
+    const { error } = await sb.from('stories').upsert(storyToRow(db[storyId]));
+    if (error) { statusEl.textContent = 'Legs saved, but grouping them into a Story failed: ' + error.message; btn.disabled = false; return; }
+  }
+  statusEl.textContent = `Saved ${legs.length} leg${legs.length===1?'':'s'}.`;
+  setTimeout(closeNLParserModal, 900);
+  if (legs[0].startLat) map.flyTo({ center: [legs[0].startLng, legs[0].startLat], zoom: 6, duration: 1000 });
+  btn.disabled = false;
+}
+
+// ── Draw-your-route (v1: no drag-to-reposition/insert, no undo/redo, no
+// context menus, no elevation profile — all explicitly deferred; see
+// CLAUDE.md "Draw-route follow-ups") ──
+const DRAW_PROFILES = {
+  foot:{ directionsProfile:'walking', type:'Walk' },
+  bike:{ directionsProfile:'cycling', type:'Ride' },
+  car:{ directionsProfile:'driving', type:'Drive' },
+  manual:{ directionsProfile:null, type:'Other' },
+};
+let _drawProfile = null, _drawPoints = [], _drawDistance = 0;
+
+function openDrawRoutePicker() { document.getElementById('draw-picker-modal').classList.add('open'); }
+function closeDrawPicker() { document.getElementById('draw-picker-modal').classList.remove('open'); }
+
+function startDrawMode(mode) {
+  closeDrawPicker();
+  _drawProfile = mode; _drawPoints = []; _drawDistance = 0;
+  _drawMode = true; _pinDropMode = false;
+  map.getCanvas().style.cursor = 'crosshair';
+  updateDrawPreview();
+  updateModeBanner();
+}
+
+async function fetchDirectionsSegment(a, b, profile) {
+  try {
+    const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${a[0]},${a[1]};${b[0]},${b[1]}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const route = data.routes && data.routes[0];
+    if (!route) return null;
+    return { coords: route.geometry.coordinates, distance: route.distance };
+  } catch (e) { console.warn('Directions segment failed', e); return null; }
+}
+
+async function addDrawPoint(lngLat) {
+  const pt = [lngLat.lng, lngLat.lat];
+  if (_drawProfile === 'manual' || _drawPoints.length === 0) {
+    if (_drawPoints.length > 0) {
+      const prev = _drawPoints[_drawPoints.length-1];
+      _drawDistance += haversine(prev[1], prev[0], pt[1], pt[0]);
+    }
+    _drawPoints.push(pt);
+  } else {
+    const prev = _drawPoints[_drawPoints.length-1];
+    const seg = await fetchDirectionsSegment(prev, pt, DRAW_PROFILES[_drawProfile].directionsProfile);
+    if (seg && seg.coords.length > 1) {
+      _drawDistance += seg.distance;
+      _drawPoints.push(...seg.coords.slice(1));
+    } else {
+      _drawDistance += haversine(prev[1], prev[0], pt[1], pt[0]);
+      _drawPoints.push(pt);
+    }
+  }
+  updateDrawPreview();
+  updateModeBanner();
+}
+
+function updateDrawPreview() {
+  if (!map.getSource('draw-route')) return;
+  map.getSource('draw-route').setData({ type:'FeatureCollection', features: _drawPoints.length > 1 ? [{ type:'Feature', geometry:{ type:'LineString', coordinates:_drawPoints }, properties:{} }] : [] });
+}
+
+async function finishDrawRoute() {
+  if (_drawPoints.length < 2) return;
+  const profile = _drawProfile, points = _drawPoints, distance = _drawDistance;
+  const id = 'draw_' + crypto.randomUUID();
+  const entry = {
+    id, name: `${DRAW_PROFILES[profile].type} (drawn)`, type: DRAW_PROFILES[profile].type,
+    date: new Date().toISOString(), source: 'draw',
+    coords: null, _polyline: encodePolyline(points), distance, duration: 0, elevation: 0,
+    startLat: points[0][1], startLng: points[0][0],
+    endLat: points[points.length-1][1], endLng: points[points.length-1][0],
+    note: '', mood: null, photos: [], customColor: null,
+  };
+  db[id] = entry;
+  cancelActiveMode();
+  allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+  const result = await persistMoments([entry]);
+  if (!result.ok) {
+    delete db[id];
+    allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
+    initMapLayers(); applyFilters();
+    alert('Save failed: ' + (result.error || 'unknown error'));
+    return;
+  }
+  showDetail(id); flyToTrack(entry);
+}
+
+// Clears draw state without touching pin-drop mode (used when arming pin-drop
+// while a draw was in progress).
+function cancelDrawOnly() {
+  _drawMode = false; _drawPoints = []; _drawDistance = 0; _drawProfile = null;
+  if (map.getSource('draw-route')) map.getSource('draw-route').setData({ type:'FeatureCollection', features:[] });
+}
+function cancelActiveMode() {
+  _pinDropMode = false;
+  cancelDrawOnly();
+  map.getCanvas().style.cursor = '';
+  updateModeBanner();
+}
+function updateModeBanner() {
+  const el = document.getElementById('mode-banner');
+  if (!el) return;
+  if (_pinDropMode) {
+    document.getElementById('mode-banner-text').textContent = 'Click the map to drop a pin';
+    document.getElementById('mode-banner-finish').hidden = true;
+    el.hidden = false;
+  } else if (_drawMode) {
+    document.getElementById('mode-banner-text').textContent = `Drawing (${DRAW_PROFILES[_drawProfile].type}) — ${(_drawDistance/1000).toFixed(2)} km, ${_drawPoints.length} point${_drawPoints.length===1?'':'s'}`;
+    document.getElementById('mode-banner-finish').hidden = _drawPoints.length < 2;
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+  }
+}
+
+// ── Airports view — computed on the fly from Flight Moments, never stored ──
+function computeAirportVisits() {
+  const groups = {};
+  getMoments().filter(m => getGroup(m.type) === 'Flight').forEach(m => {
+    const coords = getCoords(m);
+    let start = { lat: m.startLat, lng: m.startLng, label: m.startPlace };
+    let end = { lat: m.endLat, lng: m.endLng, label: m.endPlace };
+    if ((end.lat == null || end.lng == null) && coords && coords.length > 1) {
+      const last = coords[coords.length-1];
+      end = { lat: last[1], lng: last[0], label: m.endPlace };
+    }
+    [start, end].forEach(pt => {
+      if (pt.lat == null || pt.lng == null) return;
+      const key = pt.label ? 'name:' + pt.label.toLowerCase() : 'coord:' + pt.lat.toFixed(2) + ',' + pt.lng.toFixed(2);
+      if (!groups[key]) groups[key] = { label: pt.label || 'Unknown airport', lat: pt.lat, lng: pt.lng, count: 0 };
+      groups[key].count++;
+    });
+  });
+  return Object.values(groups).sort((a,b) => b.count - a.count);
+}
+
+function buildAirportsView() {
+  const el = document.getElementById('airports-grid');
+  const airports = computeAirportVisits();
+  if (!airports.length) { el.innerHTML = '<div class="stats-page-sub">No flights logged yet — describe a trip with a flight leg to see airports here.</div>'; return; }
+  el.innerHTML = airports.map(a => `
+    <div style="border:1px solid var(--border);padding:14px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="switchView('map');map.flyTo({center:[${a.lng},${a.lat}],zoom:9,duration:1000})">
+      <span style="font-size:22px">${PIN_CATEGORIES.airport.icon}</span>
+      <div style="flex:1"><div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--ink)">${a.label}</div></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">${a.count} visit${a.count===1?'':'s'}</div>
+    </div>`).join('');
+}
+
+// ── Long-press / right-click track preview popup ──
+let _trackPreviewPopup = null;
+function showTrackPreviewPopup(memId, lngLat) {
+  const mem = db[memId]; if (!mem || isStory(mem) || isPinMoment(mem)) return;
+  if (_trackPreviewPopup) _trackPreviewPopup.remove();
+  const group = getGroup(mem.type);
+  const date = mem.date ? new Date(mem.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+  const cover = (mem.photos||[]).find(p => p._isCover) || (mem.photos||[])[0];
+  const statLine = [
+    mem.distance ? (mem.distance/1000).toFixed(1)+' km' : '',
+    mem.duration ? formatDur(mem.duration) : '',
+    mem.elevation ? Math.round(mem.elevation)+' m' : '',
+  ].filter(Boolean).join(' · ');
+  const html = `<div style="font-family:'JetBrains Mono',monospace;min-width:160px">
+    ${cover ? `<img src="${cover.dataUrl}" style="width:100%;height:90px;object-fit:cover;margin-bottom:6px">` : ''}
+    <div style="font-family:'Cormorant Garamond',serif;font-size:15px;margin-bottom:4px;color:#222">${mem.name}</div>
+    <div style="font-size:9px;color:#666;line-height:1.6">${TYPE_CONFIG[group]?.label||mem.type} · ${date}${statLine?'<br>'+statLine:''}</div>
+  </div>`;
+  _trackPreviewPopup = new mapboxgl.Popup({ closeButton:true, maxWidth:'220px' }).setLngLat(lngLat).setHTML(html).addTo(map);
+}
+
+// Touch long-press for the track preview popup — desktop uses the
+// 'contextmenu' (right-click) listener wired in initMapLayers instead, since
+// there's no native long-press gesture for a mouse.
+let _longPressTimer = null, _longPressStart = null;
+function initLongPress() {
+  const canvas = map.getCanvas();
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    _longPressStart = { x: t.clientX, y: t.clientY };
+    clearTimeout(_longPressTimer);
+    _longPressTimer = setTimeout(() => {
+      if (!_longPressStart) return;
+      const rect = canvas.getBoundingClientRect();
+      const point = [_longPressStart.x - rect.left, _longPressStart.y - rect.top];
+      const feats = map.queryRenderedFeatures(point, { layers: ['tracks-hit'] });
+      if (feats.length) showTrackPreviewPopup(feats[0].properties.id, map.unproject(point));
+    }, 500);
+  }, { passive: true });
+  canvas.addEventListener('touchmove', e => {
+    if (!_longPressStart || !e.touches.length) return;
+    const t = e.touches[0];
+    if (Math.abs(t.clientX - _longPressStart.x) > 10 || Math.abs(t.clientY - _longPressStart.y) > 10) clearTimeout(_longPressTimer);
+  }, { passive: true });
+  canvas.addEventListener('touchend', () => { clearTimeout(_longPressTimer); _longPressStart = null; });
+}
 
 // ════════════════════════════════════════
 // FEED (Strava style)
@@ -3764,6 +4558,7 @@ function switchView(view) {
   if(view==='stats') { if(!statsBuilt) { buildStats(); statsBuilt=true; } }
   if(view==='feed') buildFeed();
   if(view==='profile') buildProfile();
+  if(view==='airports') buildAirportsView();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
 }
 
@@ -3823,7 +4618,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeDrawPicker();cancelActiveMode();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -3860,6 +4655,20 @@ _r('connectStrava',connectStrava);_r('syncStrava',syncStrava);_r('disconnectStra
 _r('renderStravaSection',renderStravaSection);_r('maybeAutoSyncStrava',maybeAutoSyncStrava);
 _r('updateEmptyState',updateEmptyState);_r('dismissEmptyState',dismissEmptyState);
 _r('recoverAndReload',recoverAndReload);
+
+// Retrospective entry — Pins, manual entry, NL route parser, draw-route, Airports, cover photo
+_r('setCoverPhoto',setCoverPhoto);
+_r('openAddModal',openAddModal);_r('closeAddModal',closeAddModal);
+_r('togglePinDropMode',togglePinDropMode);_r('openPinModal',openPinModal);_r('closePinModal',closePinModal);
+_r('geocodePinAddress',geocodePinAddress);_r('savePin',savePin);_r('dismissPinNudge',dismissPinNudge);
+_r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);
+_r('openManualEntryModal',openManualEntryModal);_r('closeManualEntryModal',closeManualEntryModal);_r('saveManualEntry',saveManualEntry);
+_r('openNLParserModal',openNLParserModal);_r('closeNLParserModal',closeNLParserModal);
+_r('previewParsedRoute',previewParsedRoute);_r('saveParsedRoute',saveParsedRoute);
+_r('openDrawRoutePicker',openDrawRoutePicker);_r('closeDrawPicker',closeDrawPicker);
+_r('startDrawMode',startDrawMode);_r('finishDrawRoute',finishDrawRoute);_r('cancelActiveMode',cancelActiveMode);
+_r('getPins',getPins);_r('isPinMoment',isPinMoment);_r('buildAirportsView',buildAirportsView);
+_r('computeAirportVisits',computeAirportVisits);_r('showTrackPreviewPopup',showTrackPreviewPopup);
 
 // ════════════════════════════════════════
 // AUTH GATE + BOOT
