@@ -472,6 +472,12 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
    pointer-events:none parent loses taps in iOS Safari, which broke the ✕ / buttons. */
 #empty-state { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; }
 #empty-state[hidden] { display: none; }
+/* Retrospective entry — same [hidden] pattern as #empty-state above: these
+   two also need `display:flex` when shown, so that has to live here (not as
+   an inline style on the element) or [hidden] can never override it — an
+   inline style always wins over a stylesheet rule, hidden attribute or not. */
+#mode-banner, #pin-nudge { display: flex; }
+#mode-banner[hidden], #pin-nudge[hidden] { display: none; }
 #empty-state .empty-inner { position: relative; background: var(--paper); border: 1px solid var(--border); padding: 34px 34px 30px; text-align: center; max-width: min(320px, calc(100vw - 40px)); box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
 .empty-close { position: absolute; top: 0; right: 0; width: 40px; height: 40px; background: none; border: none; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
 .empty-close:hover { color: var(--ink); }
@@ -1119,7 +1125,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       </div>
 
       <!-- Active-mode banner: pin-drop / draw-route (Retrospective entry) -->
-      <div id="mode-banner" hidden style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:55;background:var(--paper);border:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;box-shadow:0 4px 16px rgba(0,0,0,0.15)">
+      <div id="mode-banner" hidden style="position:absolute;bottom:70px;left:50%;transform:translateX(-50%);z-index:55;background:var(--paper);border:1px solid var(--border);padding:8px 14px;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.5px;box-shadow:0 4px 16px rgba(0,0,0,0.15)">
         <span id="mode-banner-text"></span>
         <button id="mode-banner-finish" hidden onclick="finishDrawRoute()" style="font-family:inherit;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border:1px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer">Finish</button>
         <button onclick="cancelActiveMode()" style="font-family:inherit;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer">Cancel</button>
@@ -1261,7 +1267,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         <div class="profile-stats-row" id="profile-stats-row"></div>
 
         <!-- Pin onboarding nudge (Retrospective entry) — lives in Profile, not on the map -->
-        <div id="pin-nudge" hidden style="border:1px solid var(--border);padding:14px 18px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
+        <div id="pin-nudge" hidden style="border:1px solid var(--border);padding:14px 18px;margin-bottom:20px;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">
           <div>
             <div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--ink)">Where did you grow up? Where do you work?</div>
             <div style="font-size:9px;color:var(--muted);letter-spacing:0.5px;margin-top:3px">Drop a few pins to start filling in the map beyond your tracked activities.</div>
