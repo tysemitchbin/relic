@@ -1902,7 +1902,18 @@ function initMap() {
   // one handler, rather than as a second `map.on('click','draw-route-hit',…)`
   // listener, so the two can't both fire for the same click.
   map.on('click', e => {
-    if (_pinDropMode) { togglePinDropMode(); openPinModal(e.lngLat); return; }
+    if (_pinDropMode) {
+      // Deferred: tracks-hit's own click handler fires synchronously for this
+      // same event (registration order), and guards itself with the same
+      // `_pinDropMode` flag — if we flip that flag off here immediately, this
+      // handler running first would make the flag already false by the time
+      // tracks-hit's handler checks it, defeating its own guard and opening
+      // that track's detail panel too. Deferring to a fresh tick lets every
+      // same-event handler see `_pinDropMode` as still true.
+      const lngLat = e.lngLat;
+      setTimeout(() => { togglePinDropMode(); openPinModal(lngLat); }, 0);
+      return;
+    }
     if (_drawMode) {
       const hits = map.queryRenderedFeatures(e.point, { layers: ['draw-route-hit'] });
       if (hits.length) insertDrawWaypoint(hits[0].properties.legIndex, e.lngLat);
@@ -2107,7 +2118,7 @@ function dismissEmptyState() {
 function updateEmptyState() {
   const el = document.getElementById('empty-state');
   if (!el) return;
-  const empty = allMemories.length === 0 && allStories.length === 0;
+  const empty = allMemories.length === 0 && allStories.length === 0 && getPins().length === 0;
   if (!empty) _emptyDismissed = false; // reset so it can guide again if they clear everything
   el.hidden = !(empty && !_emptyDismissed);
   updatePinNudge();
@@ -2132,8 +2143,15 @@ function renderPinMarkers() {
   _pinMarkers = [];
   getPins().forEach(p => {
     if (p.startLat == null || p.startLng == null) return;
-    if (!activePinCategories.has(p.pinCategory || 'other')) return;
-    const cat = getPinCategory(p.pinCategory);
+    // Resolve to a category that actually exists before checking visibility
+    // — categories have been renamed/removed on this branch already (e.g.
+    // 'work'→'job', 'milestone' dropped), and a pin stored under an old key
+    // would otherwise never match any current activePinCategories entry and
+    // silently vanish forever instead of falling back to 'other' like
+    // getPinCategory() does everywhere else.
+    const catKey = PIN_CATEGORIES[p.pinCategory] ? p.pinCategory : 'other';
+    if (!activePinCategories.has(catKey)) return;
+    const cat = getPinCategory(catKey);
     const el = document.createElement('div');
     el.style.cssText = `width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${p.customColor||cat.color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer`;
     const inner = document.createElement('span');
@@ -2655,12 +2673,25 @@ async function setCoverPhoto(memId, idx) {
   const photos = (db[memId] && db[memId].photos) || [];
   const target = photos[idx];
   if (!target || !target._id) return;
+  const prevCoverIdx = photos.findIndex(p => p._isCover);
   photos.forEach((p,i) => { p._isCover = (i === idx); });
   renderPhotos(memId);
   try {
-    await sb.from('activity_photos').update({ is_cover: false }).eq('activity_id', memId);
-    await sb.from('activity_photos').update({ is_cover: true }).eq('id', target._id);
-  } catch (e) { console.warn('Set cover photo failed', e); }
+    // Supabase calls resolve with {error}, they don't throw for a query
+    // failure — checking .error explicitly (not just relying on catch) is
+    // the pattern the rest of this file uses (see persistMoments).
+    const r1 = await sb.from('activity_photos').update({ is_cover: false }).eq('activity_id', memId);
+    if (r1.error) throw r1.error;
+    const r2 = await sb.from('activity_photos').update({ is_cover: true }).eq('id', target._id);
+    if (r2.error) throw r2.error;
+  } catch (e) {
+    console.warn('Set cover photo failed', e);
+    // Roll back the optimistic local change so the UI doesn't show a cover
+    // that was never actually saved (matches the rollback convention every
+    // other save path in this branch follows on failure).
+    photos.forEach((p,i) => { p._isCover = (i === prevCoverIdx); });
+    if (selectedId === memId) renderPhotos(memId);
+  }
 }
 
 // ════════════════════════════════════════
@@ -2984,14 +3015,28 @@ async function recomputePreviewLeg(leg) {
   }
 }
 
+// Guards against overlapping structural edits on the preview map (a drag
+// resolving while an insert-click is also in flight, or vice versa). Unlike
+// draw-route's array-index-based _drawLegs (which needed an object-identity
+// check to avoid writing a stale result into the wrong slot), legs here are
+// mutated by object reference — so a plain "ignore new edits while one is
+// running" is enough: it also closes the narrower gap where a second insert
+// click, arriving before the map's hit-test source refreshes, could resolve
+// its legIndex against already-stale (pre-split) geometry and split the
+// wrong leg.
+let _previewEditInFlight = false;
+
 // Re-snaps only the leg(s) touching waypoint index `idx` after a drag — not
 // a full re-parse.
 async function recomputeLegsAt(idx) {
-  if (!_pendingParsedRoute) return;
-  const { legs } = _pendingParsedRoute;
-  const touched = legs.filter((leg, i) => i === idx || i === idx - 1);
-  await Promise.all(touched.map(recomputePreviewLeg));
-  updatePreviewMapData();
+  if (!_pendingParsedRoute || _previewEditInFlight) return;
+  _previewEditInFlight = true;
+  try {
+    const { legs } = _pendingParsedRoute;
+    const touched = legs.filter((leg, i) => i === idx || i === idx - 1);
+    await Promise.all(touched.map(recomputePreviewLeg));
+    updatePreviewMapData();
+  } finally { _previewEditInFlight = false; }
 }
 
 // A click landed on the drawn route line itself (preview-route-hit), not on
@@ -2999,20 +3044,23 @@ async function recomputeLegsAt(idx) {
 // draggable point there. This is what lets you drag ANY point on the route,
 // not just its named start/via/end waypoints.
 async function insertPreviewWaypoint(legIndex, lngLat) {
-  if (!_pendingParsedRoute) return;
-  const { geocoded, legs } = _pendingParsedRoute;
-  if (legIndex == null || legIndex < 0 || legIndex >= legs.length) return;
-  const oldLeg = legs[legIndex];
-  const newWp = { name: 'Via point', lat: lngLat.lat, lng: lngLat.lng, placeName: null };
-  const insertAt = geocoded.indexOf(oldLeg.b);
-  geocoded.splice(insertAt < 0 ? geocoded.length : insertAt, 0, newWp);
-  const legA = { a: oldLeg.a, b: newWp, coords: null, distance: 0, duration: 0, type: oldLeg.type };
-  const legB = { a: newWp, b: oldLeg.b, coords: null, distance: 0, duration: 0, type: oldLeg.type };
-  legs.splice(legIndex, 1, legA, legB);
-  document.getElementById('route-preview-status').textContent = 'Re-routing…';
-  await Promise.all([recomputePreviewLeg(legA), recomputePreviewLeg(legB)]);
-  renderRoutePreviewMap(false); // false = don't re-fit bounds, camera shouldn't jump while fine-tuning
-  document.getElementById('route-preview-status').textContent = previewTotalDistanceText();
+  if (!_pendingParsedRoute || _previewEditInFlight) return;
+  _previewEditInFlight = true;
+  try {
+    const { geocoded, legs } = _pendingParsedRoute;
+    if (legIndex == null || legIndex < 0 || legIndex >= legs.length) return;
+    const oldLeg = legs[legIndex];
+    const newWp = { name: 'Via point', lat: lngLat.lat, lng: lngLat.lng, placeName: null };
+    const insertAt = geocoded.indexOf(oldLeg.b);
+    geocoded.splice(insertAt < 0 ? geocoded.length : insertAt, 0, newWp);
+    const legA = { a: oldLeg.a, b: newWp, coords: null, distance: 0, duration: 0, type: oldLeg.type };
+    const legB = { a: newWp, b: oldLeg.b, coords: null, distance: 0, duration: 0, type: oldLeg.type };
+    legs.splice(legIndex, 1, legA, legB);
+    document.getElementById('route-preview-status').textContent = 'Re-routing…';
+    await Promise.all([recomputePreviewLeg(legA), recomputePreviewLeg(legB)]);
+    renderRoutePreviewMap(false); // false = don't re-fit bounds, camera shouldn't jump while fine-tuning
+    document.getElementById('route-preview-status').textContent = previewTotalDistanceText();
+  } finally { _previewEditInFlight = false; }
 }
 
 function previewTotalDistanceText() {
@@ -3113,6 +3161,10 @@ async function saveParsedRoute() {
     if (result.error) { statusEl.textContent = result.error; btn.disabled = false; return; }
   }
   const { parsed, geocoded, legs: builtLegs } = result;
+  // A leg an insert/drag just split has null coords until its recompute
+  // resolves — refuse to save mid-edit rather than crash encodePolyline(null)
+  // or persist a leg with no geometry.
+  if (builtLegs.some(l => !l.coords)) { statusEl.textContent = 'Still re-routing — try again in a moment.'; btn.disabled = false; return; }
 
   const legs = builtLegs.map(l => {
     const id = (l.type === 'Flight' ? 'leg_flight_' : 'leg_') + crypto.randomUUID();
@@ -3160,7 +3212,7 @@ async function saveParsedRoute() {
   statusEl.textContent = `Saved ${legs.length} leg${legs.length===1?'':'s'}.`;
   _pendingParsedRoute = null;
   setTimeout(() => { closeRoutePreviewMap(); closeNLParserModal(); }, 900);
-  if (legs[0].startLat) map.flyTo({ center: [legs[0].startLng, legs[0].startLat], zoom: 6, duration: 1000 });
+  if (legs[0].startLat != null) map.flyTo({ center: [legs[0].startLng, legs[0].startLat], zoom: 6, duration: 1000 });
   if (legs.some(l => l.type === 'Flight')) await syncAirportPins();
   btn.disabled = false;
 }
@@ -3216,9 +3268,7 @@ async function fetchDirectionsSegment(a, b, profile) {
   } catch (e) { console.warn('Directions segment failed', e); return null; }
 }
 
-// Recomputes the single leg between waypoints [legIdx, legIdx+1]. Checks
-// _drawSession before AND after the network call so a response that comes
-// back after Cancel/re-start is silently dropped instead of applied.
+// Recomputes the single leg between waypoints [legIdx, legIdx+1].
 async function recomputeDrawLeg(legIdx) {
   const session = _drawSession;
   const a = _drawWaypoints[legIdx], b = _drawWaypoints[legIdx+1];
@@ -3233,7 +3283,15 @@ async function recomputeDrawLeg(legIdx) {
     if (seg && seg.coords.length > 1) { coords = seg.coords; distance = seg.distance; }
     else { coords = [[a.lng,a.lat],[b.lng,b.lat]]; distance = haversine(a.lat, a.lng, b.lat, b.lng); }
   }
-  if (session !== _drawSession) return;
+  // Besides the _drawSession check (guards Cancel/restart), verify the two
+  // waypoints this recompute was FOR are still the ones at legIdx — a drag
+  // (renderDrawMarkers' dragend) or an insert (insertDrawWaypoint) replaces
+  // waypoint objects / splices the array while this was in flight, which
+  // shifts what legIdx means. `a`/`b` are object references captured before
+  // the await, so `!==` here correctly detects either case; writing
+  // unconditionally would clobber an unrelated (moved or newly-split) leg
+  // with this now-stale result.
+  if (session !== _drawSession || _drawWaypoints[legIdx] !== a || _drawWaypoints[legIdx+1] !== b) return;
   _drawLegs[legIdx] = { coords, distance };
 }
 
@@ -3298,6 +3356,10 @@ function updateDrawPreview() {
 
 async function finishDrawRoute() {
   if (_drawWaypoints.length < 2) return;
+  // The Finish button is hidden while any leg is still resolving, but guard
+  // here too in case this is ever reachable another way — saving with a
+  // still-`undefined` leg would silently omit that segment from the route.
+  if (_drawLegs.length !== _drawWaypoints.length - 1 || _drawLegs.some(l => !l)) return;
   const profile = _drawProfile, waypoints = _drawWaypoints, legs = _drawLegs, distance = drawTotalDistance();
   const coords = [];
   legs.forEach(leg => {
@@ -3351,8 +3413,14 @@ function updateModeBanner() {
     document.getElementById('mode-banner-finish').hidden = true;
     el.hidden = false;
   } else if (_drawMode) {
-    document.getElementById('mode-banner-text').textContent = `Drawing (${DRAW_PROFILES[_drawProfile].type}) — ${(drawTotalDistance()/1000).toFixed(2)} km, ${_drawWaypoints.length} point${_drawWaypoints.length===1?'':'s'}. Drag a pin, or click the line to add one.`;
-    document.getElementById('mode-banner-finish').hidden = _drawWaypoints.length < 2;
+    // A leg is still resolving (in-flight Directions call) whenever there
+    // are fewer resolved _drawLegs than there should be, or any slot is
+    // still the `undefined` placeholder insertDrawWaypoint leaves behind —
+    // Finish must stay hidden through that window, or finishDrawRoute()
+    // would silently save a route missing that segment.
+    const legsResolved = _drawLegs.length === Math.max(0, _drawWaypoints.length - 1) && _drawLegs.every(Boolean);
+    document.getElementById('mode-banner-text').textContent = `Drawing (${DRAW_PROFILES[_drawProfile].type}) — ${(drawTotalDistance()/1000).toFixed(2)} km, ${_drawWaypoints.length} point${_drawWaypoints.length===1?'':'s'}${legsResolved?'':' (routing…)'}. Drag a pin, or click the line to add one.`;
+    document.getElementById('mode-banner-finish').hidden = _drawWaypoints.length < 2 || !legsResolved;
     el.hidden = false;
   } else {
     el.hidden = true;
@@ -3389,8 +3457,10 @@ function computeAirportGroups() {
 // Flight Moments but doesn't have one yet — matched by name (startPlace),
 // so an airport already pinned is never duplicated. Called after boot and
 // after anything that could newly introduce a Flight Moment (import,
-// manual entry, the NL trip parser). Cheap when there's nothing new to add
-// (one array scan, no network calls) — safe to call liberally.
+// manual entry, the NL trip parser). NOT free when there are unlabeled
+// ("Unknown airport") groups — see reverseGeocodeAirport below, one network
+// request per such group, every call, even ones that'll turn out to already
+// be pinned (the dedup check can't run until after the label resolves).
 // Strava/GPX-imported Flight moments have no startPlace/endPlace (only the
 // NL-parser-created ones do), so most real flight data hits this: resolve
 // the coordinate to a real name instead of leaving it unlabeled and
@@ -3415,7 +3485,20 @@ async function reverseGeocodeAirport(lat, lng) {
   } catch (e) { console.warn('Reverse geocode failed', e); return null; }
 }
 
+// syncAirportPins is called independently from several places (renderAll,
+// doImport, saveManualEntry, saveParsedRoute) that aren't mutually
+// exclusive. Without this guard, two overlapping calls would each snapshot
+// `getPins()` before either had persisted its new pin, both resolve the
+// same unlabeled coordinate to the same airport, and both create a
+// duplicate — so a call that arrives while one is already running joins
+// that same in-flight pass instead of starting an independent one.
+let _syncAirportPinsInFlight = null;
 async function syncAirportPins() {
+  if (_syncAirportPinsInFlight) return _syncAirportPinsInFlight;
+  _syncAirportPinsInFlight = _doSyncAirportPins().finally(() => { _syncAirportPinsInFlight = null; });
+  return _syncAirportPinsInFlight;
+}
+async function _doSyncAirportPins() {
   const groups = computeAirportGroups();
   const existingLabels = new Set(getPins().filter(p => p.pinCategory === 'airport' && p.startPlace).map(p => p.startPlace));
   const newPins = [];
@@ -3726,7 +3809,10 @@ function drawFeedMap(memId, coords, color) {
 function buildStats() {
   const mems=getMoments();
   if(!mems.length){
-    document.getElementById('stats-sub').textContent='Nothing archived yet — connect Strava or import files to see your story.';
+    const pinCount = getPins().length;
+    document.getElementById('stats-sub').textContent = pinCount
+      ? `No tracked activities yet — but you have ${pinCount} pin${pinCount===1?'':'s'} on the map.`
+      : 'Nothing archived yet — connect Strava or import files to see your story.';
     document.getElementById('stats-grid').innerHTML='';
     document.getElementById('type-breakdown').innerHTML='';
     document.getElementById('year-timeline').innerHTML='';
