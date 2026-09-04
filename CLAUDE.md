@@ -62,9 +62,17 @@ touching those, stop and flag it rather than extending what's here.
   legs, and drawn routes all populate these where relevant.
 
 **`PIN_CATEGORIES`** (near `TYPE_CONFIG`, ~line 1420) is a *separate* config
-object — home/school/work/special/restaurant/nature/milestone/airport/other,
-each with `label`/`color`/`icon` (a plain emoji, no icon library in this
-codebase). Kept separate from `TYPE_CONFIG` because merging them would
+object — restaurant, cafe_bar, accommodation, shop, nature, camping,
+mountain, home ("Home (Past or Present)"), school, job, special, other, and
+airport, each with `label`/`color`/`icon` (a plain emoji, no icon library in
+this codebase). `airport` is auto-managed (see below) and deliberately
+excluded from the manual "add a pin" category picker (`openPinModal`'s
+`<select>` filters it out) — every other key is user-selectable. This exact
+list came from the user directly (2026-09-04); don't add categories back in
+speculatively (e.g. a prior draft had "milestone" — it's gone, not an
+oversight) or rename existing ones without asking, since these are their
+words for their own categories, not a generic taxonomy. Kept separate from
+`TYPE_CONFIG` because merging them would
 corrupt `getGroup()`'s reverse lookup (`TYPE_GROUP_MAP`), which assumes every
 key maps to GPS-shaped Strava type strings. Pin colors reuse the *same*
 `relic_colors_v1` localStorage blob as tracked-type colors (it's just a flat
@@ -167,15 +175,28 @@ that, not a deeper snapping algorithm. **v1 deliberately does not include**
 ones): undo/redo, right-click/long-press context menus on points or
 segments, or an elevation profile display.
 
-**Airports view** (`switchView('airports')` → `buildAirportsView()`) is
-computed on every view-open from `computeAirportVisits()` — it scans
-`getMoments()` for `getGroup(type)==='Flight'`, reads each Moment's two
-endpoints (falling back to the decoded polyline's last coordinate + "Unknown
-airport" grouping for legacy Strava/GPX flights that predate `endLat`/
-`endPlace`), and counts visits per airport. **There is no stored airports
-table or counter** — do not add one; this must stay derived, or it will
-drift from the underlying Moments (the reason the codebase avoids redundant
-derived state everywhere else too).
+**Airport pins** (was a standalone "Airports" view/nav item in an earlier
+draft of this branch — the user explicitly asked to drop that and fold it
+into Pins instead, 2026-09-04). `computeAirportGroups()` scans `getMoments()`
+for `getGroup(type)==='Flight'`, reads each Moment's two endpoints (falling
+back to the decoded polyline's last coordinate for legacy Strava/GPX flights
+that predate `endLat`/`endPlace` — those are grouped under "Unknown airport"
+and deliberately never pinned, see below), and returns one group per airport
+with a sorted `visits` array (`{date, momentId}`). `syncAirportPins()` then
+creates a real Pin (category `airport`) for any airport that doesn't have one
+yet, matched by name (`startPlace`) against existing airport pins — so it's
+safe to call repeatedly/liberally (called from `renderAll()` and after
+anything that can newly produce a Flight Moment: `doImport`,
+`saveManualEntry`, `saveParsedRoute`). **The pin itself persists (so it shows
+up as a map marker like any other pin); its visit metadata does not** — a
+pin's detail panel (`showDetail`'s `pinCategory==='airport'` branch) always
+recomputes first-visit/count/all-visit-dates fresh from `computeAirportGroups()`
+rather than reading stored fields, so metadata can never drift out of sync
+with the flights it's derived from if one is later edited/deleted. Do not
+add a `visitCount`/`lastVisit`/etc. field to the pin itself and start writing
+it — that reintroduces the exact drift risk this design avoids (the same
+principle the old computed-only Airports view was built on, just now
+surfaced as a pin's detail instead of a separate page).
 
 **Long-press track preview** — right-click (`contextmenu`) on desktop,
 touch-and-hold (~500ms, cancelled on move/release — `initLongPress()`) on
@@ -204,12 +225,9 @@ feature.
   context menus, elevation profile.
 - NL parser: mixed-mode sentences ("drove to X, then flew to Y"). The
   preview map's insert-on-click IS built (see above), same as draw-route.
-- Airports view: airports aren't rendered as map pins with a count badge
-  (only listed in the Airports view itself) — a nice-to-have if it's ever
-  wanted, not required by the current spec.
-- Mobile bottom tab bar still shows only Map/Feed/Archive/Profile — Airports
-  is reachable via the header nav and hamburger menu but wasn't added as a
-  5th fixed-width tab, to avoid an unreviewed layout change to that bar.
+- Airports: no standalone view any more (removed per the user's request) —
+  airport pins ARE rendered as ordinary map pins now, so the earlier "not
+  rendered as pins" follow-up is done, not deferred.
 - Pin-drop mode: clicking exactly on an existing pin marker while in pin-drop
   mode does nothing (the marker's own click handler absorbs the click before
   it reaches the map canvas) rather than dropping a new pin at that spot.

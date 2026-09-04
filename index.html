@@ -1076,7 +1076,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="nav-btn" id="nav-feed" onclick="switchView('feed')">Feed</button>
       <button class="nav-btn" id="nav-stats" onclick="switchView('stats')">Archive</button>
       <button class="nav-btn" id="nav-profile" onclick="switchView('profile')">Profile</button>
-      <button class="nav-btn" id="nav-airports" onclick="switchView('airports')">Airports</button>
       <button class="nav-btn" onclick="openAddModal()">+ Add</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
       <button class="nav-btn" onclick="forceSync()">↺ Sync</button>
@@ -1093,7 +1092,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <button class="mobile-menu-item" data-view="feed" onclick="mobileNav('feed')">◇ Feed</button>
     <button class="mobile-menu-item" data-view="stats" onclick="mobileNav('stats')">◇ Archive</button>
     <button class="mobile-menu-item" data-view="profile" onclick="mobileNav('profile')">◇ Profile</button>
-    <button class="mobile-menu-item" data-view="airports" onclick="mobileNav('airports')">◇ Airports</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openAddModal()">+ Add</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openImport()">+ Import</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); forceSync()">↺ Sync</button>
@@ -1232,15 +1230,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         <div class="type-breakdown" id="type-breakdown"></div>
         <div class="stats-section-title">Year by Year</div>
         <div class="year-timeline" id="year-timeline"></div>
-      </div>
-    </div>
-
-    <!-- AIRPORTS VIEW (Retrospective entry — computed from Flight Moments, never stored) -->
-    <div class="view" id="airports-view">
-      <div style="max-width:900px;margin:0 auto;width:100%">
-        <div class="stats-page-title">Airports</div>
-        <div class="stats-page-sub">Computed from your flight moments — visit counts, not stored separately</div>
-        <div id="airports-grid" style="display:flex;flex-direction:column;gap:8px;margin-top:20px"></div>
       </div>
     </div>
 
@@ -1572,15 +1561,21 @@ function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#92400e'
 // categories never enter TYPE_GROUP_MAP's reverse lookup, which assumes
 // GPS-shaped tracked activities.
 const PIN_CATEGORIES = {
-  home: { label:'Childhood Home', color:'#c0392b', icon:'🏠' },
-  school: { label:'School', color:'#2563eb', icon:'🎓' },
-  work: { label:'Workplace', color:'#374151', icon:'💼' },
-  special: { label:'Special Place', color:'#e11d48', icon:'✨' },
   restaurant: { label:'Restaurant', color:'#d97706', icon:'🍽️' },
-  nature: { label:'Nature Spot', color:'#16a34a', icon:'🌿' },
-  milestone: { label:'Milestone', color:'#6d28d9', icon:'🏁' },
+  cafe_bar: { label:'Cafe / Bar', color:'#92400e', icon:'☕' },
+  accommodation: { label:'Accommodation', color:'#0ea5e9', icon:'🏨' },
+  shop: { label:'Shop', color:'#7c3aed', icon:'🛍️' },
+  nature: { label:'Nature', color:'#16a34a', icon:'🌿' },
+  camping: { label:'Camping Spot', color:'#0d9488', icon:'⛺' },
+  mountain: { label:'Mountain', color:'#57534e', icon:'⛰️' },
+  home: { label:'Home (Past or Present)', color:'#c0392b', icon:'🏠' },
+  school: { label:'School', color:'#2563eb', icon:'🎓' },
+  job: { label:'Job', color:'#374151', icon:'💼' },
+  special: { label:'Special Place', color:'#e11d48', icon:'✨' },
+  other: { label:'Other', color:'#6b7280', icon:'📍' },
+  // Auto-managed — created/synced by syncAirportPins() from Flight moments,
+  // not offered in the manual "add a pin" category picker. See below.
   airport: { label:'Airport', color:'#0891b2', icon:'✈️' },
-  other: { label:'Other', color:'#92400e', icon:'📍' },
 };
 let activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
 function getPinCategory(cat) { return PIN_CATEGORIES[cat] || PIN_CATEGORIES.other; }
@@ -2100,6 +2095,7 @@ async function renderAll() {
   updateHeaderStats(); buildToolsPanel(); applyFilters();
   statsBuilt = false; // reset so Archive rebuilds with fresh data
   updateEmptyState();
+  await syncAirportPins();
 }
 
 let _emptyDismissed = false;
@@ -2394,10 +2390,30 @@ function showDetail(memId) {
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
   // Restore detail body to moment layout (in case it was showing a story)
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(el => el.remove());
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .airport-visits').forEach(el => el.remove());
   document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
   document.getElementById('d-rows').style.display='';
   document.getElementById('d-strava-link').style.display='';
+  // Airport pins show computed visit metadata instead of the (meaningless,
+  // zeroed) activity stat tiles — always derived fresh from the underlying
+  // Flight Moments, never stored on the pin (see syncAirportPins).
+  if (pinCat && mem.pinCategory === 'airport') {
+    const group2 = computeAirportGroups().find(g => g.label === mem.startPlace);
+    if (group2) {
+      const visitsDiv = document.createElement('div');
+      visitsDiv.className = 'airport-visits detail-section';
+      const fmt = d => d ? new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+      visitsDiv.innerHTML = '<div class="detail-section-title">Visits</div>'
+        + '<div class="info-rows">'
+        + `<div class="info-row"><span class="ir-key">First Visit</span><span class="ir-val">${fmt(group2.visits[0].date)}</span></div>`
+        + `<div class="info-row"><span class="ir-key">Total Visits</span><span class="ir-val">${group2.visits.length}</span></div>`
+        + '</div>'
+        + '<div class="info-rows">'
+        + group2.visits.map(v => `<div class="info-row"><span class="ir-key">Visit</span><span class="ir-val">${fmt(v.date)}</span></div>`).join('')
+        + '</div>';
+      document.getElementById('detail-body').insertBefore(visitsDiv, document.getElementById('d-rows'));
+    }
+  }
   const rows=[
     ['Max Heart Rate',mem.maxHR?mem.maxHR+' bpm':'—'],
     ['Cadence',mem.avgCadence?Math.round(mem.avgCadence)+(getGroup(mem.type)==='Ride'?' rpm':' spm'):'—'],
@@ -2462,7 +2478,7 @@ function showStoryDetail(storyId) {
   document.getElementById('d-strava-link').style.display = 'none';
 
   // Remove any previous story detail elements
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .airport-visits').forEach(function(el) { el.remove(); });
 
   const body = document.getElementById('detail-body');
 
@@ -2546,7 +2562,7 @@ function closeDetail() {
   renderList();
   updateTrackHighlight(null);
   // Clean up any story-injected elements from detail body
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .airport-visits').forEach(function(el) { el.remove(); });
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
@@ -2821,6 +2837,7 @@ async function saveManualEntry() {
     statusEl.textContent = 'Saved.';
     setTimeout(closeManualEntryModal, 700);
     showDetail(id);
+    if (type === 'Flight') await syncAirportPins();
   } else {
     delete db[id];
     allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
@@ -3137,6 +3154,7 @@ async function saveParsedRoute() {
   _pendingParsedRoute = null;
   setTimeout(() => { closeRoutePreviewMap(); closeNLParserModal(); }, 900);
   if (legs[0].startLat) map.flyTo({ center: [legs[0].startLng, legs[0].startLat], zoom: 6, duration: 1000 });
+  if (legs.some(l => l.type === 'Flight')) await syncAirportPins();
   btn.disabled = false;
 }
 
@@ -3334,8 +3352,12 @@ function updateModeBanner() {
   }
 }
 
-// ── Airports view — computed on the fly from Flight Moments, never stored ──
-function computeAirportVisits() {
+// ── Airport pins — auto-created from Flight Moments, not manually added.
+// Visit metadata (first visit, count, dates) is always computed fresh from
+// the underlying Flight Moments (computeAirportGroups), never stored on the
+// pin itself — only the pin's identity (location/category/name) persists,
+// so metadata can't drift out of sync with the flights it's derived from. ──
+function computeAirportGroups() {
   const groups = {};
   getMoments().filter(m => getGroup(m.type) === 'Flight').forEach(m => {
     const coords = getCoords(m);
@@ -3348,23 +3370,41 @@ function computeAirportVisits() {
     [start, end].forEach(pt => {
       if (pt.lat == null || pt.lng == null) return;
       const key = pt.label ? 'name:' + pt.label.toLowerCase() : 'coord:' + pt.lat.toFixed(2) + ',' + pt.lng.toFixed(2);
-      if (!groups[key]) groups[key] = { label: pt.label || 'Unknown airport', lat: pt.lat, lng: pt.lng, count: 0 };
-      groups[key].count++;
+      if (!groups[key]) groups[key] = { key, label: pt.label || 'Unknown airport', lat: pt.lat, lng: pt.lng, visits: [] };
+      groups[key].visits.push({ date: m.date, momentId: m.id });
     });
   });
-  return Object.values(groups).sort((a,b) => b.count - a.count);
+  Object.values(groups).forEach(g => g.visits.sort((a,b) => (a.date||'') > (b.date||'') ? 1 : -1));
+  return Object.values(groups).sort((a,b) => b.visits.length - a.visits.length);
 }
 
-function buildAirportsView() {
-  const el = document.getElementById('airports-grid');
-  const airports = computeAirportVisits();
-  if (!airports.length) { el.innerHTML = '<div class="stats-page-sub">No flights logged yet — describe a trip with a flight leg to see airports here.</div>'; return; }
-  el.innerHTML = airports.map(a => `
-    <div style="border:1px solid var(--border);padding:14px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="switchView('map');map.flyTo({center:[${a.lng},${a.lat}],zoom:9,duration:1000})">
-      <span style="font-size:22px">${PIN_CATEGORIES.airport.icon}</span>
-      <div style="flex:1"><div style="font-family:'Cormorant Garamond',serif;font-size:16px;color:var(--ink)">${a.label}</div></div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">${a.count} visit${a.count===1?'':'s'}</div>
-    </div>`).join('');
+// Creates a Pin (category 'airport') for any airport that shows up in
+// Flight Moments but doesn't have one yet — matched by name (startPlace),
+// so an airport already pinned is never duplicated. Called after boot and
+// after anything that could newly introduce a Flight Moment (import,
+// manual entry, the NL trip parser). Cheap when there's nothing new to add
+// (one array scan, no network calls) — safe to call liberally.
+async function syncAirportPins() {
+  const groups = computeAirportGroups();
+  const existingLabels = new Set(getPins().filter(p => p.pinCategory === 'airport' && p.startPlace).map(p => p.startPlace));
+  const newPins = [];
+  groups.forEach(g => {
+    if (g.label === 'Unknown airport' || existingLabels.has(g.label)) return;
+    const id = 'pin_airport_' + crypto.randomUUID();
+    const entry = {
+      id, name: g.label, type: 'Other', isPin: true, pinCategory: 'airport',
+      date: g.visits[0].date, source: 'auto',
+      startLat: g.lat, startLng: g.lng, startPlace: g.label,
+      coords: null, _polyline: null, distance: 0, duration: 0, elevation: 0,
+      note: '', mood: null, photos: [], customColor: null,
+    };
+    db[id] = entry;
+    newPins.push(entry);
+  });
+  if (newPins.length) {
+    initMapLayers();
+    await persistMoments(newPins);
+  }
 }
 
 // ── Long-press / right-click track preview popup ──
@@ -4292,6 +4332,7 @@ async function doImport() {
     const result = await persistMoments(importedEntries);
     if(result.ok) {
       progress.textContent = `Done! ${imported} imported.`;
+      if (importedEntries.some(e => e.type === 'Flight')) await syncAirportPins();
     } else {
       // roll back the local copies that didn't save
       importedEntries.forEach(e => { delete db[e.id]; });
@@ -4817,7 +4858,6 @@ function switchView(view) {
   if(view==='stats') { if(!statsBuilt) { buildStats(); statsBuilt=true; } }
   if(view==='feed') buildFeed();
   if(view==='profile') buildProfile();
-  if(view==='airports') buildAirportsView();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
 }
 
@@ -4926,8 +4966,8 @@ _r('openNLParserModal',openNLParserModal);_r('closeNLParserModal',closeNLParserM
 _r('previewParsedRoute',previewParsedRoute);_r('saveParsedRoute',saveParsedRoute);_r('closeRoutePreviewMap',closeRoutePreviewMap);
 _r('openDrawRoutePicker',openDrawRoutePicker);_r('closeDrawPicker',closeDrawPicker);
 _r('startDrawMode',startDrawMode);_r('finishDrawRoute',finishDrawRoute);_r('cancelActiveMode',cancelActiveMode);
-_r('getPins',getPins);_r('isPinMoment',isPinMoment);_r('buildAirportsView',buildAirportsView);
-_r('computeAirportVisits',computeAirportVisits);_r('showTrackPreviewPopup',showTrackPreviewPopup);
+_r('getPins',getPins);_r('isPinMoment',isPinMoment);
+_r('computeAirportGroups',computeAirportGroups);_r('syncAirportPins',syncAirportPins);_r('showTrackPreviewPopup',showTrackPreviewPopup);
 
 // ════════════════════════════════════════
 // AUTH GATE + BOOT
