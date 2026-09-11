@@ -1165,7 +1165,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
             <div class="d-charts-wrap" id="d-charts-wrap"></div>
           </div>
           <div class="detail-section">
-            <div class="detail-section-title">Story</div>
+            <div class="detail-section-title">Note</div>
             <textarea class="note-textarea" id="d-note" placeholder="Write about this memory..." oninput="onNoteEdit()"></textarea>
           </div>
           <div class="detail-section">
@@ -2637,7 +2637,7 @@ function buildStats() {
     {val:mems.length.toLocaleString(),label:'Total Moments',sub:'recorded in your archive'},
     {val:Math.round(totalDist).toLocaleString()+' km',label:'Total Distance',sub:`${evDist.toFixed(2)}× around the Earth`},
     {val:Math.round(totalElev/1000)+'k m',label:'Total Elevation',sub:`${(totalElev/8849).toFixed(1)}× height of Everest`},
-    {val:withNotes+' stories',label:'Written Memories',sub:`${withPhotos} moments with photos`},
+    {val:withNotes,label:'Notes',sub:`${withPhotos} moments with photos`},
   ].map(s=>`<div class="stat-card"><div class="stat-card-val">${s.val}</div><div class="stat-card-label">${s.label}</div><div class="stat-card-sub">${s.sub}</div></div>`).join('');
 
   // Type breakdown
