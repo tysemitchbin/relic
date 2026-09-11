@@ -714,6 +714,8 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 
 /* ── STORY DETAIL (inside detail panel) ── */
 .sd-date-range { font-size: 9px; color: var(--muted); letter-spacing: 0.5px; margin-top: 2px; }
+.sd-map { width: 100%; height: 180px; background: var(--paper2); position: relative; overflow: hidden; border-bottom: 1px solid var(--border); }
+.sd-map canvas { width: 100%; height: 100%; }
 .sd-narrative { padding: 14px 18px; border-bottom: 1px solid var(--border); }
 .sd-narrative-text {
   font-family: 'Cormorant Garamond', serif; font-size: 14px; line-height: 1.7;
@@ -2146,7 +2148,7 @@ function showDetail(memId) {
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
   // Restore detail body to moment layout (in case it was showing a story)
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(el => el.remove());
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map').forEach(el => el.remove());
   document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
   document.getElementById('d-rows').style.display='';
   document.getElementById('d-strava-link').style.display='';
@@ -2214,7 +2216,7 @@ function showStoryDetail(storyId) {
   document.getElementById('d-strava-link').style.display = 'none';
 
   // Remove any previous story detail elements
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map').forEach(function(el) { el.remove(); });
 
   const body = document.getElementById('detail-body');
 
@@ -2225,6 +2227,14 @@ function showStoryDetail(storyId) {
     '<div class="detail-section-title">Narrative</div>' +
     '<textarea class="sd-narrative-input" id="sd-narrative-input" placeholder="Write about this chapter of your life...">' + (story.narrative || '') + '</textarea>';
   body.insertBefore(narrativeDiv, document.getElementById('d-rows'));
+
+  // Map — real Mapbox tiles behind every child moment's track, same as the story cards
+  var mapDiv = document.createElement('div');
+  mapDiv.className = 'sd-map';
+  mapDiv.innerHTML = '<canvas id="sd-map-' + story.id + '" width="620" height="180"></canvas>' + staticStoryMapImg(story, 620, 180);
+  body.insertBefore(mapDiv, narrativeDiv);
+  requestAnimationFrame(function() { drawFeedStoryMap(story, 'sd-map-' + story.id); });
+
   document.getElementById('sd-narrative-input').oninput = function() {
     story.narrative = this.value;
     story.lastModified = new Date().toISOString();
@@ -2298,7 +2308,7 @@ function closeDetail() {
   renderList();
   updateTrackHighlight(null);
   // Clean up any story-injected elements from detail body
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map').forEach(function(el) { el.remove(); });
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
@@ -2498,8 +2508,8 @@ function renderFeedStoryCard(container, story, profile) {
   requestAnimationFrame(function() { drawFeedStoryMap(story); });
 }
 
-function drawFeedStoryMap(story) {
-  var canvas = document.getElementById('fc-smap-' + story.id);
+function drawFeedStoryMap(story, canvasId) {
+  var canvas = document.getElementById(canvasId || ('fc-smap-' + story.id));
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
   var W = canvas.width, H = canvas.height;

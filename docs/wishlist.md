@@ -8,11 +8,6 @@ this is the "someday / next" list. Add freely; prune when shipped.
 - **Visual redesign pass** — rethink the look of the feed cards, Archive, and
   Profile: colour, typography, layout. (Mobile layout is done; this is styling.)
 
-## Polish
-
-- **Static map on the Story detail view** — feed + profile story cards now show
-  real Mapbox tiles behind the tracks; the story detail panel still doesn't.
-
 ## Dopamine / delight
 
 Gamified, rewarding moments — make opening the app feel good.
