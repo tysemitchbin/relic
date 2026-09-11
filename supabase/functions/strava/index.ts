@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       let afterParam = "";
       if (incremental) {
         const { data: latest } = await userClient
-          .from("activities").select("date").eq("source", "strava")
+          .from("activities").select("date").eq("source", "strava").eq("user_id", user.id)
           .order("date", { ascending: false }).limit(1);
         const newest = latest?.[0]?.date;
         if (newest) {

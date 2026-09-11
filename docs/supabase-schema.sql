@@ -147,6 +147,11 @@ create policy "public activity photo files" on storage.objects for select
       where p.storage_path = storage.objects.name and a.is_public
     )
   );
+create policy "read avatar files" on storage.objects for select
+  using (
+    bucket_id = 'photos'
+    and exists (select 1 from public.profiles p where p.avatar_path = storage.objects.name)
+  );
 
 -- ── STRAVA CONNECTIONS (Phase 6) ──────────────────────────
 -- Also in docs/supabase-strava.sql for running standalone on an existing project.

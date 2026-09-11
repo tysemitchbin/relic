@@ -48,6 +48,14 @@ create policy "public activity photo files" on storage.objects for select
 -- signed-in user going forward, not just the profile's own owner.
 create policy "read any profile" on public.profiles for select using (true);
 
+-- profiles are already readable by any signed-in user; extend that to the
+-- avatar image itself so search results / follow lists can render it.
+create policy "read avatar files" on storage.objects for select
+  using (
+    bucket_id = 'photos'
+    and exists (select 1 from public.profiles p where p.avatar_path = storage.objects.name)
+  );
+
 -- ── follows ──
 create table if not exists public.follows (
   follower_id uuid not null references auth.users on delete cascade,

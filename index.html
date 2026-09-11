@@ -530,6 +530,50 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .profile-honeycomb-wrap { position: relative; overflow: hidden; }
 .profile-honeycomb { position: relative; width: 100%; }
 
+/* ── PEOPLE (search, following, followers) ── */
+.people-search-row { margin-bottom: 24px; }
+.people-search-input {
+  width: 100%; padding: 10px 14px; background: var(--paper2); border: 1px solid var(--border);
+  color: var(--ink); font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none; transition: border-color 0.15s;
+}
+.people-search-input:focus { border-color: var(--accent); }
+.people-section { margin-bottom: 28px; }
+.people-list { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); }
+.people-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--paper); cursor: pointer; transition: background 0.15s; }
+.people-row:hover { background: var(--paper2); }
+.people-avatar {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--paper2); border: 1px solid var(--border);
+  overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; color: var(--muted);
+}
+.people-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.people-info { flex: 1; min-width: 0; }
+.people-name { font-family: 'Cormorant Garamond', serif; font-size: 15px; color: var(--ink); }
+.people-bio { font-size: 9px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.people-empty { font-size: 10px; color: var(--muted); padding: 10px 2px; }
+.follow-btn {
+  font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 5px 10px; border: 1px solid var(--border); background: transparent; color: var(--muted);
+  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+}
+.follow-btn:hover { border-color: var(--accent); color: var(--accent); }
+.follow-btn.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.follow-btn.active:hover { border-color: #c0392b; color: #c0392b; background: transparent; }
+
+/* Public profile modal */
+.pp-modal { width: 620px; max-width: 95vw; padding: 0; display: flex; flex-direction: column; max-height: 85vh; }
+.pp-header { position: relative; padding: 24px; border-bottom: 1px solid var(--border); text-align: center; flex-shrink: 0; }
+.pp-avatar { width: 72px; height: 72px; font-size: 24px; margin: 0 auto 10px; }
+.pp-name { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--ink); margin-bottom: 4px; }
+.pp-bio { font-size: 11px; color: var(--muted); max-width: 420px; margin: 0 auto 12px; line-height: 1.5; }
+.pp-stats-row { display: flex; justify-content: center; gap: 24px; margin-bottom: 14px; }
+.pp-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--ink); }
+.pp-stat-label { font-size: 7px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+.pp-body { overflow-y: auto; padding: 16px 24px 24px; }
+.pp-activity-card { border: 1px solid var(--border); margin-bottom: 14px; }
+.pp-activity-body { padding: 12px 14px; }
+.pp-activity-name { font-family: 'Cormorant Garamond', serif; font-size: 16px; color: var(--ink); margin-bottom: 2px; }
+.pp-activity-meta { font-size: 8px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 10px; }
+
 /* Hexagon cells (same as before) */
 .hex-cell {
   position: absolute; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
@@ -1081,6 +1125,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="nav-btn" id="nav-feed" onclick="switchView('feed')">Feed</button>
       <button class="nav-btn" id="nav-stats" onclick="switchView('stats')">Archive</button>
       <button class="nav-btn" id="nav-profile" onclick="switchView('profile')">Profile</button>
+      <button class="nav-btn" id="nav-people" onclick="switchView('people')">People</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
       <button class="nav-btn" onclick="forceSync()">↺ Sync</button>
       <button class="nav-btn" onclick="openFeedback()">💬 Feedback</button>
@@ -1096,6 +1141,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <button class="mobile-menu-item" data-view="feed" onclick="mobileNav('feed')">◇ Feed</button>
     <button class="mobile-menu-item" data-view="stats" onclick="mobileNav('stats')">◇ Archive</button>
     <button class="mobile-menu-item" data-view="profile" onclick="mobileNav('profile')">◇ Profile</button>
+    <button class="mobile-menu-item" data-view="people" onclick="mobileNav('people')">◇ People</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openImport()">+ Import</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); forceSync()">↺ Sync</button>
     <button class="mobile-menu-item" onclick="signOut()">Sign out</button>
@@ -1294,6 +1340,26 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         </div>
       </div>
     </div>
+
+    <div class="view" id="people-view">
+      <div class="profile-wrap">
+        <div class="people-search-row">
+          <input class="people-search-input" type="text" id="people-search" placeholder="Search people by name..." oninput="onPeopleSearchInput()">
+        </div>
+        <div class="people-section" id="people-results-section" style="display:none">
+          <div class="profile-stories-header"><div class="profile-stories-title">Results</div></div>
+          <div class="people-list" id="people-results"></div>
+        </div>
+        <div class="people-section">
+          <div class="profile-stories-header"><div class="profile-stories-title" id="following-title">Following</div></div>
+          <div class="people-list" id="following-list"></div>
+        </div>
+        <div class="people-section">
+          <div class="profile-stories-header"><div class="profile-stories-title" id="followers-title">Followers</div></div>
+          <div class="people-list" id="followers-list"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- BOTTOM TAB BAR (mobile only) -->
@@ -1302,6 +1368,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <button class="tab-item" data-view="feed" onclick="switchView('feed')"><span class="tab-glyph">▤</span><span class="tab-label">Feed</span></button>
     <button class="tab-item" data-view="stats" onclick="switchView('stats')"><span class="tab-glyph">▦</span><span class="tab-label">Archive</span></button>
     <button class="tab-item" data-view="profile" onclick="switchView('profile')"><span class="tab-glyph">◐</span><span class="tab-label">Profile</span></button>
+    <button class="tab-item" data-view="people" onclick="switchView('people')"><span class="tab-glyph">◎</span><span class="tab-label">People</span></button>
   </nav>
 </div>
 
@@ -1327,6 +1394,21 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="btn-ghost" onclick="closeImport()">Cancel</button>
       <button class="btn-primary" id="import-btn" onclick="doImport()">Add to Archive</button>
     </div>
+  </div>
+</div>
+
+<!-- PUBLIC PROFILE MODAL -->
+<div class="modal-overlay" id="public-profile-modal">
+  <div class="modal pp-modal">
+    <div class="pp-header">
+      <button class="detail-close" onclick="closePublicProfile()">×</button>
+      <div class="people-avatar pp-avatar" id="pp-avatar"><div class="profile-photo-placeholder">◇</div></div>
+      <div class="pp-name" id="pp-name"></div>
+      <div class="pp-bio" id="pp-bio"></div>
+      <div class="pp-stats-row" id="pp-stats-row"></div>
+      <button class="follow-btn" id="pp-follow-btn" onclick="togglePublicProfileFollow()"></button>
+    </div>
+    <div class="pp-body" id="pp-body"></div>
   </div>
 </div>
 
@@ -2638,8 +2720,8 @@ function staticStoryMapImg(story, w, h) {
   return mapboxStaticImg(overlays, w, h);
 }
 
-function drawFeedMap(memId, coords, color) {
-  const canvas = document.getElementById(`fc-map-${memId}`);
+function drawFeedMap(memId, coords, color, canvasId) {
+  const canvas = document.getElementById(canvasId || `fc-map-${memId}`);
   if(!canvas) return;
   const ctx = canvas.getContext('2d');
   const W=canvas.width, H=canvas.height;
@@ -2992,6 +3074,191 @@ function buildProfile() {
   renderProfileStories();
   renderProfileHoneycomb();
   renderStravaSection();
+}
+
+// ════════════════════════════════════════
+// PEOPLE — search, follow, public profiles
+// ════════════════════════════════════════
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+let myFollowingIds = new Set(), myFollowerIds = new Set();
+let peopleSearchTimer = null;
+let ppViewingUserId = null, ppViewingFollowerCount = 0;
+
+async function loadFollowGraph() {
+  const [{ data: following }, { data: followers }] = await Promise.all([
+    sb.from('follows').select('followee_id').eq('follower_id', currentUser.id),
+    sb.from('follows').select('follower_id').eq('followee_id', currentUser.id),
+  ]);
+  myFollowingIds = new Set((following || []).map(r => r.followee_id));
+  myFollowerIds = new Set((followers || []).map(r => r.follower_id));
+}
+async function fetchProfilesByIds(ids) {
+  if (!ids.length) return [];
+  const { data } = await sb.from('profiles').select('id,name,bio,avatar_path').in('id', ids);
+  return data || [];
+}
+async function signAvatarUrl(path) {
+  if (!path) return null;
+  const { data } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
+  return data?.signedUrl || null;
+}
+async function renderPeopleList(containerId, profiles, emptyMsg) {
+  const el = document.getElementById(containerId);
+  if (!profiles.length) { el.innerHTML = `<div class="people-empty">${emptyMsg}</div>`; return; }
+  const rows = await Promise.all(profiles.map(async p => {
+    const url = await signAvatarUrl(p.avatar_path);
+    const isMe = p.id === currentUser.id;
+    const following = myFollowingIds.has(p.id);
+    return `<div class="people-row" onclick="openPublicProfile('${p.id}')">` +
+      `<div class="people-avatar">${url ? `<img src="${url}" alt="">` : '◇'}</div>` +
+      `<div class="people-info"><div class="people-name">${escapeHtml(p.name || 'Unnamed')}</div>` +
+      (p.bio ? `<div class="people-bio">${escapeHtml(p.bio)}</div>` : '') + '</div>' +
+      (isMe ? '' : `<button class="follow-btn ${following?'active':''}" onclick="event.stopPropagation();toggleFollow('${p.id}',${!following})">${following?'Following':'Follow'}</button>`) +
+      '</div>';
+  }));
+  el.innerHTML = rows.join('');
+}
+async function buildPeople() {
+  document.getElementById('people-search').value = '';
+  document.getElementById('people-results-section').style.display = 'none';
+  await loadFollowGraph();
+  document.getElementById('following-title').textContent = `Following (${myFollowingIds.size})`;
+  document.getElementById('followers-title').textContent = `Followers (${myFollowerIds.size})`;
+  const [following, followers] = await Promise.all([
+    fetchProfilesByIds([...myFollowingIds]),
+    fetchProfilesByIds([...myFollowerIds]),
+  ]);
+  await renderPeopleList('following-list', following, "You aren't following anyone yet.");
+  await renderPeopleList('followers-list', followers, 'No followers yet.');
+}
+function onPeopleSearchInput() {
+  clearTimeout(peopleSearchTimer);
+  peopleSearchTimer = setTimeout(searchUsers, 300);
+}
+async function searchUsers() {
+  const q = document.getElementById('people-search').value.trim();
+  const section = document.getElementById('people-results-section');
+  if (!q) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  const { data, error } = await sb.from('profiles').select('id,name,bio,avatar_path')
+    .ilike('name', `%${q}%`).neq('id', currentUser.id).limit(25);
+  if (error) { console.error('User search failed', error); return; }
+  await renderPeopleList('people-results', data || [], 'No one found.');
+}
+async function toggleFollow(userId, follow) {
+  try {
+    if (follow) {
+      myFollowingIds.add(userId);
+      const { error } = await sb.from('follows').insert({ follower_id: currentUser.id, followee_id: userId });
+      if (error) throw error;
+    } else {
+      myFollowingIds.delete(userId);
+      const { error } = await sb.from('follows').delete().eq('follower_id', currentUser.id).eq('followee_id', userId);
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.error('Follow toggle failed', e);
+    if (follow) myFollowingIds.delete(userId); else myFollowingIds.add(userId);
+    alert('Could not update follow: ' + (e.message || e));
+    return;
+  }
+  if (currentView === 'people') buildPeople();
+  if (ppViewingUserId === userId) {
+    const btn = document.getElementById('pp-follow-btn');
+    const nowFollowing = myFollowingIds.has(userId);
+    btn.textContent = nowFollowing ? 'Following' : 'Follow';
+    btn.classList.toggle('active', nowFollowing);
+    ppViewingFollowerCount += follow ? 1 : -1;
+    const countEl = document.getElementById('pp-follower-count');
+    if (countEl) countEl.textContent = ppViewingFollowerCount;
+  }
+}
+function togglePublicProfileFollow() {
+  if (!ppViewingUserId) return;
+  toggleFollow(ppViewingUserId, !myFollowingIds.has(ppViewingUserId));
+}
+function renderPublicActivityCard(act, photosByActivity) {
+  const group = getGroup(act.type), color = act.custom_color || TYPE_CONFIG[group]?.color || '#92400e';
+  const poly = act.polyline;
+  const mapImg = poly ? mapboxStaticImg([`path-4+${(color||'#c0392b').replace('#','')}-0.9(${encodeURIComponent(poly)})`], 560, 150) : '';
+  const dist = act.distance ? (act.distance/1000).toFixed(1)+' km' : '—';
+  const dur = act.duration ? formatDur(act.duration) : '—';
+  const elev = act.elevation ? Math.round(act.elevation)+' m' : '—';
+  const date = act.date ? new Date(act.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
+  const photos = photosByActivity[act.id] || [];
+  let html = `<div class="pp-activity-card">`;
+  if (mapImg) html += `<div class="fc-map">${mapImg}</div>`;
+  html += `<div class="pp-activity-body">`;
+  html += `<div class="pp-activity-name">${escapeHtml(act.name || 'Untitled')}</div>`;
+  html += `<div class="pp-activity-meta">${date}${date?' · ':''}${TYPE_CONFIG[group]?.label || act.type}</div>`;
+  html += `<div class="fc-stats">` +
+    `<div class="fc-stat"><div class="fc-stat-val">${dist}</div><div class="fc-stat-label">Distance</div></div>` +
+    `<div class="fc-stat"><div class="fc-stat-val">${dur}</div><div class="fc-stat-label">Time</div></div>` +
+    `<div class="fc-stat"><div class="fc-stat-val">${elev}</div><div class="fc-stat-label">Elevation</div></div>` +
+    `</div>`;
+  if (act.note) html += `<div class="fc-note">${escapeHtml(act.note)}</div>`;
+  if (act.mood) { const m = MOODS.find(x=>x.id===act.mood); if (m) html += `<div class="fc-mood">${m.emoji} ${m.label}</div>`; }
+  if (photos.length) {
+    html += `<div class="photo-grid">` + photos.map(p => `<div class="photo-thumb-wrap"><img src="${p.dataUrl}" alt=""></div>`).join('') + `</div>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+async function openPublicProfile(userId) {
+  ppViewingUserId = userId;
+  document.getElementById('pp-avatar').innerHTML = '<div class="profile-photo-placeholder">◇</div>';
+  document.getElementById('pp-name').textContent = '';
+  document.getElementById('pp-bio').textContent = '';
+  document.getElementById('pp-stats-row').innerHTML = '';
+  document.getElementById('pp-body').innerHTML = '<div class="people-empty">Loading…</div>';
+  document.getElementById('public-profile-modal').classList.add('open');
+
+  const [{ data: profRows }, { data: acts }, followingRes, followersRes] = await Promise.all([
+    sb.from('profiles').select('id,name,bio,avatar_path').eq('id', userId).limit(1),
+    sb.from('activities').select('*').eq('user_id', userId).eq('is_public', true).order('date', { ascending: false }),
+    sb.from('follows').select('followee_id', { count: 'exact', head: true }).eq('follower_id', userId),
+    sb.from('follows').select('follower_id', { count: 'exact', head: true }).eq('followee_id', userId),
+  ]);
+  if (ppViewingUserId !== userId) return; // closed/reopened while loading
+  const profile = profRows?.[0];
+  if (!profile) { document.getElementById('pp-body').innerHTML = '<div class="people-empty">Profile not found.</div>'; return; }
+
+  const url = await signAvatarUrl(profile.avatar_path);
+  document.getElementById('pp-avatar').innerHTML = url ? `<img src="${url}" alt="">` : '<div class="profile-photo-placeholder">◇</div>';
+  document.getElementById('pp-name').textContent = profile.name || 'Unnamed';
+  document.getElementById('pp-bio').textContent = profile.bio || '';
+  ppViewingFollowerCount = followersRes.count ?? 0;
+  document.getElementById('pp-stats-row').innerHTML =
+    `<div><div class="pp-stat-val">${(acts||[]).length}</div><div class="pp-stat-label">Public Moments</div></div>` +
+    `<div><div class="pp-stat-val">${followingRes.count ?? 0}</div><div class="pp-stat-label">Following</div></div>` +
+    `<div><div class="pp-stat-val" id="pp-follower-count">${ppViewingFollowerCount}</div><div class="pp-stat-label">Followers</div></div>`;
+  const nowFollowing = myFollowingIds.has(userId);
+  const followBtn = document.getElementById('pp-follow-btn');
+  followBtn.textContent = nowFollowing ? 'Following' : 'Follow';
+  followBtn.classList.toggle('active', nowFollowing);
+  followBtn.style.display = userId === currentUser.id ? 'none' : '';
+
+  if (!acts || !acts.length) {
+    document.getElementById('pp-body').innerHTML = '<div class="people-empty">No public activities yet.</div>';
+    return;
+  }
+  const activityIds = acts.map(a => a.id);
+  const { data: photoRows } = await sb.from('activity_photos').select('*').eq('user_id', userId).in('activity_id', activityIds).order('sort_order');
+  const photosByActivity = {};
+  if (photoRows && photoRows.length) {
+    const paths = photoRows.map(p => p.storage_path);
+    const { data: signed } = await sb.storage.from('photos').createSignedUrls(paths, SIGNED_URL_TTL);
+    const signedByPath = {};
+    (signed || []).forEach(s => { if (s.signedUrl) signedByPath[s.path] = s.signedUrl; });
+    photoRows.forEach(p => { (photosByActivity[p.activity_id] ||= []).push({ dataUrl: signedByPath[p.storage_path] || '' }); });
+  }
+  document.getElementById('pp-body').innerHTML = acts.map(a => renderPublicActivityCard(a, photosByActivity)).join('');
+}
+function closePublicProfile() {
+  ppViewingUserId = null;
+  document.getElementById('public-profile-modal').classList.remove('open');
 }
 
 function setProfileSort(sort) {
@@ -3831,6 +4098,7 @@ function switchView(view) {
   if(view==='stats') { if(!statsBuilt) { buildStats(); statsBuilt=true; } }
   if(view==='feed') buildFeed();
   if(view==='profile') buildProfile();
+  if(view==='people') buildPeople();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
 }
 
@@ -3918,7 +4186,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -3933,6 +4201,9 @@ _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r
 _r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
 _r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
+_r('onPeopleSearchInput',onPeopleSearchInput);_r('toggleFollow',toggleFollow);
+_r('openPublicProfile',openPublicProfile);_r('closePublicProfile',closePublicProfile);
+_r('togglePublicProfileFollow',togglePublicProfileFollow);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);_r('toggleType',toggleType);_r('switchToolsTab',switchToolsTab);
 _r('setProfileSort',setProfileSort);_r('showHeatmapDay',showHeatmapDay);_r('removeImportFile',removeImportFile);
