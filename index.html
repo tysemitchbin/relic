@@ -287,6 +287,15 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .mood-btn span { font-size: 7px; color: var(--muted); letter-spacing: 0.5px; }
 .mood-btn.active { background: var(--paper2); border-color: var(--ink); }
 .mood-btn:hover { background: var(--paper2); }
+.detail-section-sub { font-size: 9px; color: var(--muted); line-height: 1.5; margin: -4px 0 8px; }
+.visibility-row { display: flex; gap: 6px; }
+.visibility-btn {
+  flex: 1; padding: 6px 4px; border: 1px solid var(--border); background: transparent;
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+  cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 4px;
+}
+.visibility-btn.active { background: var(--paper2); border-color: var(--ink); color: var(--ink); }
+.visibility-btn:hover { background: var(--paper2); }
 .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
 .photo-thumb-wrap { position: relative; aspect-ratio: 1; overflow: hidden; }
 .photo-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
@@ -1167,10 +1176,14 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
             <div class="d-charts-wrap" id="d-charts-wrap"></div>
           </div>
           <div class="detail-section">
+            <div class="detail-section-title">Visibility</div>
+            <div class="visibility-row" id="d-visibility"></div>
+          </div>
+          <div class="detail-section">
             <div class="detail-section-title">Note</div>
             <textarea class="note-textarea" id="d-note" placeholder="Write about this memory..." oninput="onNoteEdit()"></textarea>
           </div>
-          <div class="detail-section">
+          <div class="detail-section" id="d-mood-section">
             <div class="detail-section-title">Feeling</div>
             <div class="mood-row" id="d-mood"></div>
           </div>
@@ -1178,6 +1191,11 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
             <div class="detail-section-title">Photos</div>
             <div class="photo-grid" id="d-photos"></div>
             <input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="handlePhotoUpload(this)">
+          </div>
+          <div class="detail-section">
+            <div class="detail-section-title">Private Note</div>
+            <div class="detail-section-sub">Only you ever see this, even when the activity above is public.</div>
+            <textarea class="note-textarea" id="d-private-note" placeholder="Just for you..." oninput="onPrivateNoteEdit()"></textarea>
           </div>
           <div class="info-rows" id="d-rows"></div>
           <div id="d-strava-link"></div>
@@ -2157,6 +2175,10 @@ function showDetail(memId) {
   ].map(s=>`<div class="dstat"><div class="dstat-val">${s.val}</div><div class="dstat-label">${s.label}</div></div>`).join('');
   document.getElementById('d-note').value=mem.note||'';
   document.getElementById('d-note').style.display='';
+  document.getElementById('d-visibility').innerHTML=
+    `<button class="visibility-btn ${!mem.isPublic?'active':''}" onclick="setVisibility('${memId}',false,this)">🔒 Private</button>` +
+    `<button class="visibility-btn ${mem.isPublic?'active':''}" onclick="setVisibility('${memId}',true,this)">🌐 Public</button>`;
+  document.getElementById('d-private-note').value=mem.privateNote||'';
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
   // Restore detail body to moment layout (in case it was showing a story)
@@ -2254,7 +2276,7 @@ function showStoryDetail(storyId) {
   };
 
   // Mood section
-  var moodSection = document.querySelectorAll('#detail-body .detail-section')[2]; // mood is 3rd section
+  var moodSection = document.getElementById('d-mood-section');
   if (moodSection) {
     moodSection.style.display = '';
     document.getElementById('d-mood').innerHTML = MOODS.map(function(m) {
@@ -2327,6 +2349,13 @@ function closeDetail() {
 }
 function onNameEdit() { if(!selectedId) return; db[selectedId].name=document.getElementById('d-name-input').value; db[selectedId]._nameEdited=true; markDirty(selectedId); }
 function onNoteEdit() { if(!selectedId) return; db[selectedId].note=document.getElementById('d-note').value; markDirty(selectedId); }
+function onPrivateNoteEdit() { if(!selectedId) return; db[selectedId].privateNote=document.getElementById('d-private-note').value; markDirty(selectedId); }
+function setVisibility(memId, isPublic, btn) {
+  db[memId].isPublic = isPublic;
+  document.querySelectorAll('#d-visibility .visibility-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  markDirty(memId);
+}
 function setMood(memId,moodId,btn) { db[memId].mood=db[memId].mood===moodId?null:moodId; document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('active')); if(db[memId].mood) btn.classList.add('active'); markDirty(memId); }
 function scheduleSave() { clearTimeout(saveTimer); setSaveIndicator('Saving…'); saveTimer=setTimeout(flushDirty,800); }
 
@@ -3901,6 +3930,7 @@ _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedba
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
+_r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
 _r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
