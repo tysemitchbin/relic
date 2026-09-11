@@ -1526,6 +1526,7 @@ function rowToMoment(r) {
     distance: r.distance || 0, duration: r.duration || 0, elevation: r.elevation || 0,
     startLat: r.start_lat, startLng: r.start_lng,
     note: r.note || '', mood: r.mood || null, photos: [],
+    isPublic: !!r.is_public, privateNote: '',
     customColor: r.custom_color || null, _nameEdited: !!r.name_edited,
     avgHR: r.avg_hr, maxHR: r.max_hr, calories: r.calories, avgSpeed: r.avg_speed,
     maxSpeed: r.max_speed, avgCadence: r.avg_cadence, avgWatts: r.avg_watts,
@@ -1543,7 +1544,7 @@ function momentToRow(m) {
     distance: m.distance || 0, duration: m.duration || 0, elevation: m.elevation || 0,
     polyline: m._polyline || (Array.isArray(m.coords) && m.coords.length >= 2 ? encodePolyline(m.coords) : null),
     start_lat: m.startLat ?? null, start_lng: m.startLng ?? null,
-    note: m.note || '', mood: m.mood || null,
+    note: m.note || '', mood: m.mood || null, is_public: !!m.isPublic,
     custom_color: m.customColor || null, name_edited: !!m._nameEdited,
     avg_hr: m.avgHR ?? null, max_hr: m.maxHR ?? null, calories: m.calories ?? null,
     avg_speed: m.avgSpeed ?? null, max_speed: m.maxSpeed ?? null, avg_cadence: m.avgCadence ?? null,
@@ -1570,12 +1571,17 @@ function storyToRow(s) {
   };
 }
 
-// Page through a table 1000 rows at a time (Supabase's per-request cap)
-async function selectAllRows(table, orderCol) {
+// Page through a table 1000 rows at a time (Supabase's per-request cap).
+// eqFilters is required for any table whose RLS now allows rows beyond the
+// caller's own (activities/activity_photos are is_public-readable) — without
+// an explicit user_id filter here, "load my archive" would also pull in
+// every other user's public rows.
+async function selectAllRows(table, orderCol, eqFilters) {
   const PAGE = 1000;
   let all = [], from = 0;
   for (;;) {
     let q = sb.from(table).select('*').range(from, from + PAGE - 1);
+    if (eqFilters) Object.entries(eqFilters).forEach(([k, v]) => { q = q.eq(k, v); });
     if (orderCol) q = q.order(orderCol, { ascending: true });
     const { data, error } = await q;
     if (error) throw error;
@@ -1588,10 +1594,12 @@ async function selectAllRows(table, orderCol) {
 
 // ── Load everything for the current user ──
 async function loadFromSupabase() {
-  const [acts, stories, photoRows, profRes] = await Promise.all([
-    selectAllRows('activities'),
-    selectAllRows('stories'),
-    selectAllRows('activity_photos', 'sort_order'),
+  const mine = { user_id: currentUser.id };
+  const [acts, stories, photoRows, privNotes, profRes] = await Promise.all([
+    selectAllRows('activities', null, mine),
+    selectAllRows('stories', null, mine),
+    selectAllRows('activity_photos', 'sort_order', mine),
+    selectAllRows('activity_private_notes', null, mine),
     sb.from('profiles').select('*').eq('id', currentUser.id).limit(1),
   ]);
 
@@ -1617,6 +1625,7 @@ async function loadFromSupabase() {
     db[r.id] = m;
   });
   stories.forEach(r => { db[r.id] = rowToStory(r); });
+  privNotes.forEach(r => { if (db[r.activity_id]) db[r.activity_id].privateNote = r.note || ''; });
 
   const p = (profRes.data && profRes.data[0]) || null;
   _profile = { name: p?.name || '', bio: p?.bio || '', avatarPath: p?.avatar_path || null, photo: null };
@@ -1661,14 +1670,17 @@ function markDirty(id) { if (id) { dirtyIds.add(id); scheduleSave(); } }
 async function flushDirty() {
   const ids = [...dirtyIds]; dirtyIds.clear();
   if (!ids.length) { setSaveIndicator(''); return; }
-  const acts = [], stories = [];
+  const acts = [], stories = [], privNotes = [];
   ids.forEach(id => {
     const o = db[id]; if (!o) return;
-    if (isStory(o)) stories.push(storyToRow(o)); else acts.push(momentToRow(o));
+    if (isStory(o)) { stories.push(storyToRow(o)); return; }
+    acts.push(momentToRow(o));
+    privNotes.push({ user_id: currentUser.id, activity_id: id, note: o.privateNote || '' });
   });
   try {
     if (acts.length) { const { error } = await sb.from('activities').upsert(acts); if (error) throw error; }
     if (stories.length) { const { error } = await sb.from('stories').upsert(stories); if (error) throw error; }
+    if (privNotes.length) { const { error } = await sb.from('activity_private_notes').upsert(privNotes); if (error) throw error; }
     renderList();
     saveArchiveCache();
     setSaveIndicator('Saved ✓');

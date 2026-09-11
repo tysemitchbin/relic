@@ -41,6 +41,7 @@ create table public.activities (
   start_lng         double precision,
   note              text        not null default '',
   mood              text,
+  is_public         boolean     not null default false,
   custom_color      text,
   name_edited       boolean     not null default false,
   -- Strava returns several of these as decimals, so keep them floating-point
@@ -105,12 +106,19 @@ alter table public.activity_photos enable row level security;
 
 create policy "own profile" on public.profiles
   for all using (id = auth.uid()) with check (id = auth.uid());
+create policy "read any profile" on public.profiles for select using (true);
 create policy "own activities" on public.activities
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "public activities" on public.activities for select using (is_public = true);
 create policy "own stories" on public.stories
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "own photos" on public.activity_photos
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "public activity photos" on public.activity_photos for select
+  using (exists (
+    select 1 from public.activities a
+    where a.user_id = activity_photos.user_id and a.id = activity_photos.activity_id and a.is_public
+  ));
 
 -- ── updated_at triggers ───────────────────────────────────
 create function public.touch_updated_at() returns trigger
@@ -130,6 +138,15 @@ create policy "own photo files" on storage.objects
   for all
   using   (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text)
   with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+create policy "public activity photo files" on storage.objects for select
+  using (
+    bucket_id = 'photos'
+    and exists (
+      select 1 from public.activity_photos p
+      join public.activities a on a.user_id = p.user_id and a.id = p.activity_id
+      where p.storage_path = storage.objects.name and a.is_public
+    )
+  );
 
 -- ── STRAVA CONNECTIONS (Phase 6) ──────────────────────────
 -- Also in docs/supabase-strava.sql for running standalone on an existing project.
@@ -170,3 +187,33 @@ create index if not exists feedback_user_created_idx
 alter table public.feedback enable row level security;
 create policy "own feedback" on public.feedback
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ── SOCIAL: private notes + follows ───────────────────────
+-- Also in docs/supabase-social.sql for running standalone on an existing project.
+-- Private per-activity note — its own table, ALWAYS owner-only RLS, no
+-- exceptions. Kept separate from activities on purpose: Postgres RLS is
+-- row-level, not column-level, so a column on a table that's partly public
+-- (activities.is_public above) can't be redacted per-viewer.
+create table if not exists public.activity_private_notes (
+  user_id     uuid not null references auth.users on delete cascade,
+  activity_id text not null,
+  note        text not null default '',
+  updated_at  timestamptz not null default now(),
+  primary key (user_id, activity_id),
+  foreign key (user_id, activity_id) references public.activities (user_id, id) on delete cascade
+);
+alter table public.activity_private_notes enable row level security;
+create policy "own private notes" on public.activity_private_notes
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create table if not exists public.follows (
+  follower_id uuid not null references auth.users on delete cascade,
+  followee_id uuid not null references auth.users on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (follower_id, followee_id),
+  check (follower_id <> followee_id)
+);
+alter table public.follows enable row level security;
+create policy "read follows" on public.follows for select using (true);
+create policy "create own follows" on public.follows for insert with check (follower_id = auth.uid());
+create policy "delete own follows" on public.follows for delete using (follower_id = auth.uid());
