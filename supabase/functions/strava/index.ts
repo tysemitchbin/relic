@@ -265,5 +265,9 @@ function stravaRow(a: any, userId: string) {
     workout_type: a.workout_type ?? null,
     commute: a.commute ?? false,
     elapsed_time: a.elapsed_time ?? null,
+    // Default our own is_public to Strava's own privacy setting on first
+    // import; strava_upsert_activities() never overwrites it on resync, so
+    // a user's later manual toggle in Relic always sticks.
+    is_public: a.private === false,
   };
 }

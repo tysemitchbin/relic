@@ -27,7 +27,9 @@ alter table public.strava_connections enable row level security;
 
 -- ── merge helper ──────────────────────────────────────────
 -- Upserts Strava activities without clobbering the user's own edits:
--- note / mood / custom_color are never touched; a user-renamed title
+-- note / mood / custom_color / is_public are never touched after the first
+-- insert (is_public defaults to Strava's own privacy setting on import, then
+-- a user's manual toggle always sticks); a user-renamed title
 -- (name_edited = true) is kept; a missing polyline / calories / suffer_score /
 -- elev_high|low keeps whatever was there. Runs as the caller — RLS on
 -- public.activities still applies (with check user_id = auth.uid()).
@@ -42,7 +44,8 @@ begin
     distance, duration, elevation, start_lat, start_lng,
     avg_hr, max_hr, calories, avg_speed, max_speed, avg_cadence,
     avg_watts, weighted_watts, suffer_score, pr_count, achievement_count,
-    elev_high, elev_low, gear_id, workout_type, commute, elapsed_time
+    elev_high, elev_low, gear_id, workout_type, commute, elapsed_time,
+    is_public
   )
   select
     r->>'id', (r->>'user_id')::uuid, coalesce(r->>'name','Untitled'),
@@ -60,7 +63,8 @@ begin
     (r->>'achievement_count')::integer, (r->>'elev_high')::double precision,
     (r->>'elev_low')::double precision, r->>'gear_id',
     (r->>'workout_type')::integer, coalesce((r->>'commute')::boolean, false),
-    (r->>'elapsed_time')::double precision
+    (r->>'elapsed_time')::double precision,
+    coalesce((r->>'is_public')::boolean, false)
   from jsonb_array_elements(p_rows) as r
   on conflict (user_id, id) do update set
     name           = case when public.activities.name_edited
@@ -91,6 +95,8 @@ begin
     workout_type   = excluded.workout_type,
     commute        = excluded.commute,
     elapsed_time   = excluded.elapsed_time;
+    -- is_public deliberately excluded: never overwritten by a resync, same as
+    -- note / mood / custom_color -- a user's manual privacy toggle always sticks.
   get diagnostics n = row_count;
   return n;
 end $$;
