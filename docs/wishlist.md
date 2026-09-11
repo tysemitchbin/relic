@@ -7,15 +7,16 @@ this is the "someday / next" list. Add freely; prune when shipped.
 
 - **Visual redesign pass** — rethink the look of the feed cards, Archive, and
   Profile: colour, typography, layout. (Mobile layout is done; this is styling.)
-- **Beta feedback: run the migration** — `docs/supabase-feedback.sql` needs to be
-  run once in the Supabase SQL Editor before the in-app Feedback button works.
 
 ## Polish
 
 - **Naming consistency** — the per-activity write-up field is called "Story" in the
   detail panel, "Notes" on Profile, and "Written Memories" on Archive. Pick one
   ("Note" for the per-activity text; reserve "Story" for the multi-moment
-  collections) and use it everywhere.
+  collections) and use it everywhere. Worth remembering while doing this: 271 of
+  the 321 `kml_import` activities carry real handwritten notes (flight routes,
+  trip context — "Johns Hopkins Visit", "AZ Senior Fall Classic") from the
+  original KML import, so they should read fine under whatever label wins.
 - **Feedback modal: attach a screenshot** — deferred from the first pass; would
   make bug reports far more useful.
 - **Static map on the Story detail view** — feed + profile story cards now show
@@ -65,12 +66,6 @@ Gamified, rewarding moments — make opening the app feel good.
 
 - **AI-suggested stories** — cluster moments into proposed Stories automatically
   and name them ("Dog walks this week", "Norway road trip"), one tap to accept.
-
-## Investigate
-
-- **272 "notes"** — the archive shows 272 activities with note text, but those
-  weren't typed by hand. Find where they came from (v1 migration? bulk import?)
-  and decide whether to keep / clear / relabel them.
 
 ## Later / maybe
 
