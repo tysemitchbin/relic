@@ -436,6 +436,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 /* ── PROFILE VIEW ── */
 #profile-view { background: var(--paper); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 #people-view { background: var(--paper); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#public-profile-view { background: var(--paper); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .profile-wrap { max-width: 800px; margin: 0 auto; padding: 40px; }
 .profile-hero { display: flex; gap: 32px; align-items: flex-start; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
 .profile-photo-wrap { cursor: pointer; flex-shrink: 0; }
@@ -560,16 +561,14 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .follow-btn.active { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .follow-btn.active:hover { border-color: #c0392b; color: #c0392b; background: transparent; }
 
-/* Public profile modal */
-.pp-modal { width: 620px; max-width: 95vw; padding: 0; display: flex; flex-direction: column; max-height: 85vh; }
-.pp-header { position: relative; padding: 24px; border-bottom: 1px solid var(--border); text-align: center; flex-shrink: 0; }
+/* Public profile view */
+.pp-header { padding: 0 0 24px; border-bottom: 1px solid var(--border); text-align: center; margin-bottom: 20px; }
 .pp-avatar { width: 72px; height: 72px; font-size: 24px; margin: 0 auto 10px; }
 .pp-name { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--ink); margin-bottom: 4px; }
 .pp-bio { font-size: 11px; color: var(--muted); max-width: 420px; margin: 0 auto 12px; line-height: 1.5; }
 .pp-stats-row { display: flex; justify-content: center; gap: 24px; margin-bottom: 14px; }
 .pp-stat-val { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--ink); }
 .pp-stat-label { font-size: 7px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
-.pp-body { overflow-y: auto; padding: 16px 24px 24px; }
 .pp-activity-card { border: 1px solid var(--border); margin-bottom: 14px; }
 .pp-activity-body { padding: 12px 14px; }
 .pp-activity-name { font-family: 'Cormorant Garamond', serif; font-size: 16px; color: var(--ink); margin-bottom: 2px; }
@@ -1516,6 +1515,21 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         </div>
       </div>
     </div>
+
+    <!-- PUBLIC PROFILE VIEW -->
+    <div class="view" id="public-profile-view">
+      <div class="profile-wrap">
+        <button class="btn-ghost" onclick="switchView('people')" style="padding:3px 10px;font-size:7px;margin-bottom:16px">&larr; Back</button>
+        <div class="pp-header">
+          <div class="people-avatar pp-avatar" id="pp-avatar"><div class="profile-photo-placeholder">◇</div></div>
+          <div class="pp-name" id="pp-name"></div>
+          <div class="pp-bio" id="pp-bio"></div>
+          <div class="pp-stats-row" id="pp-stats-row"></div>
+          <button class="follow-btn" id="pp-follow-btn" onclick="togglePublicProfileFollow()"></button>
+        </div>
+        <div class="pp-body" id="pp-body"></div>
+      </div>
+    </div>
   </div>
 
   <!-- BOTTOM TAB BAR (mobile only) -->
@@ -1564,21 +1578,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="btn-ghost" onclick="closeImport()">Cancel</button>
       <button class="btn-primary" id="import-btn" onclick="doImport()">Add to Archive</button>
     </div>
-  </div>
-</div>
-
-<!-- PUBLIC PROFILE MODAL -->
-<div class="modal-overlay" id="public-profile-modal">
-  <div class="modal pp-modal">
-    <div class="pp-header">
-      <button class="detail-close" onclick="closePublicProfile()">×</button>
-      <div class="people-avatar pp-avatar" id="pp-avatar"><div class="profile-photo-placeholder">◇</div></div>
-      <div class="pp-name" id="pp-name"></div>
-      <div class="pp-bio" id="pp-bio"></div>
-      <div class="pp-stats-row" id="pp-stats-row"></div>
-      <button class="follow-btn" id="pp-follow-btn" onclick="togglePublicProfileFollow()"></button>
-    </div>
-    <div class="pp-body" id="pp-body"></div>
   </div>
 </div>
 
@@ -3818,7 +3817,7 @@ async function openPublicProfile(userId) {
   document.getElementById('pp-bio').textContent = '';
   document.getElementById('pp-stats-row').innerHTML = '';
   document.getElementById('pp-body').innerHTML = '<div class="people-empty">Loading…</div>';
-  document.getElementById('public-profile-modal').classList.add('open');
+  switchView('public-profile');
 
   const [{ data: profRows }, { data: acts }, followingRes, followersRes] = await Promise.all([
     sb.from('profiles').select('id,name,bio,avatar_path').eq('id', userId).limit(1),
@@ -3862,8 +3861,9 @@ async function openPublicProfile(userId) {
   document.getElementById('pp-body').innerHTML = acts.map(a => renderPublicActivityCard(a, photosByActivity)).join('');
 }
 function closePublicProfile() {
+  if (currentView !== 'public-profile') return;
   ppViewingUserId = null;
-  document.getElementById('public-profile-modal').classList.remove('open');
+  switchView('people');
 }
 
 function setProfileSort(sort) {
