@@ -10,8 +10,6 @@ this is the "someday / next" list. Add freely; prune when shipped.
 
 ## Polish
 
-- **Feedback modal: attach a screenshot** — deferred from the first pass; would
-  make bug reports far more useful.
 - **Static map on the Story detail view** — feed + profile story cards now show
   real Mapbox tiles behind the tracks; the story detail panel still doesn't.
 

@@ -1316,6 +1316,12 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <div class="modal-title">Send Feedback</div>
     <div class="modal-sub">Bugs, ideas, anything that feels off — goes straight to me</div>
     <textarea class="modal-input" id="fb-message" rows="6" style="min-height:130px;resize:vertical;font-family:'Cormorant Garamond',serif;font-size:14px;" placeholder="What's on your mind?"></textarea>
+    <div class="photo-thumb-wrap" id="fb-screenshot-wrap" style="display:none;width:80px;margin-top:8px">
+      <img id="fb-screenshot-preview" alt="">
+      <button class="photo-remove" onclick="removeFeedbackScreenshot()" style="opacity:1">×</button>
+    </div>
+    <button class="btn-ghost" id="fb-attach-btn" onclick="document.getElementById('fb-screenshot-input').click()" style="padding:3px 10px;font-size:7px;margin-top:8px">+ Attach Screenshot</button>
+    <input type="file" id="fb-screenshot-input" accept="image/*" style="display:none" onchange="handleFeedbackScreenshot(this)">
     <div class="import-progress" id="fb-status"></div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeFeedback()">Cancel</button>
@@ -3778,13 +3784,30 @@ function switchView(view) {
 }
 
 // ── Feedback ──
+let fbScreenshotFile = null;
 function openFeedback() {
   document.getElementById('fb-message').value = '';
   document.getElementById('fb-status').textContent = '';
+  removeFeedbackScreenshot();
   document.getElementById('feedback-modal').classList.add('open');
   setTimeout(()=>document.getElementById('fb-message').focus(), 50);
 }
 function closeFeedback() { document.getElementById('feedback-modal').classList.remove('open'); }
+function handleFeedbackScreenshot(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  fbScreenshotFile = file;
+  document.getElementById('fb-screenshot-preview').src = URL.createObjectURL(file);
+  document.getElementById('fb-screenshot-wrap').style.display = '';
+  document.getElementById('fb-attach-btn').style.display = 'none';
+}
+function removeFeedbackScreenshot() {
+  fbScreenshotFile = null;
+  document.getElementById('fb-screenshot-wrap').style.display = 'none';
+  document.getElementById('fb-screenshot-preview').src = '';
+  document.getElementById('fb-attach-btn').style.display = '';
+}
 async function sendFeedback() {
   const message = document.getElementById('fb-message').value.trim();
   if (!message) return;
@@ -3793,12 +3816,23 @@ async function sendFeedback() {
   btn.disabled = true;
   statusEl.textContent = 'Sending…';
   try {
+    let screenshotPath = null;
+    if (fbScreenshotFile) {
+      statusEl.textContent = 'Uploading screenshot…';
+      const blob = await resizeImageToJpeg(fbScreenshotFile, 1600, 0.82);
+      const path = `${currentUser.id}/feedback/${crypto.randomUUID()}.jpg`;
+      const up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
+      if (up.error) throw up.error;
+      screenshotPath = path;
+      statusEl.textContent = 'Sending…';
+    }
     const { error } = await sb.from('feedback').insert({
       user_id: currentUser.id,
       email: currentUser.email || null,
       message,
       context: currentView,
       user_agent: navigator.userAgent,
+      screenshot_path: screenshotPath,
     });
     if (error) throw error;
     statusEl.textContent = 'Thanks — got it.';
@@ -3841,7 +3875,7 @@ const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
-_r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);
+_r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
