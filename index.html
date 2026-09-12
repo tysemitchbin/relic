@@ -3611,20 +3611,20 @@ async function handleProfilePhoto(input) {
   }
 }
 
-function buildProfile() {
+async function buildProfile() {
   const profile=loadProfile();
   document.getElementById('profile-name').value=profile.name||'';
   document.getElementById('profile-bio').value=profile.bio||'';
   if(profile.photo) document.getElementById('profile-photo-display').innerHTML=`<img src="${profile.photo}" alt="Profile">`;
   const mems=getMoments();
-  const stories=getStories();
   const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
   const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
-  const withNotes=mems.filter(m=>m.note).length, withPhotos=mems.filter(m=>m.photos?.length).length;
+  await loadFollowGraph();
   document.getElementById('profile-stats-row').innerHTML=[
     {val:mems.length,label:'Moments'},{val:Math.round(totalDist).toLocaleString()+' km',label:'Distance'},
-    {val:Math.round(totalElev/1000)+'k m',label:'Elevation'},{val:stories.length+' / '+withNotes,label:'Stories / Notes'},
-  ].map(s=>`<div class="profile-stat"><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
+    {val:Math.round(totalElev/1000)+'k m',label:'Elevation'},
+    {val:myFollowingIds.size+' / '+myFollowerIds.size,label:'Following / Followers',onclick:"switchView('people')"},
+  ].map(s=>`<div class="profile-stat"${s.onclick?` style="cursor:pointer" onclick="${s.onclick}"`:''}><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
 
   renderProfileStories();
   renderProfileHoneycomb();
