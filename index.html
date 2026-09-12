@@ -1350,6 +1350,13 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           <div class="detail-section">
             <div class="detail-section-title">Visibility</div>
             <div class="visibility-row" id="d-visibility"></div>
+            <div id="d-privacy-radius-row" style="display:none;margin-top:10px">
+              <div class="detail-section-sub">Hide the track within this distance of its start and end (e.g. home).</div>
+              <div style="display:flex;gap:6px">
+                <input type="number" id="d-privacy-radius" min="0" step="0.1" placeholder="0" style="width:70px" class="people-search-input" oninput="onPrivacyRadiusEdit()">
+                <div class="visibility-row" id="d-privacy-unit" style="flex:0 0 auto;width:110px"></div>
+              </div>
+            </div>
           </div>
           <div class="detail-section">
             <div class="detail-section-title">Note</div>
@@ -1909,7 +1916,7 @@ function rowToMoment(r) {
     distance: r.distance || 0, duration: r.duration || 0, elevation: r.elevation || 0,
     startLat: r.start_lat, startLng: r.start_lng,
     note: r.note || '', mood: r.mood || null, photos: [],
-    isPublic: !!r.is_public, privateNote: '',
+    isPublic: !!r.is_public, privacyRadiusM: r.privacy_radius_m || 0, privateNote: '',
     customColor: r.custom_color || null, _nameEdited: !!r.name_edited,
     avgHR: r.avg_hr, maxHR: r.max_hr, calories: r.calories, avgSpeed: r.avg_speed,
     maxSpeed: r.max_speed, avgCadence: r.avg_cadence, avgWatts: r.avg_watts,
@@ -1927,7 +1934,8 @@ function momentToRow(m) {
     distance: m.distance || 0, duration: m.duration || 0, elevation: m.elevation || 0,
     polyline: m._polyline || (Array.isArray(m.coords) && m.coords.length >= 2 ? encodePolyline(m.coords) : null),
     start_lat: m.startLat ?? null, start_lng: m.startLng ?? null,
-    note: m.note || '', mood: m.mood || null, is_public: !!m.isPublic,
+    end_lat: getCoords(m)?.at(-1)?.[1] ?? null, end_lng: getCoords(m)?.at(-1)?.[0] ?? null,
+    note: m.note || '', mood: m.mood || null, is_public: !!m.isPublic, privacy_radius_m: m.privacyRadiusM || 0,
     custom_color: m.customColor || null, name_edited: !!m._nameEdited,
     avg_hr: m.avgHR ?? null, max_hr: m.maxHR ?? null, calories: m.calories ?? null,
     avg_speed: m.avgSpeed ?? null, max_speed: m.maxSpeed ?? null, avg_cadence: m.avgCadence ?? null,
@@ -2017,6 +2025,24 @@ async function loadFromSupabase() {
     _profile.photo = u?.signedUrl || null;
   }
   saveArchiveCache();
+  syncPublicSnapshots();
+}
+
+// Catches public activities that never went through flushDirty() -- chiefly
+// ones Strava sync defaulted to public server-side (strava_upsert_activities
+// runs as SQL, not through this client's save path). Only publishes ones
+// missing a snapshot; edits to an already-public activity are kept current
+// by flushDirty() itself.
+async function syncPublicSnapshots() {
+  try {
+    const { data: existing } = await sb.from('activity_public').select('activity_id').eq('user_id', currentUser.id);
+    const known = new Set((existing || []).map(r => r.activity_id));
+    const missing = Object.values(db)
+      .filter(o => !isStory(o) && o.isPublic && !known.has(o.id))
+      .map(buildPublicSnapshotRow)
+      .filter(Boolean);
+    if (missing.length) { const { error } = await sb.from('activity_public').upsert(missing); if (error) throw error; }
+  } catch (e) { console.error('Public snapshot sync failed', e); }
 }
 
 // ── Instant-load cache ───────────────────────────────────────────────
@@ -2050,20 +2076,38 @@ function loadArchiveCache() {
 // ── Debounced write-back of edited moments/stories ──
 let dirtyIds = new Set();
 function markDirty(id) { if (id) { dirtyIds.add(id); scheduleSave(); } }
+// The redacted, safe-to-publish row for a public moment (or null if it
+// shouldn't be public). Computed on this device only -- see
+// redactTrackForPrivacy().
+function buildPublicSnapshotRow(o) {
+  if (!o.isPublic) return null;
+  const coords = getCoords(o);
+  return {
+    user_id: currentUser.id, activity_id: o.id,
+    name: o.name || 'Untitled', type: o.type || 'Other', date: o.date || null,
+    distance: o.distance || 0, duration: o.duration || 0, elevation: o.elevation || 0,
+    note: o.note || '', mood: o.mood || null, custom_color: o.customColor || null,
+    polylines: coords ? redactTrackForPrivacy(coords, o.privacyRadiusM || 0) : [],
+  };
+}
 async function flushDirty() {
   const ids = [...dirtyIds]; dirtyIds.clear();
   if (!ids.length) { setSaveIndicator(''); return; }
-  const acts = [], stories = [], privNotes = [];
+  const acts = [], stories = [], privNotes = [], publicUpserts = [], publicDeletes = [];
   ids.forEach(id => {
     const o = db[id]; if (!o) return;
     if (isStory(o)) { stories.push(storyToRow(o)); return; }
     acts.push(momentToRow(o));
     privNotes.push({ user_id: currentUser.id, activity_id: id, note: o.privateNote || '' });
+    const snapshot = buildPublicSnapshotRow(o);
+    if (snapshot) publicUpserts.push(snapshot); else publicDeletes.push(id);
   });
   try {
     if (acts.length) { const { error } = await sb.from('activities').upsert(acts); if (error) throw error; }
     if (stories.length) { const { error } = await sb.from('stories').upsert(stories); if (error) throw error; }
     if (privNotes.length) { const { error } = await sb.from('activity_private_notes').upsert(privNotes); if (error) throw error; }
+    if (publicUpserts.length) { const { error } = await sb.from('activity_public').upsert(publicUpserts); if (error) throw error; }
+    if (publicDeletes.length) { const { error } = await sb.from('activity_public').delete().eq('user_id', currentUser.id).in('activity_id', publicDeletes); if (error) throw error; }
     renderList();
     saveArchiveCache();
     setSaveIndicator('Saved ✓');
@@ -2867,6 +2911,9 @@ function showDetail(memId) {
   document.getElementById('d-visibility').innerHTML=
     `<button class="visibility-btn ${!mem.isPublic?'active':''}" onclick="setVisibility('${memId}',false,this)">🔒 Private</button>` +
     `<button class="visibility-btn ${mem.isPublic?'active':''}" onclick="setVisibility('${memId}',true,this)">🌐 Public</button>`;
+  document.getElementById('d-privacy-radius-row').style.display = mem.isPublic ? '' : 'none';
+  renderPrivacyUnitButtons();
+  document.getElementById('d-privacy-radius').value = metersToUnit(mem.privacyRadiusM || 0, privacyUnit) || '';
   document.getElementById('d-private-note').value=mem.privateNote||'';
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
@@ -3043,7 +3090,28 @@ function setVisibility(memId, isPublic, btn) {
   db[memId].isPublic = isPublic;
   document.querySelectorAll('#d-visibility .visibility-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
+  document.getElementById('d-privacy-radius-row').style.display = isPublic ? '' : 'none';
   markDirty(memId);
+}
+// ── Privacy radius (km/mi display, meters storage) ──
+let privacyUnit = localStorage.getItem('relic_privacy_unit') || 'km';
+function metersToUnit(m, unit) { if(!m) return ''; const v = unit==='mi' ? m/1609.344 : m/1000; return Math.round(v*100)/100; }
+function unitToMeters(v, unit) { const n = parseFloat(v); if(!n || n<0) return 0; return unit==='mi' ? n*1609.344 : n*1000; }
+function renderPrivacyUnitButtons() {
+  document.getElementById('d-privacy-unit').innerHTML =
+    `<button class="visibility-btn ${privacyUnit==='km'?'active':''}" onclick="setPrivacyUnit('km')">km</button>` +
+    `<button class="visibility-btn ${privacyUnit==='mi'?'active':''}" onclick="setPrivacyUnit('mi')">mi</button>`;
+}
+function setPrivacyUnit(unit) {
+  privacyUnit = unit;
+  localStorage.setItem('relic_privacy_unit', unit);
+  renderPrivacyUnitButtons();
+  if (selectedId && db[selectedId]) document.getElementById('d-privacy-radius').value = metersToUnit(db[selectedId].privacyRadiusM || 0, unit) || '';
+}
+function onPrivacyRadiusEdit() {
+  if (!selectedId) return;
+  db[selectedId].privacyRadiusM = unitToMeters(document.getElementById('d-privacy-radius').value, privacyUnit);
+  markDirty(selectedId);
 }
 function setMood(memId,moodId,btn) { db[memId].mood=db[memId].mood===moodId?null:moodId; document.querySelectorAll('.mood-btn').forEach(b=>b.classList.remove('active')); if(db[memId].mood) btn.classList.add('active'); markDirty(memId); }
 function scheduleSave() { clearTimeout(saveTimer); setSaveIndicator('Saving…'); saveTimer=setTimeout(flushDirty,800); }
@@ -3785,13 +3853,14 @@ function togglePublicProfileFollow() {
 }
 function renderPublicActivityCard(act, photosByActivity) {
   const group = getGroup(act.type), color = act.custom_color || TYPE_CONFIG[group]?.color || '#92400e';
-  const poly = act.polyline;
-  const mapImg = poly ? mapboxStaticImg([`path-4+${(color||'#c0392b').replace('#','')}-0.9(${encodeURIComponent(poly)})`], 560, 150) : '';
+  const stroke = (color||'#c0392b').replace('#','');
+  const overlays = (act.polylines||[]).map(poly => `path-4+${stroke}-0.9(${encodeURIComponent(poly)})`);
+  const mapImg = overlays.length ? mapboxStaticImg(overlays, 560, 150) : '';
   const dist = act.distance ? (act.distance/1000).toFixed(1)+' km' : '—';
   const dur = act.duration ? formatDur(act.duration) : '—';
   const elev = act.elevation ? Math.round(act.elevation)+' m' : '—';
   const date = act.date ? new Date(act.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '';
-  const photos = photosByActivity[act.id] || [];
+  const photos = photosByActivity[act.activity_id] || [];
   let html = `<div class="pp-activity-card">`;
   if (mapImg) html += `<div class="fc-map">${mapImg}</div>`;
   html += `<div class="pp-activity-body">`;
@@ -3821,7 +3890,7 @@ async function openPublicProfile(userId) {
 
   const [{ data: profRows }, { data: acts }, followingRes, followersRes] = await Promise.all([
     sb.from('profiles').select('id,name,bio,avatar_path').eq('id', userId).limit(1),
-    sb.from('activities').select('*').eq('user_id', userId).eq('is_public', true).order('date', { ascending: false }),
+    sb.from('activity_public').select('*').eq('user_id', userId).order('date', { ascending: false }),
     sb.from('follows').select('followee_id', { count: 'exact', head: true }).eq('follower_id', userId),
     sb.from('follows').select('follower_id', { count: 'exact', head: true }).eq('followee_id', userId),
   ]);
@@ -3848,7 +3917,7 @@ async function openPublicProfile(userId) {
     document.getElementById('pp-body').innerHTML = '<div class="people-empty">No public activities yet.</div>';
     return;
   }
-  const activityIds = acts.map(a => a.id);
+  const activityIds = acts.map(a => a.activity_id);
   const { data: photoRows } = await sb.from('activity_photos').select('*').eq('user_id', userId).in('activity_id', activityIds).order('sort_order');
   const photosByActivity = {};
   if (photoRows && photoRows.length) {
@@ -4647,6 +4716,23 @@ function formatDur(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);retur
 function formatPace(mps,type){if(!mps)return'—';const g=getGroup(type);if(g==='Ride'||g==='Flight'||g==='Drive')return(mps*3.6).toFixed(1)+' km/h';const spk=1000/mps,mi=Math.floor(spk/60),si=Math.floor(spk%60);return`${mi}:${si.toString().padStart(2,'0')} /km`;}
 function decodePolyline(encoded){const pts=[];let i=0,lat=0,lng=0;while(i<encoded.length){let b,shift=0,result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lat+=(result&1)?~(result>>1):(result>>1);shift=0;result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lng+=(result&1)?~(result>>1):(result>>1);pts.push([lng/1e5,lat/1e5]);}return pts;}
 function encodePolyline(coords){let out='',lat=0,lng=0;const enc=v=>{v=v<0?~(v<<1):(v<<1);while(v>=0x20){out+=String.fromCharCode((0x20|(v&0x1f))+63);v>>=5;}out+=String.fromCharCode(v+63);};coords.forEach(([lo,la])=>{const ila=Math.round(la*1e5),ilo=Math.round(lo*1e5);enc(ila-lat);lat=ila;enc(ilo-lng);lng=ilo;});return out;}
+// Drops any point within radiusM of the track's own start or end, splitting
+// what's left into separate segments. Real redaction, not a cosmetic
+// overlay: the dropped points are simply never encoded, so they never leave
+// this device for a public activity.
+function redactTrackForPrivacy(coords, radiusM){
+  if(!coords||coords.length<2) return [];
+  if(!radiusM) return [encodePolyline(coords)];
+  const [startLng,startLat]=coords[0], [endLng,endLat]=coords[coords.length-1];
+  const segments=[]; let current=[];
+  coords.forEach(([lng,lat])=>{
+    const near = haversine(lat,lng,startLat,startLng)<=radiusM || haversine(lat,lng,endLat,endLng)<=radiusM;
+    if(near){ if(current.length>=2) segments.push(encodePolyline(current)); current=[]; }
+    else current.push([lng,lat]);
+  });
+  if(current.length>=2) segments.push(encodePolyline(current));
+  return segments;
+}
 function stableImportId(name,coords){let raw=name+'|'+(coords[0]?coords[0].map(v=>v.toFixed(4)).join(','):'')+'|'+(coords[Math.floor(coords.length/2)]?coords[Math.floor(coords.length/2)].map(v=>v.toFixed(4)).join(','):'')+'|'+coords.length;let h=0;for(let i=0;i<raw.length;i++){h=Math.imul(31,h)+raw.charCodeAt(i)|0;}return'import_'+Math.abs(h).toString(36);}
 function setStatus(msg){document.getElementById('loading-status').textContent=msg;}
 function setProgress(pct){document.getElementById('loading-fill').style.width=pct+'%';}
@@ -4805,6 +4891,7 @@ _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signO
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
 _r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
+_r('setPrivacyUnit',setPrivacyUnit);_r('onPrivacyRadiusEdit',onPrivacyRadiusEdit);
 _r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('onPeopleSearchInput',onPeopleSearchInput);_r('toggleFollow',toggleFollow);

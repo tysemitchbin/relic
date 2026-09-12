@@ -42,6 +42,7 @@ create table public.activities (
   note              text        not null default '',
   mood              text,
   is_public         boolean     not null default false,
+  privacy_radius_m  double precision not null default 0, -- hides the track within this many metres of its own start/end
   custom_color      text,
   name_edited       boolean     not null default false,
   -- Strava returns several of these as decimals, so keep them floating-point
@@ -109,7 +110,12 @@ create policy "own profile" on public.profiles
 create policy "read any profile" on public.profiles for select using (true);
 create policy "own activities" on public.activities
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-create policy "public activities" on public.activities for select using (is_public = true);
+-- No direct public-read policy on activities: RLS is row-level, not
+-- column-level, so exposing a public row here would expose its raw
+-- polyline/start_lat/start_lng too, with no way to redact a privacy
+-- radius out of it. Non-owners read exclusively from activity_public
+-- (see the SOCIAL section below), which only ever contains what the
+-- owner's own client explicitly published there.
 create policy "own stories" on public.stories
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "own photos" on public.activity_photos
@@ -222,3 +228,31 @@ alter table public.follows enable row level security;
 create policy "read follows" on public.follows for select using (true);
 create policy "create own follows" on public.follows for insert with check (follower_id = auth.uid());
 create policy "delete own follows" on public.follows for delete using (follower_id = auth.uid());
+
+-- ── PRIVACY RADIUS: redacted public snapshot ──────────────
+-- Also in docs/supabase-privacy-radius.sql for running standalone.
+-- The ONLY thing a non-owner can ever read for someone else's activity.
+-- Populated by the owner's own client with any track points within
+-- privacy_radius_m of that activity's own start/end already stripped out.
+-- A row exists here only for activities currently marked public.
+create table if not exists public.activity_public (
+  user_id      uuid not null references auth.users on delete cascade,
+  activity_id  text not null,
+  name         text not null default 'Untitled',
+  type         text not null default 'Other',
+  date         timestamptz,
+  distance     double precision not null default 0,
+  duration     double precision not null default 0,
+  elevation    double precision not null default 0,
+  note         text not null default '',
+  mood         text,
+  custom_color text,
+  polylines    text[] not null default '{}',
+  updated_at   timestamptz not null default now(),
+  primary key (user_id, activity_id),
+  foreign key (user_id, activity_id) references public.activities (user_id, id) on delete cascade
+);
+alter table public.activity_public enable row level security;
+create policy "own public activity snapshot" on public.activity_public
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "read public activity snapshot" on public.activity_public for select using (true);

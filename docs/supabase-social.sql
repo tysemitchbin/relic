@@ -1,11 +1,17 @@
 -- Relic — Social features (search, follow, public activities)
 -- Run in the Supabase SQL Editor after supabase-schema.sql.
 
--- ── is_public on activities (additive; the existing "own activities" policy
---    is untouched — this only adds a second way for a row to become visible) ──
+-- ── is_public on activities ──
+-- NOTE: an earlier version of this file also added a
+-- `create policy "public activities" ... for select using (is_public = true)`
+-- policy directly on activities. That's since been removed (see
+-- docs/supabase-privacy-radius.sql) -- Postgres RLS is row-level, not
+-- column-level, so that policy exposed the raw polyline/start_lat/start_lng
+-- of every public activity to any signed-in user, with no way to redact
+-- privacy-radius'd coordinates out of it. Non-owners now read exclusively
+-- from activity_public, which only ever contains what the owner's own
+-- client explicitly published there.
 alter table public.activities add column if not exists is_public boolean not null default false;
-
-create policy "public activities" on public.activities for select using (is_public = true);
 
 -- ── private per-activity note — its own table, ALWAYS owner-only RLS, no
 -- exceptions. Kept separate from activities on purpose: Postgres RLS is
