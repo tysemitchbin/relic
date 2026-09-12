@@ -999,6 +999,13 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 }
 #login input:focus { border-color: var(--warm); }
 #login input::placeholder { color: rgba(255,255,255,0.25); }
+#login textarea {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+  color: var(--paper); font-family: 'Cormorant Garamond', serif; font-size: 14px;
+  padding: 11px 13px; outline: none; resize: vertical; transition: border-color 0.15s;
+}
+#login textarea:focus { border-color: var(--warm); }
+#login textarea::placeholder { color: rgba(255,255,255,0.25); }
 #login button {
   background: var(--paper); color: var(--ink); border: none;
   font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
@@ -1176,6 +1183,12 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <div class="recovery-label">Set a new password</div>
     <input type="password" id="recovery-password" placeholder="new password" autocomplete="new-password" minlength="6" required>
     <button type="submit" id="recovery-btn">Save &amp; sign in</button>
+  </form>
+  <form id="onboarding-form" hidden>
+    <div class="recovery-label">Welcome — let's set up your profile</div>
+    <input type="text" id="onboarding-name" placeholder="Your name" maxlength="60" autocomplete="name" required>
+    <textarea id="onboarding-bio" placeholder="A short bio (optional)" rows="2"></textarea>
+    <button type="submit" id="onboarding-btn">Continue</button>
   </form>
   <div id="login-status"></div>
 </div>
@@ -4974,16 +4987,55 @@ function showPasswordRecovery() {
   setTimeout(() => { try { document.getElementById('recovery-password').focus(); } catch (e) {} }, 60);
 }
 
-function startApp() {
+async function startApp() {
   if (appBooted) return;
   appBooted = true;
   posthog.identify(currentUser.id, { email: currentUser.email });
   showAnalyticsConsent();
+
+  if (!DEMO) {
+    try {
+      const { data } = await sb.from('profiles').select('name').eq('id', currentUser.id).limit(1);
+      if (!data?.[0]?.name?.trim()) { showOnboarding(); return; }
+    } catch (e) { console.error('Profile check failed', e); }
+  }
+
   document.getElementById('login').classList.remove('show');
   document.getElementById('login').style.display = 'none';
   document.getElementById('loading').style.display = 'flex';
   initMap();
 }
+
+// ── Mandatory profile setup for brand-new accounts ──
+function showOnboarding() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('login-form').hidden = true;
+  document.getElementById('recovery-form').hidden = true;
+  document.getElementById('onboarding-form').hidden = false;
+  document.getElementById('login').classList.add('show');
+  setTimeout(() => { try { document.getElementById('onboarding-name').focus(); } catch (e) {} }, 60);
+}
+document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('onboarding-name').value.trim();
+  if (!name) return;
+  const btn = document.getElementById('onboarding-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const bio = document.getElementById('onboarding-bio').value.trim();
+    const { error } = await sb.from('profiles').upsert({ id: currentUser.id, name, bio });
+    if (error) throw error;
+    document.getElementById('login').classList.remove('show');
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('loading').style.display = 'flex';
+    initMap();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Continue';
+    alert('Could not save your profile: ' + (err.message || err));
+  }
+});
 // ── GDPR: analytics consent (PostHog inits opted-out by default) ──
 function showAnalyticsConsent() {
   if (location.hostname === 'localhost') return; // PostHog isn't initialised there
