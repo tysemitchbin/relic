@@ -397,6 +397,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 #profile-view { background: var(--paper); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 #people-view { background: var(--paper); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 #public-profile-view { background: var(--paper); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#settings-view { background: var(--paper); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .profile-wrap { max-width: 800px; margin: 0 auto; padding: 40px; }
 .profile-hero { display: flex; gap: 32px; align-items: flex-start; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
 .profile-photo-wrap { cursor: pointer; flex-shrink: 0; }
@@ -1204,9 +1205,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="nav-btn" id="nav-profile" onclick="switchView('profile')">Profile</button>
       <button class="nav-btn" id="nav-people" onclick="switchView('people')">People</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
-      <button class="nav-btn" onclick="forceSync()">↺ Sync</button>
-      <button class="nav-btn" onclick="openFeedback()">💬 Feedback</button>
-      <button class="nav-btn" onclick="signOut()">Sign out</button>
+      <button class="nav-btn" id="nav-settings" onclick="switchView('settings')">Settings</button>
     </div>
     <button class="hamburger" id="hamburger-btn" onclick="toggleMobileMenu()">
       <span></span><span></span><span></span>
@@ -1220,8 +1219,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <button class="mobile-menu-item" data-view="profile" onclick="mobileNav('profile')">◇ Profile</button>
     <button class="mobile-menu-item" data-view="people" onclick="mobileNav('people')">◇ People</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openImport()">+ Import</button>
-    <button class="mobile-menu-item" onclick="mobileNav(null); forceSync()">↺ Sync</button>
-    <button class="mobile-menu-item" onclick="signOut()">Sign out</button>
+    <button class="mobile-menu-item" data-view="settings" onclick="mobileNav('settings')">◇ Settings</button>
   </div>
 
   <div id="main">
@@ -1383,9 +1381,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <div class="profile-wrap">
         <div class="profile-mobile-actions">
           <button onclick="openImport()">+ Import</button>
-          <button onclick="forceSync()">↺ Sync</button>
-          <button onclick="openFeedback()">💬 Feedback</button>
-          <button onclick="signOut()">Sign out</button>
+          <button onclick="switchView('settings')">⚙ Settings</button>
         </div>
         <div class="profile-hero">
           <div class="profile-photo-wrap" onclick="document.getElementById('profile-photo-input').click()">
@@ -1399,36 +1395,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           </div>
         </div>
         <div class="profile-stats-row" id="profile-stats-row"></div>
-
-        <div class="strava-section" id="strava-section">
-          <div class="strava-row">
-            <div class="strava-info">
-              <div class="strava-title">Strava</div>
-              <div class="strava-state" id="strava-state">Checking…</div>
-            </div>
-            <div class="strava-actions" id="strava-actions"></div>
-          </div>
-          <div class="strava-progress" id="strava-progress" hidden>
-            <div class="strava-progress-track"><div class="strava-progress-fill" id="strava-progress-fill"></div></div>
-            <div class="strava-progress-label" id="strava-progress-label"></div>
-          </div>
-        </div>
-
-        <div class="strava-section" id="account-section">
-          <div class="strava-row">
-            <div class="strava-info">
-              <div class="strava-title">Your Data</div>
-              <div class="strava-state">Export everything Relic has stored for you, or permanently delete your account.</div>
-            </div>
-            <div class="strava-actions">
-              <button class="btn-ghost" id="export-data-btn" onclick="exportMyData()">Export my data</button>
-              <button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="openDeleteAccountModal()">Delete account</button>
-            </div>
-          </div>
-          <div class="detail-section-sub" style="margin-top:10px;margin-bottom:0">
-            <a href="privacy.html" target="_blank" style="color:var(--muted)">Privacy Policy</a> &middot; <a href="terms.html" target="_blank" style="color:var(--muted)">Terms of Service</a>
-          </div>
-        </div>
 
         <div class="profile-stories-section" id="profile-stories-section" style="display:none">
           <div class="profile-stories-header">
@@ -1447,6 +1413,78 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         </div>
         <div class="profile-honeycomb-wrap">
           <div class="profile-honeycomb" id="profile-honeycomb"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS VIEW -->
+    <div class="view" id="settings-view">
+      <div class="profile-wrap">
+        <div class="strava-section" id="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Strava</div>
+              <div class="strava-state" id="strava-state">Checking…</div>
+            </div>
+            <div class="strava-actions" id="strava-actions"></div>
+          </div>
+          <div class="strava-progress" id="strava-progress" hidden>
+            <div class="strava-progress-track"><div class="strava-progress-fill" id="strava-progress-fill"></div></div>
+            <div class="strava-progress-label" id="strava-progress-label"></div>
+          </div>
+        </div>
+
+        <div class="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Privacy &amp; Analytics</div>
+              <div class="strava-state" id="analytics-state">Checking…</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" onclick="setAnalyticsConsent(true)">Enable</button>
+              <button class="btn-ghost" onclick="setAnalyticsConsent(false)">Disable</button>
+            </div>
+          </div>
+          <div class="detail-section-sub" style="margin-top:10px;margin-bottom:0">
+            <a href="privacy.html" target="_blank" style="color:var(--muted)">Privacy Policy</a> &middot; <a href="terms.html" target="_blank" style="color:var(--muted)">Terms of Service</a>
+          </div>
+        </div>
+
+        <div class="strava-section" id="account-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Your Data</div>
+              <div class="strava-state">Export everything Relic has stored for you, or permanently delete your account.</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" id="export-data-btn" onclick="exportMyData()">Export my data</button>
+              <button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="openDeleteAccountModal()">Delete account</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Support</div>
+              <div class="strava-state">Found a bug, or have an idea?</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" onclick="openFeedback()">Send feedback</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Account</div>
+              <div class="strava-state">Signed in as <span id="settings-email"></span></div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" onclick="signOut()">Sign out</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -3590,7 +3628,17 @@ function buildProfile() {
 
   renderProfileStories();
   renderProfileHoneycomb();
+}
+
+function buildSettings() {
   renderStravaSection();
+  document.getElementById('settings-email').textContent = currentUser?.email || '';
+  const analyticsEl = document.getElementById('analytics-state');
+  try {
+    if (posthog.has_opted_in_capturing()) analyticsEl.textContent = 'Enabled';
+    else if (posthog.has_opted_out_capturing()) analyticsEl.textContent = 'Disabled';
+    else analyticsEl.textContent = 'Not decided yet';
+  } catch (e) { analyticsEl.textContent = 'Unavailable'; }
 }
 
 // ════════════════════════════════════════
@@ -4630,6 +4678,7 @@ function switchView(view) {
   if(view==='feed') buildFeed();
   if(view==='profile') buildProfile();
   if(view==='people') buildPeople();
+  if(view==='settings') buildSettings();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
 }
 
@@ -4705,7 +4754,6 @@ function mobileNav(view) {
   document.getElementById('sidebar').classList.add('collapsed');
   if(view) switchView(view);
 }
-function forceSync() { location.reload(); }
 async function signOut() { try { posthog.reset(); await sb.auth.signOut(); } catch(e){} location.reload(); }
 
 // ── GDPR: export my data ──
@@ -4816,7 +4864,7 @@ _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox'
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
 _r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
 _r('setPrivacyUnit',setPrivacyUnit);_r('onPrivacyRadiusEdit',onPrivacyRadiusEdit);
-_r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
+_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('onPeopleSearchInput',onPeopleSearchInput);_r('toggleFollow',toggleFollow);
 _r('openPublicProfile',openPublicProfile);_r('closePublicProfile',closePublicProfile);
@@ -4949,6 +4997,8 @@ function setAnalyticsConsent(accept) {
   try { accept ? posthog.opt_in_capturing() : posthog.opt_out_capturing(); } catch (e) {}
   const el = document.getElementById('analytics-consent');
   if (el) el.hidden = true;
+  const stateEl = document.getElementById('analytics-state');
+  if (stateEl) stateEl.textContent = accept ? 'Enabled' : 'Disabled';
 }
 
 async function bootRelic() {
