@@ -1482,6 +1482,22 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           </div>
         </div>
 
+        <div class="strava-section" id="account-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Your Data</div>
+              <div class="strava-state">Export everything Relic has stored for you, or permanently delete your account.</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" id="export-data-btn" onclick="exportMyData()">Export my data</button>
+              <button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="openDeleteAccountModal()">Delete account</button>
+            </div>
+          </div>
+          <div class="detail-section-sub" style="margin-top:10px;margin-bottom:0">
+            <a href="privacy.html" target="_blank" style="color:var(--muted)">Privacy Policy</a> &middot; <a href="terms.html" target="_blank" style="color:var(--muted)">Terms of Service</a>
+          </div>
+        </div>
+
         <div class="profile-stories-section" id="profile-stories-section" style="display:none">
           <div class="profile-stories-header">
             <div class="profile-stories-title">Stories</div>
@@ -1584,6 +1600,27 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeImport()">Cancel</button>
       <button class="btn-primary" id="import-btn" onclick="doImport()">Add to Archive</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE ACCOUNT MODAL -->
+<div class="modal-overlay" id="delete-account-modal">
+  <div class="modal">
+    <div class="modal-title">Delete your account</div>
+    <div class="modal-sub">This cannot be undone</div>
+    <p style="font-family:'Cormorant Garamond',serif;font-size:14px;line-height:1.6;color:var(--ink);margin:0 0 14px">
+      This permanently deletes your account and everything tied to it: every activity, photo, story, note,
+      follower/following relationship, and your Strava connection. There is no way to recover it afterward.
+    </p>
+    <div class="import-progress" id="delete-account-status"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);margin:10px 0">
+      Type <strong style="color:var(--ink)">DELETE</strong> to confirm
+    </label>
+    <input class="modal-input" id="delete-account-confirm" type="text" autocomplete="off" placeholder="DELETE" oninput="onDeleteAccountConfirmInput()">
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeDeleteAccountModal()">Cancel</button>
+      <button class="btn-primary" id="delete-account-btn" style="background:#c0392b;border-color:#c0392b" disabled onclick="deleteMyAccount()">Delete my account</button>
     </div>
   </div>
 </div>
@@ -4869,6 +4906,88 @@ function mobileNav(view) {
 function forceSync() { location.reload(); }
 async function signOut() { try { posthog.reset(); await sb.auth.signOut(); } catch(e){} location.reload(); }
 
+// ── GDPR: export my data ──
+async function exportMyData() {
+  const btn = document.getElementById('export-data-btn');
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Exporting…';
+  try {
+    const mine = { user_id: currentUser.id };
+    const [acts, stories, photos, privNotes, feedbackRows, followingRes, followerRes, profRes] = await Promise.all([
+      selectAllRows('activities', null, mine),
+      selectAllRows('stories', null, mine),
+      selectAllRows('activity_photos', 'sort_order', mine),
+      selectAllRows('activity_private_notes', null, mine),
+      selectAllRows('feedback', null, mine),
+      sb.from('follows').select('followee_id, created_at').eq('follower_id', currentUser.id),
+      sb.from('follows').select('follower_id, created_at').eq('followee_id', currentUser.id),
+      sb.from('profiles').select('*').eq('id', currentUser.id).limit(1),
+    ]);
+    const photoPaths = photos.map(p => p.storage_path);
+    const signedByPath = {};
+    for (let i = 0; i < photoPaths.length; i += 1000) {
+      const batch = photoPaths.slice(i, i + 1000);
+      const { data: signed } = await sb.storage.from('photos').createSignedUrls(batch, SIGNED_URL_TTL);
+      (signed || []).forEach(s => { if (s.signedUrl) signedByPath[s.path] = s.signedUrl; });
+    }
+    const exportObj = {
+      exported_at: new Date().toISOString(),
+      note: 'Photo download_url links expire in 24 hours -- save the images promptly if you need them.',
+      account: { id: currentUser.id, email: currentUser.email },
+      profile: (profRes.data && profRes.data[0]) || null,
+      activities: acts,
+      stories,
+      activity_photos: photos.map(p => ({ ...p, download_url: signedByPath[p.storage_path] || null })),
+      private_notes: privNotes,
+      following: followingRes.data || [],
+      followers: followerRes.data || [],
+      feedback: feedbackRows,
+    };
+    const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `relic-export-${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error('Export failed', e);
+    alert('Export failed: ' + (e.message || e));
+  } finally {
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+// ── GDPR: delete my account ──
+function openDeleteAccountModal() {
+  document.getElementById('delete-account-confirm').value = '';
+  document.getElementById('delete-account-btn').disabled = true;
+  document.getElementById('delete-account-status').textContent = '';
+  document.getElementById('delete-account-modal').classList.add('open');
+}
+function closeDeleteAccountModal() { document.getElementById('delete-account-modal').classList.remove('open'); }
+function onDeleteAccountConfirmInput() {
+  document.getElementById('delete-account-btn').disabled = document.getElementById('delete-account-confirm').value.trim() !== 'DELETE';
+}
+async function deleteMyAccount() {
+  const btn = document.getElementById('delete-account-btn');
+  const statusEl = document.getElementById('delete-account-status');
+  btn.disabled = true;
+  statusEl.textContent = 'Deleting…';
+  try {
+    const { data, error } = await sb.functions.invoke('delete-account', { body: {} });
+    if (error) throw new Error(error.message || 'delete failed');
+    if (data && data.error) throw new Error(data.error);
+    try { localStorage.clear(); } catch (e) {}
+    try { posthog.reset(); } catch (e) {}
+    await sb.auth.signOut();
+    location.reload();
+  } catch (e) {
+    console.error('Account deletion failed', e);
+    statusEl.textContent = 'Failed — ' + (e.message || e);
+    btn.disabled = false;
+  }
+}
+
 // Drag & drop
 const dz=document.getElementById('drop-zone');
 dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
@@ -4878,7 +4997,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeFilterDrawer();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeFilterDrawer();closeDeleteAccountModal();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -4888,6 +5007,8 @@ _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('togg
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
+_r('exportMyData',exportMyData);_r('openDeleteAccountModal',openDeleteAccountModal);_r('closeDeleteAccountModal',closeDeleteAccountModal);
+_r('onDeleteAccountConfirmInput',onDeleteAccountConfirmInput);_r('deleteMyAccount',deleteMyAccount);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
 _r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
