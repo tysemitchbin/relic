@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relic — Privacy Policy</title>
+<style>
+  :root { --ink:#1a1814; --muted:#8a8378; --paper:#faf7f2; --paper2:#f0ebe2; --border:#ddd5c7; --accent:#92400e; }
+  body { font-family: 'Georgia', 'Cormorant Garamond', serif; background: var(--paper); color: var(--ink); max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; line-height: 1.65; font-size: 16px; }
+  .wordmark { font-family: 'JetBrains Mono', monospace; letter-spacing: 4px; text-transform: uppercase; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  h1 { font-size: 32px; font-weight: 500; margin: 0 0 6px; }
+  .updated { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.5px; margin-bottom: 32px; }
+  .draft-notice { background: #fff3e0; border: 1px solid #e0b46a; padding: 16px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.6; margin-bottom: 36px; color: #6b4a1a; }
+  .draft-notice strong { color: #4a3010; }
+  h2 { font-size: 21px; font-weight: 500; margin: 40px 0 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  h3 { font-size: 16px; font-weight: 600; margin: 22px 0 8px; }
+  p { margin: 0 0 14px; }
+  ul { margin: 0 0 14px; padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  a { color: var(--accent); }
+  .placeholder { background: #fde8e8; color: #a02020; padding: 1px 5px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .back-link { display: inline-block; margin-bottom: 24px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); text-decoration: none; }
+  .back-link:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+  <a class="back-link" href="index.html">&larr; Back to Relic</a>
+  <div class="wordmark">Relic</div>
+  <h1>Privacy Policy</h1>
+  <div class="updated">Draft — last edited 2026-09-12</div>
+
+  <div class="draft-notice">
+    <strong>This is a working draft, not a finished legal document.</strong> It was written to accurately describe
+    what Relic's code actually does — every data category and third party listed below reflects the real
+    implementation, not boilerplate. But it has not been reviewed by a lawyer, the
+    <span class="placeholder">[bracketed placeholders]</span> need filling in, and data protection law
+    (particularly around health-adjacent data like heart rate) has real teeth. Have this reviewed before treating
+    it as your actual policy, especially if Relic's audience grows beyond friends and family.
+  </div>
+
+  <p>
+    Relic ("we", "the app") is a personal activity and life-archive app: it stores your movement history,
+    lets you write about it, and optionally lets you share parts of it with people you choose. This policy
+    explains what we collect, why, and what control you have over it.
+  </p>
+
+  <h2>1. Who this covers</h2>
+  <p>
+    This policy applies to anyone with a Relic account. Relic is operated by
+    <span class="placeholder">[your name / organisation]</span>, contactable at
+    <span class="placeholder">[your contact email]</span> for any question about this policy or your data.
+  </p>
+
+  <h2>2. What we collect</h2>
+  <table>
+    <tr><th>Category</th><th>What, specifically</th><th>Source</th></tr>
+    <tr><td>Account</td><td>Email address, password (stored hashed, never in plain text)</td><td>You, at signup</td></tr>
+    <tr><td>Profile</td><td>Display name, bio, avatar photo</td><td>You</td></tr>
+    <tr><td>Activity data</td><td>GPS route, name, type, date, distance, duration, elevation</td><td>You (manual import) or Strava (if connected)</td></tr>
+    <tr><td>Fitness &amp; health metrics</td><td>Heart rate, calories, pace/speed, cadence, power, perceived-effort ("suffer") score</td><td>Strava, if you connect it and the activity has this data</td></tr>
+    <tr><td>Journal content</td><td>Per-activity notes, a separate always-private note, mood, multi-activity "Story" narratives</td><td>You</td></tr>
+    <tr><td>Photos</td><td>Photos you attach to activities or use as your avatar, including any location/timestamp embedded in the file</td><td>You</td></tr>
+    <tr><td>Social data</td><td>Who you follow and who follows you; which activities you've marked public, and any privacy-radius setting on them</td><td>You</td></tr>
+    <tr><td>Strava connection</td><td>OAuth access/refresh tokens, Strava athlete ID — used only to import your activities</td><td>Strava (with your authorization)</td></tr>
+    <tr><td>Feedback</td><td>Bug reports / feedback text, an optional screenshot, your browser's user-agent string</td><td>You</td></tr>
+    <tr><td>Product analytics</td><td>Which features you use and how, tied to your account so we can fix problems and improve the app</td><td>Collected automatically (PostHog) — see §5</td></tr>
+  </table>
+
+  <h3>A note on health data</h3>
+  <p>
+    Heart rate, calories, and effort scores are widely treated as special-category ("health") data under data
+    protection law, which requires a higher bar than ordinary personal data. Relic only receives this data if you
+    connect Strava, and only for activities that already contain it. Connecting Strava is always your choice —
+    we ask you to confirm explicitly, separately from agreeing to this policy, before pulling in that data (see §4).
+  </p>
+
+  <h2>3. Why we process it</h2>
+  <ul>
+    <li><strong>To run the app</strong> — your account, activities, notes and photos exist so Relic can function as your archive. (Legal basis: performance of a contract.)</li>
+    <li><strong>To sync from Strava</strong> — only if and when you connect your account. (Legal basis: your explicit consent, withdrawable at any time by disconnecting.)</li>
+    <li><strong>To power optional social features</strong> — search, following, and public profiles only ever show activities you've explicitly marked public. (Legal basis: your consent, expressed by that per-activity choice.)</li>
+    <li><strong>To improve the app</strong> — aggregate usage analytics (PostHog). (Legal basis: consent, requested separately — see §5.)</li>
+    <li><strong>To respond to feedback</strong> — anything you send through the in-app feedback form. (Legal basis: legitimate interest in supporting our users.)</li>
+  </ul>
+
+  <h2>4. Who else sees it</h2>
+  <p>We don't sell your data. A few infrastructure providers process it on our behalf to run the service:</p>
+  <table>
+    <tr><th>Provider</th><th>What they handle</th><th>Location</th></tr>
+    <tr><td>Supabase</td><td>Database, authentication, file storage, background functions</td><td>EU (Ireland / AWS eu-west-1)</td></tr>
+    <tr><td>Cloudflare</td><td>Hosting and content delivery for the app itself</td><td>Global network</td></tr>
+    <tr><td>Mapbox</td><td>Map tiles and static map images — receives the coordinates needed to draw a given view</td><td>United States</td></tr>
+    <tr><td>Strava</td><td>Source of imported activity data, only if you connect your account</td><td>United States</td></tr>
+    <tr><td>PostHog</td><td>Product analytics</td><td>EU (hosted on PostHog's EU cloud)</td></tr>
+  </table>
+  <p>
+    Where a provider is outside the EU/EEA (Mapbox, Strava), we rely on the safeguards each maintains for
+    international transfers (such as standard contractual clauses). <span class="placeholder">[confirm and
+    reference each provider's current data processing agreement here]</span>.
+  </p>
+  <p>
+    Beyond these providers, other Relic users only ever see what you choose to make public: your profile
+    (name, bio, avatar), and — for activities you mark public — the route (minus anything within your chosen
+    privacy radius of its start/end), stats, note, mood, and photos. Your private notes, and anything you keep
+    private, are never shown to anyone else.
+  </p>
+
+  <h2>5. Analytics &amp; tracking</h2>
+  <p>
+    Relic uses PostHog to understand how the app is used, so we can fix what's broken and improve what isn't.
+    This is off by default; you're asked to opt in, and can change your mind at any time from
+    <span class="placeholder">[Settings/Profile — link to the toggle once built]</span>. Analytics data is tied
+    to your account so we can correlate it with support requests, but it is never sold or shared beyond PostHog.
+  </p>
+
+  <h2>6. How long we keep it</h2>
+  <p>
+    We keep your data for as long as your account exists. If you disconnect Strava, we delete the connection's
+    access tokens immediately. If you delete your account (Profile → Delete account), everything tied to it —
+    activities, photos, notes, social connections, everything in the tables above — is permanently deleted
+    within the same operation. There is no recovery after that point.
+  </p>
+
+  <h2>7. Your rights</h2>
+  <p>Under GDPR and similar laws, you can:</p>
+  <ul>
+    <li><strong>Access &amp; export</strong> your data — Profile → Export my data gives you a complete JSON copy of everything listed in §2.</li>
+    <li><strong>Correct</strong> anything inaccurate — directly, by editing it in the app.</li>
+    <li><strong>Delete</strong> your account and everything in it — Profile → Delete account.</li>
+    <li><strong>Withdraw consent</strong> at any time — disconnect Strava, make an activity private again, or turn off analytics — without affecting the rest of your account.</li>
+    <li><strong>Object or restrict</strong> processing, or lodge a complaint with your local data protection authority, by contacting us first at <span class="placeholder">[your contact email]</span>.</li>
+  </ul>
+
+  <h2>8. Security</h2>
+  <p>
+    Your data is protected by row-level database security (each account can only ever read or write its own
+    data, with narrow, explicit exceptions for the social features you opt into), encrypted in transit (HTTPS),
+    and access-controlled storage for photos.
+  </p>
+
+  <h2>9. Children</h2>
+  <p>
+    Relic isn't directed at children and we don't knowingly collect data from anyone under
+    <span class="placeholder">[16 — adjust for your jurisdiction; EU member states vary between 13 and 16]</span>.
+    If you believe a child has created an account, contact us and we'll remove it.
+  </p>
+
+  <h2>10. Changes to this policy</h2>
+  <p>
+    If this policy changes materially, we'll update the date at the top and let active users know
+    <span class="placeholder">[describe how — email, in-app notice, etc.]</span>.
+  </p>
+
+  <h2>11. Contact</h2>
+  <p>
+    Questions, requests, or complaints about this policy or your data: <span class="placeholder">[your contact email]</span>.
+  </p>
+</body>
+</html>
