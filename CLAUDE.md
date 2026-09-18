@@ -1,6 +1,6 @@
 # Relic — CLAUDE.md
 
-Relic is a personal life-map app: a single `index.html` (~4,800 lines), no
+Relic is a personal life-map app: a single `index.html` (~8,300 lines), no
 build step, no framework. Mapbox GL JS for the map, Supabase for
 auth/storage/sync. There is no bundler — every edit lands directly in
 `index.html`, so keep edits surgical (`str_replace`-style) rather than
@@ -38,6 +38,63 @@ future sessions would need.
   and colors in `relic_colors_v1` (localStorage) are for GPS-shaped Moments.
   Do not add pin categories into `TYPE_CONFIG` — see below.
 
+## Design system + social layer (`ux-social-overhaul`, 2026-09-18)
+
+Full rationale lives in `docs/review-2026-09-18.md`. What future edits need
+to know:
+
+- **Tokens, not literals.** Colours/radii/shadows/fonts are CSS variables on
+  `:root` (`--bg`, `--surface`, `--text`, `--text-2`, `--text-3`, `--accent`,
+  `--r-*`, `--sh-*`, `--font-ui` = Inter, `--font-display` = Fraunces,
+  `--font-mono` for coordinates only). The legacy names (`--ink`, `--paper`,
+  `--paper2`, `--muted`…) still exist and point at the new palette.
+  `--text-2`/`--text-3` are the AA-contrast secondary colours — don't
+  reintroduce the old `#8a8278`-on-paper greys. Nothing below 11px; no
+  letter-spaced monospace uppercase on buttons (sentence case).
+- **Buttons:** `.btn-primary` (accent), `.btn-primary.dark`, `.btn-ghost`,
+  `.btn-sm`, `.danger`; `.follow-btn`; `.fc-act` (feed card actions);
+  `.seg` segmented control; `.switch` toggle; `.chip`. Reuse these rather
+  than adding another one-off button class.
+- **Icons:** inline SVG sprite at the top of `<body>` (`#icon-sprite`), used as
+  `<svg class="ic"><use href="#i-name"/></svg>`. Add new icons as `<symbol>`s
+  there (24px grid, stroke). No unicode glyphs as UI icons.
+- **Dialogs:** never `alert()`/`confirm()`. Use `toast(msg, {error, icon,
+  action})` and `await uiConfirm({title, body, ok, danger})`.
+- **Escaping:** anything user-authored that goes into an HTML string goes
+  through `escapeHtml()`; ids/strings passed into inline `onclick` go through
+  `jsAttr()`. Friends' content is rendered now, so a miss is cross-user XSS,
+  not self-XSS.
+- **Social data layer:** all social reads/writes go through the `Social`
+  object (profiles, graph, follow, feed, stories, photos, kudos, comments,
+  notifications, suggestions, block, report). `?demo` swaps in `DemoSocial`
+  (a synthetic cast of friends) via `Object.assign(Social, DemoSocial)` —
+  **add any new `Social` method to `DemoSocial` too**, or `?demo` breaks.
+  UI code never branches on `DEMO`. `?demo` never writes to Supabase
+  (`persistMoments` / `flushDirty` short-circuit).
+- **Tables that may not exist yet** (`kudos`, `comments`, `story_public`,
+  `blocks` — all in `docs/supabase-social-v2.sql`): the client detects a
+  missing relation with `isMissingTable(err)` and flips `_socialOff.<x>`,
+  which hides that UI. Keep new social tables optional the same way until
+  the SQL has been run in production.
+- **Public snapshots:** non-owners only ever read `activity_public` /
+  `story_public` — redacted on the owner's device (`buildPublicSnapshotRow`,
+  `buildStorySnapshotRow`, via `redactTrackForPrivacy`). A story is public iff
+  it has a `story_public` row (no column on `stories`). Never expose raw
+  `activities` rows to other users.
+- **Notifications** are derived (follows/kudos/comments aimed at you, newest
+  first) with a per-device "last seen" in localStorage — there is no
+  notifications table. Compare timestamps with `Date.parse`, not strings.
+- **Deep links:** `?u=<user>` opens a profile, `&a=<activity>` / `&s=<story>`
+  focuses a card. `captureDeepLink()` stores it (so it survives sign-up /
+  email confirmation) and strips it from the URL; `handlePendingDeepLink()`
+  runs from `afterBoot()`.
+- **Views:** `feed` (Following/You tabs + `#feed-top` checklist/"On this day"),
+  `people` (Discover/Following/Followers tabs — the follower lists moved here
+  from the old People page; the profile's Followers/Following stats open
+  them via `openConnections()`), `public-profile` (hero + interactive
+  `_ppMap` of their public tracks). The map's activity list (`#sidebar`)
+  opens from the `#list-toggle` pill.
+
 ## Filters + Activities view (merged from `map-filters`, 2026-09-04)
 
 `retrospective-entry` originally branched off `main` *before* the separate
@@ -56,7 +113,7 @@ bug, this is what replaced them:
   `defaultFilters`) for a new filterable field, not a second predicate.
 - **`buildFilterDrawer()`** replaces `buildToolsPanel()` — one collapsible-
   section drawer (`#filter-drawer`, opened via `openFilterDrawer()`/the ⚑
-  toolbar button) covering type/source/date/distance/duration/elevation/
+  map control, now a sliders icon) covering type/source/date/distance/duration/elevation/
   heart-rate/mood/attributes, **plus a "Pins" section** (added during the
   merge) driven by `PIN_CATEGORIES`/`activePinCategories` — kept structurally
   separate from `filters` since Pins aren't tracked Moments and none of the
@@ -286,7 +343,7 @@ on each photo thumbnail in the existing photo grid (`renderPhotos`).
 fetch wrapper) is used by Pins, Manual Entry, and the NL parser — extend this
 one function rather than adding a second geocoding call site.
 
-**Entry point**: a single "+ Add" nav button (header + mobile menu) opens
+**Entry point**: a single "+ Add" button (header on desktop, the centre + of the mobile tab bar) opens
 `#add-modal`, a chooser between the five ways to add something without live
 tracking (drop a pin / pin by address / manual entry / describe a trip /
 draw a route), rather than cluttering the header with one button per
