@@ -302,6 +302,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .lp-opt.active { color: var(--ink); }
 .lp-opt.active .lp-swatch { border-color: var(--accent); }
 .lp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); font: 500 14px var(--font-ui); color: var(--ink); }
+.friend-pop .mapboxgl-popup-content { border-radius: var(--r-md); padding: 12px 14px; box-shadow: var(--sh-3); font-family: var(--font-ui); }
+.fp-who { font-size: 12px; font-weight: 600; color: var(--text-3); }
+.fp-name { font: 600 16px/1.25 var(--font-display); color: var(--ink); margin: 2px 0; }
+.fp-date { font-size: 12px; color: var(--text-3); margin-bottom: 10px; }
 .lp-row small { display: block; font-size: 12px; color: var(--text-3); font-weight: 400; }
 .switch {
   position: relative; width: 44px; height: 26px; border-radius: var(--r-pill); border: none; background: var(--paper3);
@@ -1795,6 +1799,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             <button class="lp-opt" id="satellite-btn" onclick="setBasemap(true)"><span class="lp-swatch sat"></span>Satellite</button>
           </div>
           <div class="lp-row"><div>3D terrain<small>Tilt to see the mountains</small></div><button class="switch" id="terrain-btn" onclick="toggleTerrain()" aria-label="3D terrain"></button></div>
+          <div class="lp-row" style="border-top:none;padding-top:10px"><div>Friends' tracks<small>Where people you follow have been</small></div><button class="switch" id="friends-btn" onclick="toggleFriendsLayer()" aria-label="Friends' tracks"></button></div>
         </div>
         <div class="mt-group">
           <button class="mt-btn" onclick="fitArchive()" title="Show everything" aria-label="Show everything"><svg class="ic"><use href="#i-maximize"/></svg></button>
@@ -2584,7 +2589,7 @@ function saveMapPrefs() {
     const k = _prefsKey(); if (!k) return;
     try {
       localStorage.setItem(k, JSON.stringify({
-        v: 1, filters, sidebarSort, terrainOn, satelliteOn, camera: _lastCamera,
+        v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, camera: _lastCamera,
       }));
     } catch (e) { /* quota — prefs just won't persist */ }
   }, 400);
@@ -2611,6 +2616,7 @@ function restoreBasemap(p) {
   _basemapRestored = true;
   try { if (p.terrainOn && !terrainOn) toggleTerrain(); } catch (e) {}
   try { if (p.satelliteOn && !satelliteOn) toggleSatellite(); } catch (e) {}
+  try { if (p.friendsLayerOn && !friendsLayerOn) toggleFriendsLayer(); } catch (e) {}
 }
 let sidebarSort = 'recent';
 let profileSort = 'recent';
@@ -3778,12 +3784,66 @@ function toggleSatellite() {
   }
 }
 
+// ── Friends' tracks: public activities of everyone you follow, drawn under
+// your own tracks, each person in their own colour. ──
+let friendsLayerOn = false, _friendsPopup = null;
+async function toggleFriendsLayer() {
+  friendsLayerOn = !friendsLayerOn;
+  updateLayersUI();
+  saveMapPrefs();
+  if (!friendsLayerOn) { try { map.setLayoutProperty('friends-layer', 'visibility', 'none'); map.setLayoutProperty('friends-hit', 'visibility', 'none'); } catch (e) {} return; }
+  try {
+    await Social.graph();
+    const authors = [...myFollowingIds].filter(id => !myBlockedIds.has(id));
+    if (!authors.length) { toast('Follow people to see their tracks on your map', { action: { label: 'Find people', fn: () => switchView('people') } }); friendsLayerOn = false; updateLayersUI(); return; }
+    const rows = await Social.feed({ authorIds: authors, limit: 500 });
+    const profs = await Social.profiles([...new Set(rows.map(r => r.user_id))]);
+    const byId = Object.fromEntries(profs.map(p => [p.id, p]));
+    const feats = [];
+    rows.forEach(r => (r.polylines || []).forEach(p => {
+      let c; try { c = decodePolyline(p); } catch (e) { return; }
+      if (c.length < 2) return;
+      feats.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: c },
+        properties: { owner: r.user_id, aid: r.activity_id, name: r.name || 'Untitled', who: byId[r.user_id]?.name || 'Someone', date: r.date || '', color: `hsl(${_hue(r.user_id)}, 62%, 44%)` } });
+    }));
+    const data = { type: 'FeatureCollection', features: feats };
+    if (map.getSource('friends')) map.getSource('friends').setData(data);
+    else {
+      map.addSource('friends', { type: 'geojson', data });
+      const below = map.getLayer('tracks-layer') ? 'tracks-layer' : undefined;
+      map.addLayer({ id: 'friends-layer', type: 'line', source: 'friends', layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 1, 10, 2.2, 14, 3], 'line-opacity': 0.7, 'line-dasharray': [2, 1.2] } }, below);
+      map.addLayer({ id: 'friends-hit', type: 'line', source: 'friends', paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 16 } }, below);
+      map.on('click', 'friends-hit', e => {
+        if (_pinDropMode || _drawMode) return;
+        if (map.queryRenderedFeatures(e.point, { layers: ['tracks-hit'] }).length) return; // your own track wins
+        const f = e.features[0].properties;
+        if (_friendsPopup) _friendsPopup.remove();
+        _friendsPopup = new mapboxgl.Popup({ closeButton: true, maxWidth: '260px', className: 'friend-pop' }).setLngLat(e.lngLat)
+          .setHTML(`<div class="fp-who">${escapeHtml(f.who)}</div><div class="fp-name">${escapeHtml(f.name)}</div><div class="fp-date">${escapeHtml(activityWhen(f.date))}</div>
+            <button class="btn-primary btn-sm" onclick="openPublicProfile(${jsAttr(f.owner)},${jsAttr(f.aid)})">View on profile</button>`).addTo(map);
+      });
+      map.on('mouseenter', 'friends-hit', () => { if (!_pinDropMode && !_drawMode) map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'friends-hit', () => map.getCanvas().style.cursor = '');
+    }
+    map.setLayoutProperty('friends-layer', 'visibility', 'visible');
+    map.setLayoutProperty('friends-hit', 'visibility', 'visible');
+    const people = new Set(rows.map(r => r.user_id)).size;
+    toast(feats.length ? `Showing ${rows.length} activities from ${people} ${people === 1 ? 'person' : 'people'}` : 'The people you follow haven\'t shared any tracks yet', { icon: 'users' });
+  } catch (e) {
+    console.error('Friends layer failed', e);
+    friendsLayerOn = false; updateLayersUI();
+    toast('Couldn\'t load friends\' tracks', { error: true });
+  }
+}
+
 // Layers popover (map style + 3D terrain) — replaces the old 3D / ⊞ buttons.
 function updateLayersUI() {
   document.getElementById('terrain-btn')?.classList.toggle('active', terrainOn);
   document.getElementById('satellite-btn')?.classList.toggle('active', satelliteOn);
   document.getElementById('lp-standard')?.classList.toggle('active', !satelliteOn);
-  document.getElementById('layers-btn')?.classList.toggle('active', satelliteOn || terrainOn);
+  document.getElementById('friends-btn')?.classList.toggle('active', friendsLayerOn);
+  document.getElementById('layers-btn')?.classList.toggle('active', satelliteOn || terrainOn || friendsLayerOn);
 }
 function setBasemap(satellite) { if (!!satellite !== satelliteOn) toggleSatellite(); }
 function toggleLayersPop(e) {
@@ -3809,7 +3869,7 @@ function fitArchive() {
 }
 
 function getSatelliteToggleLayers() {
-  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','draw-route-hit','satellite-layer','sky'].includes(l.id)).map(l=>l.id);
+  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','draw-route-hit','satellite-layer','sky','friends-layer','friends-hit'].includes(l.id)).map(l=>l.id);
 }
 
 function updateTypeColor(typeKey, color) {
@@ -7950,7 +8010,7 @@ window.addEventListener('resize', () => { if (map) map.resize(); if (document.ge
 const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
-_r('setBasemap',setBasemap);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
+_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
