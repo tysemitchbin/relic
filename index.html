@@ -2747,6 +2747,13 @@ async function loadFromSupabase() {
     db[r.id] = m;
   });
   stories.forEach(r => { db[r.id] = rowToStory(r); });
+  // A story is "public" iff it has a story_public snapshot (no column on
+  // stories). Tolerates the table not existing yet (migration not run).
+  try {
+    const { data: pubStories, error: psErr } = await sb.from('story_public').select('story_id').eq('user_id', currentUser.id);
+    if (psErr) { if (isMissingTable(psErr)) _socialOff.stories = true; }
+    else (pubStories || []).forEach(r => { if (db[r.story_id]) db[r.story_id].isPublic = true; });
+  } catch (e) {}
   privNotes.forEach(r => { if (db[r.activity_id]) db[r.activity_id].privateNote = r.note || ''; });
 
   const p = (profRes.data && profRes.data[0]) || null;
@@ -2837,6 +2844,8 @@ async function flushDirty() {
   try {
     if (acts.length) { const { error } = await sb.from('activities').upsert(acts); if (error) throw error; }
     if (stories.length) { const { error } = await sb.from('stories').upsert(stories); if (error) throw error; }
+    const pubStorySnaps = ids.map(id => db[id]).filter(o => o && isStory(o) && o.isPublic).map(buildStorySnapshotRow);
+    if (pubStorySnaps.length && !_socialOff.stories) { const { error } = await sb.from('story_public').upsert(pubStorySnaps); if (error && !isMissingTable(error)) throw error; }
     if (privNotes.length) { const { error } = await sb.from('activity_private_notes').upsert(privNotes); if (error) throw error; }
     if (publicUpserts.length) { const { error } = await sb.from('activity_public').upsert(publicUpserts); if (error) throw error; }
     if (publicDeletes.length) { const { error } = await sb.from('activity_public').delete().eq('user_id', currentUser.id).in('activity_id', publicDeletes); if (error) throw error; }
@@ -2972,6 +2981,8 @@ function seedDemoData() {
       isPublic: i % 3 === 0, privacyRadiusM: 0,
     };
   }
+  db.story_demo = { id: 'story_demo', type: 'story', title: 'A week in Trøndelag', narrative: 'Rain, sun, rain again — and the best cinnamon bun of my life in Røros.',
+    mood: 'good', momentIds: ['demo_0', 'demo_1', 'demo_2', 'demo_3'], createdAt: '2025-06-01T10:00:00Z', lastModified: '2025-06-01T10:00:00Z' };
   _profile = { name: 'Demo User', bio: 'Local demo — synthetic data.', avatarPath: null, photo: null };
 }
 
@@ -3824,7 +3835,7 @@ function showDetail(memId) {
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
   // Restore detail body to moment layout (in case it was showing a story)
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits').forEach(el => el.remove());
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(el => el.remove());
   document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
   document.getElementById('d-rows').style.display='';
   document.getElementById('d-strava-link').style.display='';
@@ -3923,7 +3934,7 @@ function showStoryDetail(storyId) {
   document.getElementById('d-delete-row').style.display = 'none';
 
   // Remove any previous story detail elements
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
 
   const body = document.getElementById('detail-body');
 
@@ -3964,6 +3975,11 @@ function showStoryDetail(storyId) {
     '<button class="btn-ghost" onclick="openStoryModal(\'' + storyId + '\')">Edit Moments</button>' +
     '<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="deleteStory(\'' + storyId + '\');closeDetail()">Delete Story</button>';
   body.insertBefore(actionsDiv, document.getElementById('d-rows'));
+  var shareDiv = document.createElement('div');
+  shareDiv.className = 'detail-section sd-share';
+  shareDiv.id = 'sd-share';
+  body.insertBefore(shareDiv, actionsDiv);
+  renderStoryShareSection(storyId);
 
   // Moment timeline
   var timelineDiv = document.createElement('div');
@@ -4015,7 +4031,7 @@ function closeDetail() {
   renderList();
   updateTrackHighlight(null);
   // Clean up any story-injected elements from detail body
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
@@ -5196,7 +5212,7 @@ function shareActivity(ownerId, activityId, name) {
 // branches on DEMO. Activity keys are `${ownerId}/${activityId}`.
 let myFollowingIds = new Set(), myFollowerIds = new Set();
 const _avatarCache = {};                        // storage path → signed URL
-const _socialOff = { kudos: false, comments: false }; // tables not migrated yet → hide the UI
+const _socialOff = { kudos: false, comments: false, stories: false }; // tables not migrated yet → hide the UI
 function isMissingTable(err) {
   const m = String((err && err.message) || '') + ' ' + String((err && err.code) || '');
   return /42P01|PGRST205|does not exist|Could not find the table/i.test(m);
@@ -5265,6 +5281,13 @@ const Social = {
   async userActivities(userId) {
     const { data, error } = await sb.from('activity_public').select('*').eq('user_id', userId).order('date', { ascending: false }).limit(300);
     if (error) throw error;
+    return data || [];
+  },
+  // Shared stories (story_public). Empty — not an error — before the migration.
+  async stories(authorIds, limit) {
+    if (_socialOff.stories || !authorIds.length) return [];
+    const { data, error } = await sb.from('story_public').select('*').in('user_id', authorIds).order('date_end', { ascending: false }).limit(limit || 20);
+    if (error) { if (isMissingTable(error)) _socialOff.stories = true; else console.warn('story feed failed', error); return []; }
     return data || [];
   },
   // { key: [signedUrl, …] } for public activities' photos
@@ -5417,6 +5440,15 @@ const DemoSocial = (() => {
       custom_color: null, polylines: [encodePolyline(pts)],
     });
   }));
+  // A shared trip from Kai: his two rides as one story
+  const kaiRides = rows.filter(r => r.user_id === 'u_kai');
+  const demoStories = [{
+    user_id: 'u_kai', story_id: 'demo_story_kai', title: 'West coast bikepacking',
+    narrative: 'Three days, two flat tyres, one perfect campsite above Hardangerfjord.', mood: 'epic',
+    date_start: kaiRides[kaiRides.length - 1].date.slice(0, 10), date_end: kaiRides[0].date.slice(0, 10),
+    moment_count: kaiRides.length, distance: kaiRides.reduce((a, r) => a + r.distance, 0), duration: kaiRides.reduce((a, r) => a + r.duration, 0),
+    elevation: 0, type_counts: { Ride: kaiRides.length }, polylines: kaiRides.flatMap(r => r.polylines), colors: kaiRides.map(() => '#2563eb'),
+  }];
   const state = {
     following: new Set(['u_ines', 'u_kai', 'u_maya']),
     followers: new Set(['u_ines', 'u_tomas', 'u_sam']),
@@ -5451,6 +5483,10 @@ const DemoSocial = (() => {
         .sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, limit || 15));
     },
     async userActivities(userId) { return wait(allRows().filter(r => r.user_id === userId).sort((a, b) => (a.date < b.date ? 1 : -1))); },
+    async stories(authorIds) {
+      const own = getStories().filter(st => st.isPublic).map(buildStorySnapshotRow);
+      return wait(demoStories.concat(own).filter(r => authorIds.includes(r.user_id)).sort((a, b) => (a.date_end < b.date_end ? 1 : -1)));
+    },
     async photos() { return {}; },
     async kudos(keys) {
       const out = new Map();
@@ -5501,7 +5537,7 @@ if (DEMO) Object.assign(Social, DemoSocial);
 // FEED — "Following" (people you follow) and "You" (your own archive)
 // ════════════════════════════════════════
 let feedTab = 'following';
-let _feedCursor = null, _feedLoading = false, _feedDone = false, _feedToken = 0;
+let _feedCursor = null, _feedLoading = false, _feedDone = false, _feedToken = 0, _feedStories = [];
 const _canvasJobs = [];
 
 function setFeedTab(tab) {
@@ -5663,26 +5699,39 @@ async function buildFollowingFeed(reset) {
         `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Invite friends</button>`);
       return;
     }
-    const rows = await Social.feed({ authorIds: authors, before: _feedCursor, limit: 15 });
+    const [rows, stories] = await Promise.all([
+      Social.feed({ authorIds: authors, before: _feedCursor, limit: 15 }),
+      reset ? Social.stories(authors, 20) : Promise.resolve(null),
+    ]);
     if (token !== _feedToken) return;
-    if (reset && !rows.length) {
+    if (stories) _feedStories = stories;
+    // Interleave shared stories by date: take the ones at least as new as
+    // this page's oldest activity (or all that remain on the last page).
+    const pageDone = rows.length < 15;
+    const floor = rows.length ? (rows[rows.length - 1].date || '').slice(0, 10) : '';
+    const pageStories = _feedStories.filter(st => pageDone || (st.date_end || '') >= floor);
+    _feedStories = _feedStories.filter(st => !pageStories.includes(st));
+    if (reset && !rows.length && !pageStories.length) {
       c.innerHTML = emptyBlock('home', 'Quiet out there',
         'The people you follow haven\'t shared anything public yet. Check back soon, or find a few more people to follow.',
         `<button class="btn-primary" onclick="switchView('people')">Find people</button>`);
       return;
     }
     const [profs, photos, kudos, ccounts] = await Promise.all([
-      Social.profiles(rows.map(r => r.user_id)), Social.photos(rows),
+      Social.profiles(rows.map(r => r.user_id).concat(pageStories.map(st => st.user_id))), Social.photos(rows),
       Social.kudos(rows.map(r => socialKey(r.user_id, r.activity_id))),
       Social.commentCounts(rows.map(r => socialKey(r.user_id, r.activity_id))),
     ]);
     if (token !== _feedToken) return;
     const byId = Object.fromEntries(profs.map(p => [p.id, p]));
     if (reset) c.innerHTML = '';
-    c.insertAdjacentHTML('beforeend', rows.map(r => renderActivityCard(itemFromPublicRow(r, byId[r.user_id], photos, kudos, ccounts))).join(''));
+    const merged = rows.map(r => ({ d: r.date || '', html: () => renderActivityCard(itemFromPublicRow(r, byId[r.user_id], photos, kudos, ccounts)) }))
+      .concat(pageStories.map(st => ({ d: (st.date_end || '') + 'T23:59:59', html: () => renderPublicStoryCard(st, byId[st.user_id]) })))
+      .sort((a, b) => (a.d < b.d ? 1 : -1));
+    c.insertAdjacentHTML('beforeend', merged.map(m => m.html()).join(''));
     flushCanvasJobs();
     _feedCursor = rows.length ? rows[rows.length - 1].date : _feedCursor;
-    _feedDone = rows.length < 15;
+    _feedDone = pageDone;
     more.innerHTML = _feedDone
       ? `<div class="people-empty" style="text-align:center">You're all caught up ✓</div>`
       : `<button class="btn-ghost" onclick="buildFollowingFeed(false)">Load more</button>`;
@@ -5797,7 +5846,7 @@ function renderFeedStoryCard(container, story, profile) {
   let h = `<article class="feed-card story-card-feed">
     <header class="fc-header">
       <div class="fc-avatar" onclick="switchView('profile')">${avatarHtml(profile.photo, profile.name || 'You', 'av-44', currentUser.id)}</div>
-      <div class="fc-user"><button class="fc-username" onclick="switchView('profile')">${escapeHtml(profile.name || 'You')}</button><div class="fc-date">${escapeHtml(dateRange)}</div></div>
+      <div class="fc-user"><button class="fc-username" onclick="switchView('profile')">${escapeHtml(profile.name || 'You')}</button><div class="fc-date"><span>${escapeHtml(dateRange)}</span><span class="fc-vis" title="${story.isPublic ? 'Shared with followers' : 'Only you'}"><svg class="ic"><use href="#i-${story.isPublic ? 'globe' : 'lock'}"/></svg></span></div></div>
       <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Story</span>
     </header>
     <div class="fc-name" onclick="${open}">${escapeHtml(story.title || 'Untitled story')}</div>`;
@@ -5811,8 +5860,107 @@ function renderFeedStoryCard(container, story, profile) {
     </div>
     <div class="fc-map" onclick="${open}"><canvas id="fc-smap-${escapeHtml(story.id)}" width="640" height="260"></canvas>${staticStoryMapImg(story, 640, 260)}</div>`;
   if (mood) h += `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>`;
-  h += `<footer class="fc-actions"><span class="fc-spacer"></span><button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View story</button></footer></article>`;
+  h += `<footer class="fc-actions">${story.isPublic ? '' : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View story</button></footer></article>`;
   container.insertAdjacentHTML('beforeend', h);
+}
+
+// ════════════════════════════════════════
+// PUBLIC STORIES — share a whole trip as one post (story_public snapshots)
+// ════════════════════════════════════════
+// Built on this device, like activity_public: every track is trimmed by its
+// moment's privacy radius (500 m when it has none) before it leaves.
+function buildStorySnapshotRow(story) {
+  computeStoryStats(story);
+  const polylines = [], colors = [];
+  (story.momentIds || []).map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin).forEach(m => {
+    const c = getCoords(m); if (!c) return;
+    redactTrackForPrivacy(c, m.privacyRadiusM || 500).forEach(p => { polylines.push(p); colors.push(m.customColor || getColor(m.type)); });
+  });
+  return {
+    user_id: currentUser.id, story_id: story.id,
+    title: story.title || 'Untitled', narrative: story.narrative || '', mood: story.mood || null,
+    date_start: story.dateStart || null, date_end: story.dateEnd || null,
+    moment_count: story._momentCount || 0, distance: story._totalDistance || 0,
+    duration: story._totalDuration || 0, elevation: story._totalElevation || 0,
+    type_counts: story._typeBreakdown || {}, polylines, colors,
+  };
+}
+async function setStoryVisibility(storyId, makePublic) {
+  const story = db[storyId]; if (!story || !isStory(story)) return;
+  if (!!story.isPublic === makePublic) return;
+  if (makePublic && !(await uiConfirm({
+    title: 'Share this story?',
+    body: 'Your followers will see it in their feed and on your profile — its title, narrative, stats and a map of its tracks. The first and last 500 m of each track are hidden (or your own privacy radius, if you set one). The individual activities keep their own privacy setting.',
+    ok: 'Share story',
+  }))) { renderStoryShareSection(storyId); return; }
+  story.isPublic = makePublic;
+  renderStoryShareSection(storyId);
+  if (DEMO) { toast(makePublic ? 'Story shared' : 'Story is private again', { icon: 'check' }); return; }
+  try {
+    const q = makePublic
+      ? sb.from('story_public').upsert(buildStorySnapshotRow(story))
+      : sb.from('story_public').delete().eq('user_id', currentUser.id).eq('story_id', storyId);
+    const { error } = await q;
+    if (error) throw error;
+    saveArchiveCache();
+    toast(makePublic ? 'Story shared with your followers' : 'Story is private again', { icon: 'check' });
+  } catch (e) {
+    story.isPublic = !makePublic;
+    renderStoryShareSection(storyId);
+    if (isMissingTable(e)) { _socialOff.stories = true; toast('Sharing stories needs a one-time database update (docs/supabase-social-v2.sql).', { error: true, duration: 7000 }); }
+    else toast('Couldn\'t update sharing — try again', { error: true });
+  }
+}
+function renderStoryShareSection(storyId) {
+  const el = document.getElementById('sd-share'); if (!el) return;
+  const story = db[storyId], pub = !!story?.isPublic;
+  el.innerHTML = `<div class="detail-section-title">Sharing</div>
+    <div class="visibility-row">
+      <button class="visibility-btn ${!pub ? 'active' : ''}" onclick="setStoryVisibility(${jsAttr(storyId)},false)"><svg class="ic" style="width:15px;height:15px"><use href="#i-lock"/></svg>Private</button>
+      <button class="visibility-btn ${pub ? 'active' : ''}" onclick="setStoryVisibility(${jsAttr(storyId)},true)"><svg class="ic" style="width:15px;height:15px"><use href="#i-globe"/></svg>Shared</button>
+    </div>
+    ${pub ? `<button class="btn-ghost btn-sm" style="margin-top:10px" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(storyId)},${jsAttr(story.title)})"><svg class="ic"><use href="#i-share"/></svg>Share link</button>` : '<div class="detail-section-sub" style="margin:10px 0 0">Share it to post the whole trip to your followers\' feeds.</div>'}`;
+}
+function storyLink(userId, storyId) { return profileLink(userId) + '&s=' + encodeURIComponent(storyId); }
+function shareStory(userId, storyId, title) { shareLink(storyLink(userId, storyId), title || 'A story on Relic', (title || 'A trip') + ' — on Relic'); }
+
+// Someone else's (or your own, as others see it) shared story.
+function renderPublicStoryCard(r, prof) {
+  const isOwn = r.user_id === currentUser.id;
+  const authorClick = isOwn ? `switchView('profile')` : `openPublicProfile(${jsAttr(r.user_id)})`;
+  const open = isOwn && db[r.story_id] ? `viewStoryOnMap(${jsAttr(r.story_id)})` : `openPublicProfile(${jsAttr(r.user_id)},null,${jsAttr(r.story_id)})`;
+  const fmt = (d, y) => new Date(d).toLocaleDateString('en-GB', y ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' });
+  const range = r.date_start && r.date_end ? (r.date_start === r.date_end ? fmt(r.date_end, true) : fmt(r.date_start) + ' – ' + fmt(r.date_end, true)) : '';
+  const types = Object.entries(r.type_counts || {});
+  const mood = MOODS.find(m => m.id === r.mood);
+  const overlays = []; let budget = 7400;
+  (r.polylines || []).forEach((p, i) => {
+    const seg = `path-3+${((r.colors || [])[i] || '#c0562b').replace('#', '')}-0.9(${encodeURIComponent(p)})`;
+    if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
+  });
+  const cid = 'fcs-' + Math.random().toString(36).slice(2, 9);
+  if (r.polylines && r.polylines.length) _canvasJobs.push({ id: cid, polylines: r.polylines, color: (r.colors || [])[0] || '#c0562b' });
+  return `<article class="feed-card story-card-feed" data-story="${escapeHtml(socialKey(r.user_id, r.story_id))}">
+    <header class="fc-header">
+      <div class="fc-avatar" onclick="${authorClick}">${avatarHtml(prof?.avatarUrl, prof?.name, 'av-44', r.user_id)}</div>
+      <div class="fc-user"><button class="fc-username" onclick="${authorClick}">${escapeHtml(prof?.name || 'Someone')}</button><div class="fc-date">${escapeHtml(range)}</div></div>
+      <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Story</span>
+    </header>
+    <div class="fc-name" onclick="${open}">${escapeHtml(r.title || 'Untitled story')}</div>
+    ${r.narrative ? `<div class="fc-note">${escapeHtml(r.narrative)}</div>` : ''}
+    ${types.length ? `<div class="fc-story-types">${types.map(([k, n]) => `<span class="fc-story-type-pill" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}">${escapeHtml(TYPE_CONFIG[k]?.label || k)} · ${n}</span>`).join('')}</div>` : ''}
+    <div class="fc-stats">
+      <div class="fc-stat"><div class="fc-stat-val">${r.distance > 0 ? fmtKm(r.distance) : '—'}</div><div class="fc-stat-label">Distance</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${r.duration > 0 ? formatDur(r.duration) : '—'}</div><div class="fc-stat-label">Time</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${r.moment_count || 0}</div><div class="fc-stat-label">Moments</div></div>
+    </div>
+    ${overlays.length || (r.polylines || []).length ? `<div class="fc-map" onclick="${open}"><canvas id="${cid}" width="640" height="260"></canvas>${mapboxStaticImg(overlays, 640, 260)}</div>` : ''}
+    ${mood ? `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>` : ''}
+    <footer class="fc-actions"><span class="fc-spacer"></span>
+      <button class="fc-act" onclick="shareStory(${jsAttr(r.user_id)},${jsAttr(r.story_id)},${jsAttr(r.title)})" title="Share" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>
+      <button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View story</button>
+    </footer>
+  </article>`;
 }
 
 function drawFeedStoryMap(story, canvasId) {
@@ -6343,7 +6491,7 @@ function renderPpFollowButton() {
 }
 
 // ── Public profile ──
-async function openPublicProfile(userId, focusActivityId) {
+async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   if (!userId) return;
   if (currentView !== 'public-profile') _ppReturnView = currentView;
   ppViewingUserId = userId;
@@ -6359,9 +6507,9 @@ async function openPublicProfile(userId, focusActivityId) {
   switchView('public-profile');
   document.getElementById('public-profile-view').scrollTop = 0;
 
-  let profRows, acts, counts;
+  let profRows, acts, counts, stories;
   try {
-    [profRows, acts, counts] = await Promise.all([Social.profiles([userId]), Social.userActivities(userId), Social.counts(userId), Social.graph().catch(() => {})]);
+    [profRows, acts, counts, stories] = await Promise.all([Social.profiles([userId]), Social.userActivities(userId), Social.counts(userId), Social.stories([userId], 50), Social.graph().catch(() => {})]);
   } catch (e) {
     console.error('Profile load failed', e);
     if (ppViewingUserId === userId) document.getElementById('pp-body').innerHTML = emptyBlock('user', 'Couldn\'t load this profile', 'Check your connection and try again.', `<button class="btn-primary" onclick="openPublicProfile(${jsAttr(userId)})">Try again</button>`);
@@ -6385,20 +6533,29 @@ async function openPublicProfile(userId, focusActivityId) {
     `<div><div class="pp-stat-val">${counts.following}</div><div class="pp-stat-label">Following</div></div>`;
   renderPpFollowButton();
   renderPublicMap(acts, focusActivityId);
+  const storiesHtml = stories.length
+    ? `<div class="section-title" style="margin-top:0"><h2>Stories</h2></div>${stories.map(st => renderPublicStoryCard(st, profile)).join('')}<div class="section-title"><h2>Activities</h2></div>`
+    : '';
+  document.querySelector('#public-profile-view .section-title h2').parentElement.style.display = stories.length ? 'none' : '';
 
   if (!acts.length) {
     const own = userId === currentUser.id;
     document.getElementById('pp-body').innerHTML = emptyBlock('lock', own ? 'Nothing public yet' : 'No public activities yet',
       own ? 'This is how other people see your profile. Make some activities public in Settings.' : `${(profile.name || 'They').split(' ')[0]} hasn't shared anything publicly yet. Follow them to see new activities in your feed.`,
       own ? `<button class="btn-primary" onclick="switchView('settings')">Sharing settings</button>` : '');
+    if (stories.length) { document.getElementById('pp-body').insertAdjacentHTML('afterbegin', storiesHtml); flushCanvasJobs(); }
     return;
   }
   const keys = acts.map(a => socialKey(a.user_id, a.activity_id));
   const [photos, kudos, ccounts] = await Promise.all([Social.photos(acts), Social.kudos(keys), Social.commentCounts(keys)]);
   if (ppViewingUserId !== userId) return;
   const body = document.getElementById('pp-body');
-  body.innerHTML = acts.map(a => renderActivityCard(itemFromPublicRow(a, profile, photos, kudos, ccounts))).join('');
+  body.innerHTML = storiesHtml + acts.map(a => renderActivityCard(itemFromPublicRow(a, profile, photos, kudos, ccounts))).join('');
   flushCanvasJobs();
+  if (focusStoryId) {
+    const sc = body.querySelector(`.feed-card[data-story="${CSS.escape(socialKey(userId, focusStoryId))}"]`);
+    if (sc) setTimeout(() => { sc.scrollIntoView({ behavior: 'smooth', block: 'center' }); sc.style.boxShadow = '0 0 0 3px var(--accent)'; setTimeout(() => sc.style.boxShadow = '', 2400); }, 350);
+  }
   if (focusActivityId) {
     const card = body.querySelector(`.feed-card[data-key="${CSS.escape(socialKey(userId, focusActivityId))}"]`);
     if (card) setTimeout(() => { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.style.boxShadow = '0 0 0 3px var(--accent)'; setTimeout(() => card.style.boxShadow = '', 2400); }, 350);
@@ -6546,9 +6703,9 @@ const PENDING_LINK_KEY = 'relic_pending_link';
 (function captureDeepLink() {
   const p = new URLSearchParams(location.search), u = p.get('u');
   if (!u) return;
-  try { localStorage.setItem(PENDING_LINK_KEY, JSON.stringify({ u, a: p.get('a') || null, at: Date.now() })); } catch (e) {}
+  try { localStorage.setItem(PENDING_LINK_KEY, JSON.stringify({ u, a: p.get('a') || null, s: p.get('s') || null, at: Date.now() })); } catch (e) {}
   // Strip it so a reload doesn't re-open the profile (keep ?demo).
-  p.delete('u'); p.delete('a');
+  p.delete('u'); p.delete('a'); p.delete('s');
   const qs = p.toString().replace(/=(?=&|$)/g, '');
   history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
 })();
@@ -6563,7 +6720,7 @@ function handlePendingDeepLink() {
   const link = readPendingLink(); if (!link) return;
   try { localStorage.removeItem(PENDING_LINK_KEY); } catch (e) {}
   if (link.u === currentUser?.id) { switchView('profile'); return; }
-  openPublicProfile(link.u, link.a);
+  openPublicProfile(link.u, link.a, link.s);
 }
 // Signed-out visitor arriving from an invite link: say whose map it is.
 async function showInviteBanner() {
@@ -7682,7 +7839,7 @@ _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',bu
 _r('toggleKudos',toggleKudos);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
-_r('bulkSetVisibility',bulkSetVisibility);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);
+_r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);
 
 // Retrospective entry — Pins, manual entry, NL route parser, draw-route, Airports, cover photo
 _r('setCoverPhoto',setCoverPhoto);

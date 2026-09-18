@@ -1,4 +1,4 @@
--- Relic — Social v2: kudos, comments, and a fix for photos on public profiles.
+-- Relic — Social v2: kudos, comments, public stories, and a fix for photos on public profiles.
 -- Run in the Supabase SQL Editor AFTER supabase-social.sql and
 -- supabase-privacy-radius.sql. Safe to re-run (idempotent).
 --
@@ -108,8 +108,35 @@ create index if not exists follows_followee_idx on public.follows (followee_id);
 -- drop policy if exists "read follows" on public.follows;
 -- create policy "read follows" on public.follows for select to authenticated using (true);
 
--- ── 6. NEXT (not built yet): public Stories ──────────────────────────────
--- Mirror activity_public: a `story_public` snapshot (user_id, story_id, title,
--- narrative, mood, moment_ids that are themselves public, date range, cover)
--- written by the owner's client, readable by all; then the Following feed can
--- show trips as single cards.
+-- ── 6. Public Stories ────────────────────────────────────────────────
+-- Same pattern as activity_public: a redacted snapshot written by the
+-- owner's own client (tracks trimmed by each moment's privacy radius, or
+-- 500 m when it has none), readable by any signed-in user. A row exists only
+-- while the story is shared; "is this story public?" = "does a row exist?",
+-- so the stories table itself needs no new column.
+create table if not exists public.story_public (
+  user_id      uuid not null references auth.users on delete cascade,
+  story_id     text not null,
+  title        text not null default 'Untitled',
+  narrative    text not null default '',
+  mood         text,
+  date_start   date,
+  date_end     date,
+  moment_count integer not null default 0,
+  distance     double precision not null default 0,
+  duration     double precision not null default 0,
+  elevation    double precision not null default 0,
+  type_counts  jsonb not null default '{}'::jsonb,
+  polylines    text[] not null default '{}',
+  colors       text[] not null default '{}',
+  updated_at   timestamptz not null default now(),
+  primary key (user_id, story_id),
+  foreign key (user_id, story_id) references public.stories (user_id, id) on delete cascade
+);
+create index if not exists story_public_user_date_idx on public.story_public (user_id, date_end desc);
+alter table public.story_public enable row level security;
+drop policy if exists "own public story snapshot" on public.story_public;
+create policy "own public story snapshot" on public.story_public
+  for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "read public story snapshot" on public.story_public;
+create policy "read public story snapshot" on public.story_public for select to authenticated using (true);
