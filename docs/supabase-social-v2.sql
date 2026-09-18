@@ -140,3 +140,51 @@ create policy "own public story snapshot" on public.story_public
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
 drop policy if exists "read public story snapshot" on public.story_public;
 create policy "read public story snapshot" on public.story_public for select to authenticated using (true);
+
+-- ── 7. Blocking + removing followers ───────────────────────────────────
+-- A block is one-directional and private to the blocker. The server enforces
+-- it: a blocked person can't follow you, give kudos, or comment on your
+-- activities. The client also hides them from your feed and suggestions.
+create table if not exists public.blocks (
+  blocker_id uuid not null default auth.uid() references auth.users on delete cascade,
+  blocked_id uuid not null references auth.users on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  check (blocker_id <> blocked_id)
+);
+alter table public.blocks enable row level security;
+drop policy if exists "own blocks" on public.blocks;
+create policy "own blocks" on public.blocks for all to authenticated
+  using (blocker_id = auth.uid()) with check (blocker_id = auth.uid());
+
+-- Policies can't see other people's block rows through RLS, so check via a
+-- SECURITY DEFINER helper that only answers "has A blocked B?".
+create or replace function public.is_blocked(blocker uuid, target uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (select 1 from public.blocks b where b.blocker_id = blocker and b.blocked_id = target);
+$$;
+revoke all on function public.is_blocked(uuid, uuid) from public;
+grant execute on function public.is_blocked(uuid, uuid) to authenticated;
+
+drop policy if exists "create own follows" on public.follows;
+create policy "create own follows" on public.follows for insert with check (
+  follower_id = auth.uid() and not public.is_blocked(followee_id, follower_id)
+);
+-- Let people remove their own followers (and blocking uses this too).
+drop policy if exists "remove own followers" on public.follows;
+create policy "remove own followers" on public.follows for delete using (followee_id = auth.uid());
+
+drop policy if exists "give kudos" on public.kudos;
+create policy "give kudos" on public.kudos for insert to authenticated with check (
+  user_id = auth.uid()
+  and not public.is_blocked(activity_user_id, user_id)
+  and exists (select 1 from public.activity_public p
+              where p.user_id = kudos.activity_user_id and p.activity_id = kudos.activity_id)
+);
+drop policy if exists "write comments" on public.comments;
+create policy "write comments" on public.comments for insert to authenticated with check (
+  user_id = auth.uid()
+  and not public.is_blocked(activity_user_id, user_id)
+  and exists (select 1 from public.activity_public p
+              where p.user_id = comments.activity_user_id and p.activity_id = comments.activity_id)
+);

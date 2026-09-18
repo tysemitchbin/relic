@@ -795,7 +795,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .people-name { font: 600 15px var(--font-ui); color: var(--ink); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .people-bio { font-size: 13px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .people-empty { font-size: 14px; color: var(--text-3); padding: 16px; }
-.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--r-pill); background: var(--paper2); color: var(--text-2); }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-ui); letter-spacing: 0; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--r-pill); background: var(--paper2); color: var(--text-2); }
 .chip.accent { background: var(--accent-soft); color: var(--accent-strong); }
 .follow-btn {
   font: 600 13px var(--font-ui); height: 34px; padding: 0 16px; border-radius: var(--r-pill);
@@ -1971,6 +1971,12 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
               <button class="btn-ghost" onclick="shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Copy invite link</button>
             </div>
           </div>
+        </div>
+
+        <div class="strava-section" id="blocked-section" hidden>
+          <div class="strava-title">Blocked accounts</div>
+          <div class="strava-state" style="margin-bottom:8px">They can't follow you, give kudos or comment on your activities.</div>
+          <div class="people-list compact" id="blocked-list"></div>
         </div>
 
         <div class="settings-group-title">Privacy</div>
@@ -5237,9 +5243,9 @@ function shareActivity(ownerId, activityId, name) {
 // Everything social goes through this one object, so ?demo can swap in a
 // synthetic cast of friends (see DemoSocial below) and the UI code never
 // branches on DEMO. Activity keys are `${ownerId}/${activityId}`.
-let myFollowingIds = new Set(), myFollowerIds = new Set();
+let myFollowingIds = new Set(), myFollowerIds = new Set(), myBlockedIds = new Set();
 const _avatarCache = {};                        // storage path → signed URL
-const _socialOff = { kudos: false, comments: false, stories: false }; // tables not migrated yet → hide the UI
+const _socialOff = { kudos: false, comments: false, stories: false, blocks: false }; // tables not migrated yet → hide the UI
 function isMissingTable(err) {
   const m = String((err && err.message) || '') + ' ' + String((err && err.code) || '');
   return /42P01|PGRST205|does not exist|Could not find the table/i.test(m);
@@ -5266,6 +5272,27 @@ const Social = {
     if (e1 || e2) throw (e1 || e2);
     myFollowingIds = new Set((following || []).map(r => r.followee_id));
     myFollowerIds = new Set((followers || []).map(r => r.follower_id));
+    if (!_socialOff.blocks) {
+      const { data: bl, error: e3 } = await sb.from('blocks').select('blocked_id').eq('blocker_id', currentUser.id);
+      if (e3) { if (isMissingTable(e3)) _socialOff.blocks = true; }
+      else myBlockedIds = new Set((bl || []).map(r => r.blocked_id));
+    }
+  },
+  // Block = unfollow both ways + a blocks row the server enforces.
+  async block(userId, on) {
+    if (on) {
+      const { error } = await sb.from('blocks').insert({ blocker_id: currentUser.id, blocked_id: userId });
+      if (error && error.code !== '23505') throw error;
+      await sb.from('follows').delete().eq('follower_id', currentUser.id).eq('followee_id', userId);
+      await sb.from('follows').delete().eq('follower_id', userId).eq('followee_id', currentUser.id);
+    } else {
+      const { error } = await sb.from('blocks').delete().eq('blocker_id', currentUser.id).eq('blocked_id', userId);
+      if (error) throw error;
+    }
+  },
+  async removeFollower(userId) {
+    const { error } = await sb.from('follows').delete().eq('follower_id', userId).eq('followee_id', currentUser.id);
+    if (error) throw error;
   },
   async profiles(ids) {
     ids = [...new Set((ids || []).filter(Boolean))];
@@ -5399,7 +5426,7 @@ const Social = {
   // then anyone who's posted public activities recently.
   async suggestions() {
     const me = currentUser.id, score = new Map(), via = new Map(), recent = new Set();
-    const bump = (id, s) => { if (!id || id === me || myFollowingIds.has(id)) return; score.set(id, (score.get(id) || 0) + s); };
+    const bump = (id, s) => { if (!id || id === me || myFollowingIds.has(id) || myBlockedIds.has(id)) return; score.set(id, (score.get(id) || 0) + s); };
     myFollowerIds.forEach(id => bump(id, 10));
     const following = [...myFollowingIds].slice(0, 200);
     if (following.length) {
@@ -5480,7 +5507,7 @@ const DemoSocial = (() => {
     following: new Set(['u_ines', 'u_kai', 'u_maya']),
     followers: new Set(['u_ines', 'u_tomas', 'u_sam']),
     graph: { u_ines: ['u_lea', 'u_sam', 'u_kai'], u_kai: ['u_lea', 'u_noor'], u_maya: ['u_lea'] },
-    kudos: new Map(), comments: new Map(), cid: 1,
+    kudos: new Map(), comments: new Map(), cid: 1, blocked: new Set(),
   };
   const give = (owner, aid, uid, ago) => { const k = socialKey(owner, aid); (state.kudos.get(k) || state.kudos.set(k, []).get(k)).push({ user_id: uid, at: new Date(now - ago).toISOString() }); };
   const say = (owner, aid, uid, body, ago) => { const k = socialKey(owner, aid); (state.comments.get(k) || state.comments.set(k, []).get(k)).push({ id: 'c' + state.cid++, activity_user_id: owner, activity_id: aid, user_id: uid, body, created_at: new Date(now - ago).toISOString() }); };
@@ -5497,7 +5524,9 @@ const DemoSocial = (() => {
   const allRows = () => rows.concat(pub());
   const wait = (v) => new Promise(r => setTimeout(() => r(v), 120));
   return {
-    async graph() { myFollowingIds = new Set(state.following); myFollowerIds = new Set(state.followers); },
+    async graph() { myFollowingIds = new Set(state.following); myFollowerIds = new Set(state.followers); myBlockedIds = new Set(state.blocked); },
+    async block(userId, on) { if (on) { state.blocked.add(userId); state.following.delete(userId); state.followers.delete(userId); } else state.blocked.delete(userId); return wait(); },
+    async removeFollower(userId) { state.followers.delete(userId); return wait(); },
     async profiles(ids) { return wait(ids.map(id => id === currentUser.id ? { id, name: _profile.name, bio: _profile.bio, avatarUrl: _profile.photo } : byId[id]).filter(Boolean)); },
     async search(q) { q = q.toLowerCase(); return wait(users.filter(u => u.name.toLowerCase().includes(q)).map(u => byId[u.id])); },
     async follow(userId, on) { if (on) state.following.add(userId); else state.following.delete(userId); return wait(); },
@@ -5543,7 +5572,7 @@ const DemoSocial = (() => {
     async suggestions() {
       const out = [];
       users.forEach(u => {
-        if (state.following.has(u.id)) return;
+        if (state.following.has(u.id) || state.blocked.has(u.id)) return;
         const viaF = [...state.following].filter(f => (state.graph[f] || []).includes(u.id));
         const reason = state.followers.has(u.id) ? 'Follows you' : viaF.length ? `Followed by ${byId[viaF[0]].name.split(' ')[0]}${viaF.length > 1 ? ' + ' + (viaF.length - 1) : ''}` : 'Active recently';
         out.push({ ...byId[u.id], reason, _s: (state.followers.has(u.id) ? 10 : 0) + viaF.length * 3 });
@@ -5779,7 +5808,7 @@ async function buildFollowingFeed(reset) {
   const token = _feedToken;
   try {
     if (reset) { await Social.graph(); renderFeedTop(); }
-    const authors = [...myFollowingIds];
+    const authors = [...myFollowingIds].filter(id => !myBlockedIds.has(id));
     if (!authors.length) {
       c.innerHTML = emptyBlock('users', 'Your feed is waiting for friends',
         'Follow people to see their runs, rides, trips and stories here. Or invite friends who aren\'t on Relic yet.',
@@ -5878,7 +5907,7 @@ async function renderComments(box, ownerId, activityId) {
   const profs = await Social.profiles(rows.map(r => r.user_id).concat(currentUser.id)).catch(() => []);
   const byId = Object.fromEntries(profs.map(p => [p.id, p]));
   if (DEMO || !byId[currentUser.id]) byId[currentUser.id] = { name: _profile.name || 'You', avatarUrl: _profile.photo };
-  const list = rows.map(r => {
+  const list = rows.filter(r => !myBlockedIds.has(r.user_id)).map(r => {
     const p = byId[r.user_id] || {}, canDel = r.user_id === currentUser.id || ownerId === currentUser.id;
     const who = r.user_id === currentUser.id ? `switchView('profile')` : `openPublicProfile(${jsAttr(r.user_id)})`;
     return `<div class="cmt">${avatarHtml(p.avatarUrl, p.name, 'av-36', r.user_id)}<div class="cmt-body">
@@ -6380,6 +6409,7 @@ function openConnections(tab) { peopleTab = tab; switchView('people'); }
 function buildSettings() {
   renderStravaSection();
   renderSharingState();
+  renderBlockedList();
   document.getElementById('settings-email').textContent = currentUser?.email || '';
   const analyticsEl = document.getElementById('analytics-state');
   try {
@@ -6575,6 +6605,10 @@ function renderPpFollowButton() {
     : `<svg class="ic" style="width:16px;height:16px"><use href="#i-user-plus"/></svg>${myFollowerIds.has(ppViewingUserId) ? 'Follow back' : 'Follow'}`;
   btn.style.display = ppViewingUserId === currentUser.id ? 'none' : '';
   document.getElementById('pp-follows-you').hidden = !myFollowerIds.has(ppViewingUserId);
+  if (myBlockedIds.has(ppViewingUserId)) {
+    btn.className = 'follow-btn active'; btn.innerHTML = 'Blocked · Unblock';
+    btn.onclick = () => setBlocked(ppViewingUserId, (_ppProfile?.name || '').split(' ')[0] || 'them', false);
+  } else btn.onclick = togglePublicProfileFollow;
 }
 
 // ── Public profile ──
@@ -6708,8 +6742,47 @@ function openProfileMoreMenu(e) {
   const anchor = e.currentTarget; anchor.setAttribute('data-menu-anchor', '');
   const uid = ppViewingUserId, name = _ppProfile?.name || 'this person';
   const items = [{ label: 'Copy profile link', icon: 'link', fn: () => navigator.clipboard?.writeText(profileLink(uid)).then(() => toast('Link copied', { icon: 'check' })) }];
-  if (uid !== currentUser.id) items.push({ label: 'Report ' + name.split(' ')[0], icon: 'flag', danger: true, fn: () => reportUser(uid, name) });
+  if (uid !== currentUser.id) {
+    const first = name.split(' ')[0];
+    if (myFollowerIds.has(uid)) items.push({ label: 'Remove follower', icon: 'user', fn: () => removeFollower(uid, first) });
+    if (!_socialOff.blocks) items.push(myBlockedIds.has(uid)
+      ? { label: 'Unblock ' + first, icon: 'user-check', fn: () => setBlocked(uid, first, false) }
+      : { label: 'Block ' + first, icon: 'lock', danger: true, fn: () => setBlocked(uid, first, true) });
+    items.push({ label: 'Report ' + first, icon: 'flag', danger: true, fn: () => reportUser(uid, name) });
+  }
   openMenu(anchor, items);
+}
+async function setBlocked(uid, first, on) {
+  if (on && !(await uiConfirm({ title: `Block ${first}?`, body: "They won't be able to follow you, give kudos or comment on your activities, and you won't see their posts. They aren't told that you blocked them.", ok: 'Block', danger: true }))) return;
+  try {
+    await Social.block(uid, on);
+    if (on) { myBlockedIds.add(uid); myFollowingIds.delete(uid); myFollowerIds.delete(uid); } else myBlockedIds.delete(uid);
+    _feedToken++; _suggestCache = null;
+    toast(on ? `Blocked ${first}` : `Unblocked ${first}`, { icon: 'check' });
+    if (currentView === 'public-profile' && ppViewingUserId === uid) openPublicProfile(uid);
+    if (currentView === 'settings') renderBlockedList();
+  } catch (e) {
+    if (isMissingTable(e)) { _socialOff.blocks = true; toast('Blocking needs a one-time database update (docs/supabase-social-v2.sql).', { error: true, duration: 7000 }); }
+    else toast("Couldn't update — try again", { error: true });
+  }
+}
+async function removeFollower(uid, first) {
+  if (!(await uiConfirm({ title: `Remove ${first} as a follower?`, body: "They won't be told. They can follow you again unless you block them.", ok: 'Remove' }))) return;
+  try {
+    await Social.removeFollower(uid); myFollowerIds.delete(uid);
+    toast(`Removed ${first}`, { icon: 'check' });
+    renderPpFollowButton();
+    if (currentView === 'people') renderPeopleTab();
+  } catch (e) { toast("Couldn't remove — this needs the latest database update (docs/supabase-social-v2.sql).", { error: true, duration: 6000 }); }
+}
+async function renderBlockedList() {
+  const sec = document.getElementById('blocked-section'), el = document.getElementById('blocked-list');
+  if (!sec || !el) return;
+  try { await Social.graph(); } catch (e) {}
+  if (_socialOff.blocks || !myBlockedIds.size) { sec.hidden = true; return; }
+  sec.hidden = false;
+  const profs = await Social.profiles([...myBlockedIds]).catch(() => []);
+  el.innerHTML = profs.map(p => `<div class="people-row" style="cursor:default">${avatarHtml(p.avatarUrl, p.name, 'av-36', p.id)}<div class="people-info"><div class="people-name">${escapeHtml(p.name || 'Unnamed')}</div></div><button class="btn-ghost btn-sm" onclick="setBlocked(${jsAttr(p.id)},${jsAttr((p.name || '').split(' ')[0] || 'them')},false)">Unblock</button></div>`).join('');
 }
 async function reportUser(uid, name) {
   const ok = await uiConfirm({ title: `Report ${name}?`, body: 'Let us know if this profile or its content is abusive, spam, or impersonating someone. Reports are private and reviewed by a person.', ok: 'Report', danger: true });
@@ -6726,7 +6799,7 @@ function _notifSeenKey() { return 'relic_notif_seen_' + (currentUser?.id || '');
 function notifSeenAt() { try { return localStorage.getItem(_notifSeenKey()) || ''; } catch (e) { return ''; } }
 async function refreshNotifications() {
   if (!currentUser) return;
-  try { _notifItems = await Social.notifications(); } catch (e) { console.warn('Notifications failed', e); return; }
+  try { _notifItems = (await Social.notifications()).filter(n => !myBlockedIds.has(n.actor)); } catch (e) { console.warn('Notifications failed', e); return; }
   const seen = notifSeenAt();
   const unread = _notifItems.filter(n => n.at > seen).length;
   const dot = document.getElementById('notif-dot');
@@ -7926,7 +7999,7 @@ _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',bu
 _r('toggleKudos',toggleKudos);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
-_r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);
+_r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('setBlocked',setBlocked);_r('removeFollower',removeFollower);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);
 
 // Retrospective entry — Pins, manual entry, NL route parser, draw-route, Airports, cover photo
 _r('setCoverPhoto',setCoverPhoto);
