@@ -124,4 +124,4 @@ pushed):
 ### Open items
 - **Run `docs/supabase-social-v2.sql`** (kudos, comments, public stories, blocks, public-photo RLS fix).
 - Two-account test on a `*.pages.dev` preview (checklist at the end of the review).
-- URL-restrict the Mapbox token; make `og:image` absolute once the production origin is final.
+- Make `og:image` absolute once the production origin is final; watch Mapbox Static Images quota (more static maps now).
