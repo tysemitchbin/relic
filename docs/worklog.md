@@ -96,3 +96,31 @@ The mobile work landed on the `mobile-friendly` branch (now merged).
 - Consider the Supabase Custom Domain add-on so auth links are on `auth.myrelicmap.com`.
 - Add a `.gitignore` and a root README.
 - Redesign is the next major push.
+
+---
+
+## Friday, Sep 18 (overnight): Review + `ux-social-overhaul`
+
+Full product/design/social review in `docs/review-2026-09-18.md` (read the
+"Start here" section first). Built on the `ux-social-overhaul` branch (not
+pushed):
+
+| Commit | Summary |
+|---|---|
+| `1fc67bd` | Fix `?demo` boot + localhost sign-out (uninitialised PostHog). |
+| `e3e72b1` | **Redesign + real social layer.** Design tokens, Inter/Fraunces, SVG icons, new header/tab bar/map controls/login; Following feed, kudos, comments, notifications, suggestions, invite links, public-profile maps, bulk sharing, XSS escaping. |
+| `b255565` | Terms-checkbox-on-sign-in bug, brand loading screen, pins scale with zoom, favicon/manifest. |
+| `a404128` | **Public stories** (`story_public`). |
+| `cfeb465` | Getting-started checklist + "On this day". |
+| `8478861` | Block / unblock / remove follower (server-enforced). |
+| `0027274` | Notification timestamp comparison fix. |
+| `1b7d4e0` | `CLAUDE.md` conventions for the new system. |
+| `b3a8abd` | Friends' tracks map layer. |
+| `7daf06d` | Share as image (1080×1350 cards). |
+| `8a329d5` | Kilometres / miles setting. |
+| `1ac48c6` | Feed photo lightbox, copy tweaks. |
+
+### Open items
+- **Run `docs/supabase-social-v2.sql`** (kudos, comments, public stories, blocks, public-photo RLS fix).
+- Two-account test on a `*.pages.dev` preview (checklist at the end of the review).
+- URL-restrict the Mapbox token; add a PNG `og:image` / `apple-touch-icon`.
