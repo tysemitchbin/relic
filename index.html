@@ -1952,6 +1952,20 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           </div>
         </div>
 
+        <div class="settings-group-title">Display</div>
+        <div class="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Units</div>
+              <div class="strava-state">Distances, elevation and pace everywhere in Relic.</div>
+            </div>
+            <div class="seg" id="units-seg">
+              <button data-u="metric" onclick="setUnits('metric')">Kilometres</button>
+              <button data-u="imperial" onclick="setUnits('imperial')">Miles</button>
+            </div>
+          </div>
+        </div>
+
         <div class="settings-group-title">Sharing</div>
         <div class="strava-section" id="sharing-section">
           <div class="strava-row">
@@ -3702,9 +3716,9 @@ function renderActivitiesView() {
       <td class="av-name-cell"><span class="av-type-dot" style="background:${color}"></span>${escapeHtml(m.name)}</td>
       <td>${date}</td>
       <td>${TYPE_CONFIG[g]?.label || m.type}</td>
-      <td>${m.distance ? (m.distance/1000).toFixed(1) + ' km' : '—'}</td>
+      <td>${m.distance ? fmtDist(m.distance) : '—'}</td>
       <td class="av-col-opt">${m.duration ? formatDur(m.duration) : '—'}</td>
-      <td class="av-col-opt">${m.elevation ? Math.round(m.elevation) + ' m' : '—'}</td>
+      <td class="av-col-opt">${m.elevation ? fmtElev(m.elevation) : '—'}</td>
       <td class="av-col-opt">${m.avgHR ? m.avgHR + ' bpm' : '—'}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="7" class="av-empty">No activities match these filters.</td></tr>`;
@@ -3731,7 +3745,7 @@ function renderList() {
     item.className = 'activity-item'+(m.id===selectedId?' selected':'');
     item.innerHTML = `<div class="ai-bar" style="background:${color}"></div>
       <div class="ai-info"><div class="ai-name">${escapeHtml(m.name)}</div><div class="ai-meta"><span>${date}</span><span>${TYPE_CONFIG[getGroup(m.type)]?.label||m.type}</span></div></div>
-      <div class="ai-right"><div class="ai-dist">${m.distance?(m.distance/1000).toFixed(1)+' km':'—'}</div>
+      <div class="ai-right"><div class="ai-dist">${m.distance?fmtDist(m.distance):'—'}</div>
       ${badges.length?`<div class="ai-badges">${badges.map(b=>`<span class="ai-badge">${b}</span>`).join('')}</div>`:''}</div>`;
     item.onclick = () => { showDetail(m.id); flyToTrack(m); };
     list.appendChild(item);
@@ -3898,11 +3912,11 @@ function showDetail(memId) {
   document.getElementById('d-date').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
   const hasTrack = !!(mem._polyline || (Array.isArray(mem.coords)&&mem.coords.length>1));
   document.getElementById('d-stats').innerHTML=[
-    {val:mem.distance?(mem.distance/1000).toFixed(1)+' km':'—',label:'Distance'},
+    {val:mem.distance?fmtDist(mem.distance):'—',label:'Distance'},
     {val:mem.duration?formatDur(mem.duration):'—',label:'Moving Time'},
-    {val:mem.elevation?mem.elevation+' m':'—',label:'Elevation'},
+    {val:mem.elevation?fmtElev(mem.elevation):'—',label:'Elevation'},
     {val:mem.avgSpeed?formatPace(mem.avgSpeed,mem.type):'—',label:'Pace / Speed'},
-    {val:mem.maxSpeed?(getGroup(mem.type)==='Ride'||getGroup(mem.type)==='Drive'||getGroup(mem.type)==='Flight'?(mem.maxSpeed*3.6).toFixed(1)+' km/h':formatPace(mem.maxSpeed,mem.type)):'—',label:'Max Speed'},
+    {val:mem.maxSpeed?(getGroup(mem.type)==='Ride'||getGroup(mem.type)==='Drive'||getGroup(mem.type)==='Flight'?fmtSpeed(mem.maxSpeed):formatPace(mem.maxSpeed,mem.type)):'—',label:'Max Speed'},
     {val:mem.avgHR?mem.avgHR+' bpm':'—',label:'Avg Heart Rate'},
   ].filter(s=>hasTrack||!['Distance','Pace / Speed','Max Speed'].includes(s.label))
    .filter(s=>s.val!=='—')
@@ -4012,9 +4026,9 @@ function showStoryDetail(storyId) {
 
   // Stats
   document.getElementById('d-stats').innerHTML = [
-    { val: story._totalDistance > 0 ? (story._totalDistance / 1000).toFixed(1) + ' km' : '—', label: 'Total Distance' },
+    { val: story._totalDistance > 0 ? fmtDist(story._totalDistance) : '—', label: 'Total Distance' },
     { val: story._totalDuration > 0 ? formatDur(story._totalDuration) : '—', label: 'Total Time' },
-    { val: story._totalElevation > 0 ? Math.round(story._totalElevation) + ' m' : '—', label: 'Total Elevation' },
+    { val: story._totalElevation > 0 ? fmtElev(story._totalElevation) : '—', label: 'Total Elevation' },
     { val: story._momentCount || 0, label: 'Moments' },
   ].map(function(s) { return '<div class="dstat"><div class="dstat-val">' + s.val + '</div><div class="dstat-label">' + s.label + '</div></div>'; }).join('');
   document.getElementById('d-stats').style.display = '';
@@ -4085,7 +4099,7 @@ function showStoryDetail(storyId) {
     var color = m.customColor || getColor(m.type);
     var group = getGroup(m.type);
     var date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-    var dist = m.distance ? (m.distance / 1000).toFixed(1) + ' km' : '';
+    var dist = m.distance ? fmtDist(m.distance) : '';
     var entry = document.createElement('div');
     entry.className = 'sd-moment-entry';
     entry.innerHTML =
@@ -4141,7 +4155,7 @@ function setVisibility(memId, isPublic, btn) {
   markDirty(memId);
 }
 // ── Privacy radius (km/mi display, meters storage) ──
-let privacyUnit = localStorage.getItem('relic_privacy_unit') || 'km';
+let privacyUnit = localStorage.getItem('relic_privacy_unit') || (/^en-(US|LR|MM)$/i.test(navigator.language || '') ? 'mi' : 'km');
 function metersToUnit(m, unit) { if(!m) return ''; const v = unit==='mi' ? m/1609.344 : m/1000; return Math.round(v*100)/100; }
 function unitToMeters(v, unit) { const n = parseFloat(v); if(!n || n<0) return 0; return unit==='mi' ? n*1609.344 : n*1000; }
 function renderPrivacyUnitButtons() {
@@ -5106,9 +5120,9 @@ function showTrackPreviewPopup(memId, lngLat) {
   const date = mem.date ? new Date(mem.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
   const cover = (mem.photos||[]).find(p => p._isCover) || (mem.photos||[])[0];
   const statLine = [
-    mem.distance ? (mem.distance/1000).toFixed(1)+' km' : '',
+    mem.distance ? fmtDist(mem.distance) : '',
     mem.duration ? formatDur(mem.duration) : '',
-    mem.elevation ? Math.round(mem.elevation)+' m' : '',
+    mem.elevation ? fmtElev(mem.elevation) : '',
   ].filter(Boolean).join(' · ');
   const html = `<div style="font-family:var(--font-ui);min-width:160px">
     ${cover ? `<img src="${cover.dataUrl}" style="width:100%;height:90px;object-fit:cover;margin-bottom:6px">` : ''}
@@ -5225,7 +5239,30 @@ function activityWhen(iso) {
   if (days >= 0 && days < 7) return relTime(iso);
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
-function fmtKm(m) { return m ? (m / 1000 >= 100 ? Math.round(m / 1000) : (m / 1000).toFixed(1)) + ' km' : '—'; }
+// ── Units (metric / imperial) — every user-facing distance/elevation/pace goes through these ──
+let units = (() => { try { const u = localStorage.getItem('relic_units'); if (u) return u; } catch (e) {} return /^en-(US|LR|MM)$/i.test(navigator.language || '') ? 'imperial' : 'metric'; })();
+const MI = 1609.344, FT = 0.3048;
+// digits: decimals (default 1; auto 0 once the number is ≥100)
+function fmtDist(meters, digits) {
+  if (!meters) return '—';
+  const v = units === 'imperial' ? meters / MI : meters / 1000;
+  const d = digits != null ? digits : (v >= 100 ? 0 : 1);
+  return v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }) + (units === 'imperial' ? ' mi' : ' km');
+}
+function fmtElev(meters) {
+  if (!meters) return '—';
+  return Math.round(units === 'imperial' ? meters / FT : meters).toLocaleString() + (units === 'imperial' ? ' ft' : ' m');
+}
+function fmtSpeed(mps) { return !mps ? '—' : units === 'imperial' ? (mps * 2.236936).toFixed(1) + ' mph' : (mps * 3.6).toFixed(1) + ' km/h'; }
+function fmtKm(m) { return fmtDist(m); }
+function setUnits(u) {
+  units = u;
+  try { localStorage.setItem('relic_units', u); } catch (e) {}
+  document.querySelectorAll('#units-seg button').forEach(b => b.classList.toggle('active', b.dataset.u === u));
+  applyFilters();
+  if (selectedId && db[selectedId]) showDetail(selectedId);
+  toast(u === 'imperial' ? 'Showing miles and feet' : 'Showing kilometres and metres', { icon: 'check' });
+}
 
 // ── Account menu (header avatar) ──
 function toggleAccountMenu(e) {
@@ -5751,7 +5788,7 @@ function renderActivityCard(it) {
   const stats = [];
   if (it.distance) stats.push(['Distance', fmtKm(it.distance)]);
   if (it.duration) stats.push(['Time', formatDur(it.duration)]);
-  if (it.elevation) stats.push(['Elevation', Math.round(it.elevation).toLocaleString() + ' m']);
+  if (it.elevation) stats.push(['Elevation', fmtElev(it.elevation)]);
   if (it.avgSpeed) stats.push([['Ride', 'Drive', 'Flight'].includes(group) ? 'Speed' : 'Pace', formatPace(it.avgSpeed, it.type)]);
   if (stats.length) h += `<div class="fc-stats">${stats.map(([l, v]) => `<div class="fc-stat"><div class="fc-stat-val">${escapeHtml(v)}</div><div class="fc-stat-label">${l}</div></div>`).join('')}</div>`;
   else h += `<div style="height:12px"></div>`;
@@ -6033,7 +6070,7 @@ function renderFeedStoryCard(container, story, profile) {
   h += `<div class="fc-stats">
       <div class="fc-stat"><div class="fc-stat-val">${story._totalDistance > 0 ? fmtKm(story._totalDistance) : '—'}</div><div class="fc-stat-label">Distance</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${story._totalDuration > 0 ? formatDur(story._totalDuration) : '—'}</div><div class="fc-stat-label">Time</div></div>
-      <div class="fc-stat"><div class="fc-stat-val">${story._totalElevation > 0 ? Math.round(story._totalElevation).toLocaleString() + ' m' : '—'}</div><div class="fc-stat-label">Elevation</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${story._totalElevation > 0 ? fmtElev(story._totalElevation) : '—'}</div><div class="fc-stat-label">Elevation</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${story._momentCount || 0}</div><div class="fc-stat-label">Moments</div></div>
     </div>
     <div class="fc-map" onclick="${open}"><canvas id="fc-smap-${escapeHtml(story.id)}" width="640" height="260"></canvas>${staticStoryMapImg(story, 640, 260)}</div>`;
@@ -6147,7 +6184,7 @@ function shareMomentImage(memId) {
     kicker: [TYPE_CONFIG[getGroup(m.type)]?.label || m.type, m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''].filter(Boolean).join(' · '),
     title: m.name, color,
     polylines: c ? redactTrackForPrivacy(c, m.privacyRadiusM || 0) : [],
-    stats: [['Distance', m.distance ? fmtKm(m.distance) : ''], ['Time', m.duration ? formatDur(m.duration) : ''], ['Elevation', m.elevation ? Math.round(m.elevation).toLocaleString() + ' m' : '']],
+    stats: [['Distance', m.distance ? fmtKm(m.distance) : ''], ['Time', m.duration ? formatDur(m.duration) : ''], ['Elevation', m.elevation ? fmtElev(m.elevation) : '']],
     author: _profile.name || '',
   });
 }
@@ -6560,7 +6597,7 @@ async function buildProfile() {
   const totalDist = mems.reduce((s, m) => s + (m.distance || 0), 0) / 1000;
   const statsHtml = (fl, fr) => [
     { val: mems.length.toLocaleString(), label: 'Moments' },
-    { val: Math.round(totalDist).toLocaleString() + ' km', label: 'Distance' },
+    { val: fmtDist(totalDist * 1000, 0), label: 'Distance' },
     { val: fr, label: 'Followers', onclick: "openConnections('followers')" },
     { val: fl, label: 'Following', onclick: "openConnections('following')" },
   ].map(s => `<div class="profile-stat"${s.onclick ? ` onclick="${s.onclick}" role="button" tabindex="0"` : ''}><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
@@ -6593,6 +6630,7 @@ function buildSettings() {
   renderStravaSection();
   renderSharingState();
   renderBlockedList();
+  document.querySelectorAll('#units-seg button').forEach(b => b.classList.toggle('active', b.dataset.u === units));
   document.getElementById('settings-email').textContent = currentUser?.email || '';
   const analyticsEl = document.getElementById('analytics-state');
   try {
@@ -6832,7 +6870,7 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   const km = acts.reduce((s, a) => s + (a.distance || 0), 0) / 1000;
   document.getElementById('pp-stats-row').innerHTML =
     `<div><div class="pp-stat-val">${acts.length.toLocaleString()}</div><div class="pp-stat-label">Activities</div></div>` +
-    `<div><div class="pp-stat-val">${Math.round(km).toLocaleString()} km</div><div class="pp-stat-label">Distance</div></div>` +
+    `<div><div class="pp-stat-val">${fmtDist(km * 1000, 0)}</div><div class="pp-stat-label">Distance</div></div>` +
     `<div><div class="pp-stat-val" id="pp-follower-count">${counts.followers}</div><div class="pp-stat-label">Followers</div></div>` +
     `<div><div class="pp-stat-val">${counts.following}</div><div class="pp-stat-label">Following</div></div>`;
   renderPpFollowButton();
@@ -7103,8 +7141,8 @@ function renderProfileStories() {
     const dateRange = story.dateStart && story.dateEnd
       ? new Date(story.dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' — ' + new Date(story.dateEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
       : '';
-    const dist = story._totalDistance > 0 ? (story._totalDistance / 1000).toFixed(1) + ' km' : '—';
-    const elev = story._totalElevation > 0 ? Math.round(story._totalElevation) + ' m' : '—';
+    const dist = story._totalDistance > 0 ? fmtDist(story._totalDistance) : '—';
+    const elev = story._totalElevation > 0 ? fmtElev(story._totalElevation) : '—';
     const dur = story._totalDuration > 0 ? formatDur(story._totalDuration) : '—';
     const typeKeys = Object.keys(story._typeBreakdown || {});
 
@@ -7290,7 +7328,7 @@ function renderProfileHoneycomb() {
     const cell=document.createElement('div'); cell.className='hex-cell';
     const color=mem.customColor||getColor(mem.type);
     const date=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
-    const dist=mem.distance?(mem.distance/1000).toFixed(1)+' km':'';
+    const dist=mem.distance?fmtDist(mem.distance):'';
     const mood=MOODS.find(m=>m.id===mem.mood);
 
     if(mem.photos?.length) {
@@ -7564,7 +7602,7 @@ function renderStoryMomentList() {
     const color = m.customColor || getColor(m.type);
     const group = getGroup(m.type);
     const date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-    const dist = m.distance ? (m.distance / 1000).toFixed(1) + ' km' : '';
+    const dist = m.distance ? fmtDist(m.distance) : '';
     const sel = storySelectedIds.has(m.id);
 
     const item = document.createElement('div');
@@ -7633,8 +7671,8 @@ function updateStoryPreview() {
   let dist = 0, elev = 0, dur = 0;
   selectedMems.forEach(m => { dist += m.distance || 0; elev += m.elevation || 0; dur += m.duration || 0; });
   document.getElementById('sm-stats-summary').innerHTML =
-    '<div class="sm-stat"><div class="sm-stat-val">' + (dist > 0 ? (dist / 1000).toFixed(1) + ' km' : '—') + '</div><div class="sm-stat-label">Distance</div></div>' +
-    '<div class="sm-stat"><div class="sm-stat-val">' + (elev > 0 ? Math.round(elev) + ' m' : '—') + '</div><div class="sm-stat-label">Elevation</div></div>' +
+    '<div class="sm-stat"><div class="sm-stat-val">' + (dist > 0 ? fmtDist(dist) : '—') + '</div><div class="sm-stat-label">Distance</div></div>' +
+    '<div class="sm-stat"><div class="sm-stat-val">' + (elev > 0 ? fmtElev(elev) : '—') + '</div><div class="sm-stat-label">Elevation</div></div>' +
     '<div class="sm-stat"><div class="sm-stat-val">' + (dur > 0 ? formatDur(dur) : '—') + '</div><div class="sm-stat-label">Time</div></div>';
 }
 
@@ -7876,7 +7914,7 @@ function drawStreamChart(canvasId, chart) {
 function haversine(lat1,lon1,lat2,lon2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function formatDur(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?`${h}h ${m}m`:`${m}m`;}
-function formatPace(mps,type){if(!mps)return'—';const g=getGroup(type);if(g==='Ride'||g==='Flight'||g==='Drive')return(mps*3.6).toFixed(1)+' km/h';const spk=1000/mps,mi=Math.floor(spk/60),si=Math.floor(spk%60);return`${mi}:${si.toString().padStart(2,'0')} /km`;}
+function formatPace(mps,type){if(!mps)return'—';const g=getGroup(type);if(g==='Ride'||g==='Flight'||g==='Drive')return fmtSpeed(mps);if(units==='imperial'){const spm=MI/mps,mm=Math.floor(spm/60),ss=Math.floor(spm%60);return`${mm}:${ss.toString().padStart(2,'0')} /mi`;}const spk=1000/mps,mi=Math.floor(spk/60),si=Math.floor(spk%60);return`${mi}:${si.toString().padStart(2,'0')} /km`;}
 function decodePolyline(encoded){const pts=[];let i=0,lat=0,lng=0;while(i<encoded.length){let b,shift=0,result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lat+=(result&1)?~(result>>1):(result>>1);shift=0;result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lng+=(result&1)?~(result>>1):(result>>1);pts.push([lng/1e5,lat/1e5]);}return pts;}
 function encodePolyline(coords){let out='',lat=0,lng=0;const enc=v=>{v=v<0?~(v<<1):(v<<1);while(v>=0x20){out+=String.fromCharCode((0x20|(v&0x1f))+63);v>>=5;}out+=String.fromCharCode(v+63);};coords.forEach(([lo,la])=>{const ila=Math.round(la*1e5),ilo=Math.round(lo*1e5);enc(ila-lat);lat=ila;enc(ilo-lng);lng=ilo;});return out;}
 // Drops any point within radiusM of the track's own start or end, splitting
@@ -8133,7 +8171,7 @@ window.addEventListener('resize', () => { if (map) map.resize(); if (document.ge
 const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
-_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
+_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
