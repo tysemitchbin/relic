@@ -3974,7 +3974,7 @@ function showDetail(memId) {
   ].filter(([k,v])=>v!=='—');
   document.getElementById('d-rows').innerHTML=rows.map(([k,v])=>`<div class="info-row"><span class="ir-key">${k}</span><span class="ir-val">${v}</span></div>`).join('');
   document.getElementById('d-strava-link').innerHTML=mem.stravaId?`<a class="strava-link" href="https://www.strava.com/activities/${mem.stravaId}" target="_blank">↗ View on Strava</a>`:'';
-  document.getElementById('d-delete-row').innerHTML=`<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b;width:100%" onclick="deleteMoment('${memId}')">Delete ${mem.isPin?'Pin':'Track'}</button>`;
+  document.getElementById('d-delete-row').innerHTML=(mem.isPin?'':`<button class="btn-ghost" style="width:100%;margin-bottom:10px" onclick="shareMomentImage(${jsAttr(memId)})"><svg class="ic"><use href="#i-image"/></svg>Share as image</button>`)+`<button class="btn-ghost danger" style="width:100%" onclick="deleteMoment(${jsAttr(memId)})"><svg class="ic"><use href="#i-trash"/></svg>Delete ${mem.isPin?'pin':'track'}</button>`;
   // Charts: hide for non-Strava or load streams
   var chartsSection = document.getElementById('d-charts-section');
   if (mem.stravaId) {
@@ -4064,7 +4064,8 @@ function showStoryDetail(storyId) {
   var actionsDiv = document.createElement('div');
   actionsDiv.className = 'sd-actions';
   actionsDiv.innerHTML =
-    '<button class="btn-ghost" onclick="openStoryModal(\'' + storyId + '\')">Edit Moments</button>' +
+    '<button class="btn-ghost btn-sm" onclick="openStoryModal(\'' + storyId + '\')"><svg class="ic"><use href="#i-pen"/></svg>Edit moments</button>' +
+    '<button class="btn-ghost btn-sm" onclick="shareStoryImage(\'' + storyId + '\')"><svg class="ic"><use href="#i-image"/></svg>Share as image</button>' +
     '<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="deleteStory(\'' + storyId + '\');closeDetail()">Delete Story</button>';
   body.insertBefore(actionsDiv, document.getElementById('d-rows'));
   var shareDiv = document.createElement('div');
@@ -5770,7 +5771,8 @@ function renderActivityCard(it) {
     if (!_socialOff.comments) h += `<button class="fc-act" onclick="toggleComments(this)" title="Comments"><svg class="ic"><use href="#i-message"/></svg><span class="n">${it.commentCount || ''}</span></button>`;
   }
   h += `<span class="fc-spacer"></span>`;
-  if (it.isPublic) h += `<button class="fc-act" onclick="shareActivity(${jsAttr(it.ownerId)},${jsAttr(it.activityId)},${jsAttr(it.name)})" title="Share" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>`;
+  if (it.isOwn && db[it.activityId]) h += `<button class="fc-act" onclick="shareMomentImage(${jsAttr(it.activityId)})" title="Share as image" aria-label="Share as image"><svg class="ic"><use href="#i-image"/></svg></button>`;
+  if (it.isPublic) h += `<button class="fc-act" onclick="shareActivity(${jsAttr(it.ownerId)},${jsAttr(it.activityId)},${jsAttr(it.name)})" title="Share link" aria-label="Share link"><svg class="ic"><use href="#i-share"/></svg></button>`;
   h += `<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View on map</button>`;
   h += `</footer><div class="fc-comments" hidden></div></article>`;
   return h;
@@ -6036,8 +6038,129 @@ function renderFeedStoryCard(container, story, profile) {
     </div>
     <div class="fc-map" onclick="${open}"><canvas id="fc-smap-${escapeHtml(story.id)}" width="640" height="260"></canvas>${staticStoryMapImg(story, 640, 260)}</div>`;
   if (mood) h += `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>`;
-  h += `<footer class="fc-actions">${story.isPublic ? '' : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View story</button></footer></article>`;
+  h += `<footer class="fc-actions">${story.isPublic ? '' : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span><button class="fc-act" onclick="shareStoryImage(${jsAttr(story.id)})" title="Share as image" aria-label="Share as image"><svg class="ic"><use href="#i-image"/></svg></button>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View story</button></footer></article>`;
   container.insertAdjacentHTML('beforeend', h);
+}
+
+// ════════════════════════════════════════
+// SHARE AS IMAGE — a 1080×1350 card (map + title + stats) for Instagram/WhatsApp
+// ════════════════════════════════════════
+function _loadImg(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => res(i); i.onerror = rej; i.src = src; });
+}
+function _wrapText(ctx, text, maxW, maxLines) {
+  const words = String(text || '').split(/\s+/), lines = []; let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; if (lines.length === maxLines) break; }
+    else cur = t;
+  }
+  if (lines.length < maxLines && cur) lines.push(cur);
+  if (lines.length === maxLines && words.join(' ') !== lines.join(' ')) lines[maxLines - 1] = lines[maxLines - 1].replace(/\s*\S*$/, '') + '…';
+  return lines;
+}
+async function renderShareCard(o) {
+  const W = 1080, H = 1350, MAP_H = 820;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  try { await Promise.all([document.fonts.load('600 64px Fraunces'), document.fonts.load('600 32px Inter'), document.fonts.load('700 44px Inter')]); } catch (e) {}
+  ctx.fillStyle = '#f4efe6'; ctx.fillRect(0, 0, W, H);
+  // Map: Mapbox static image when the URL fits, otherwise our own drawing.
+  const segs = [];
+  (o.polylines || []).forEach((p, i) => { try { const c = decodePolyline(p); if (c.length > 1) segs.push({ c, color: (o.colors || [])[i] || o.color || '#c0562b' }); } catch (e) {} });
+  let drewMap = false;
+  if (segs.length) {
+    const overlays = []; let budget = 7400;
+    (o.polylines || []).forEach((p, i) => {
+      const seg = `path-6+${(((o.colors || [])[i]) || o.color || '#c0562b').replace('#', '')}-1(${encodeURIComponent(p)})`;
+      if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
+    });
+    if (overlays.length) {
+      const url = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${overlays.join(',')}/auto/540x410@2x?access_token=${encodeURIComponent(mapboxgl.accessToken)}&padding=60&logo=false&attribution=false`;
+      if (url.length <= 8000) { try { const img = await _loadImg(url); ctx.drawImage(img, 0, 0, W, MAP_H); drewMap = true; } catch (e) {} }
+    }
+    if (!drewMap) {
+      ctx.fillStyle = '#e9e2d6'; ctx.fillRect(0, 0, W, MAP_H);
+      const all = segs.flatMap(s => s.c), pad = 90;
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      all.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); });
+      const sc = Math.min((W - pad * 2) / (maxX - minX || 1), (MAP_H - pad * 2) / (maxY - minY || 1));
+      const ox = (W - (maxX - minX) * sc) / 2, oy = (MAP_H - (maxY - minY) * sc) / 2;
+      ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      segs.forEach(s => { ctx.strokeStyle = s.color; ctx.beginPath(); s.c.forEach(([x, y], i) => { const px = ox + (x - minX) * sc, py = MAP_H - oy - (y - minY) * sc; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); });
+    }
+  } else {
+    const g = ctx.createLinearGradient(0, 0, W, MAP_H); g.addColorStop(0, '#2b3a2e'); g.addColorStop(1, '#c0562b');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, MAP_H);
+  }
+  // Soft fade from map into the paper panel
+  const fade = ctx.createLinearGradient(0, MAP_H - 120, 0, MAP_H); fade.addColorStop(0, 'rgba(244,239,230,0)'); fade.addColorStop(1, 'rgba(244,239,230,1)');
+  ctx.fillStyle = fade; ctx.fillRect(0, MAP_H - 120, W, 120);
+  // Kicker (type · date)
+  let y = MAP_H + 40;
+  ctx.fillStyle = '#c0562b'; ctx.font = '700 30px Inter, sans-serif';
+  ctx.fillText(String(o.kicker || '').toUpperCase(), 72, y); y += 22;
+  // Title
+  ctx.fillStyle = '#1c1a17'; ctx.font = '600 74px Fraunces, Georgia, serif';
+  _wrapText(ctx, o.title || 'Untitled', W - 144, 2).forEach(line => { y += 80; ctx.fillText(line, 72, y); });
+  // Stats
+  y += 150;
+  const stats = (o.stats || []).filter(s => s[1] && s[1] !== '—').slice(0, 3);
+  const colW = (W - 144) / Math.max(1, stats.length);
+  stats.forEach(([label, val], i) => {
+    const x = 72 + i * colW;
+    ctx.fillStyle = '#6f675b'; ctx.font = '500 30px Inter, sans-serif'; ctx.fillText(label, x, y - 56);
+    ctx.fillStyle = '#1c1a17'; ctx.font = '700 58px Inter, sans-serif'; ctx.fillText(val, x, y);
+  });
+  // Footer: brand + author
+  const fy = H - 64;
+  ctx.fillStyle = '#c0562b';
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(72, fy - 44, 56, 56, 16); ctx.fill(); } else ctx.fillRect(72, fy - 44, 56, 56);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(86, fy - 4); ctx.bezierCurveTo(98, fy - 8, 100, fy - 24, 108, fy - 24); ctx.bezierCurveTo(118, fy - 24, 116, fy - 34, 114, fy - 32); ctx.stroke();
+  ctx.fillStyle = '#1c1a17'; ctx.font = '600 44px Fraunces, Georgia, serif'; ctx.fillText('Relic', 144, fy);
+  if (o.author) { ctx.fillStyle = '#6f675b'; ctx.font = '500 30px Inter, sans-serif'; ctx.textAlign = 'right'; ctx.fillText(o.author, W - 72, fy); ctx.textAlign = 'left'; }
+  return new Promise(res => cv.toBlob(res, 'image/png'));
+}
+async function shareAsImage(o) {
+  const dismiss = toast('Making your image…', { duration: 20000 });
+  let blob;
+  try { blob = await renderShareCard(o); } catch (e) { console.error(e); }
+  dismiss();
+  if (!blob) { toast('Couldn\'t create the image', { error: true }); return; }
+  const file = new File([blob], (o.title || 'relic').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 40) + '.png', { type: 'image/png' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ files: [file], title: o.title }); return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('Image saved — ready to post', { icon: 'check' });
+}
+function shareMomentImage(memId) {
+  const m = db[memId]; if (!m || isStory(m)) return;
+  const c = getCoords(m);
+  const color = m.customColor || getColor(m.type);
+  shareAsImage({
+    kicker: [TYPE_CONFIG[getGroup(m.type)]?.label || m.type, m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''].filter(Boolean).join(' · '),
+    title: m.name, color,
+    polylines: c ? redactTrackForPrivacy(c, m.privacyRadiusM || 0) : [],
+    stats: [['Distance', m.distance ? fmtKm(m.distance) : ''], ['Time', m.duration ? formatDur(m.duration) : ''], ['Elevation', m.elevation ? Math.round(m.elevation).toLocaleString() + ' m' : '']],
+    author: _profile.name || '',
+  });
+}
+function shareStoryImage(storyId) {
+  const st = db[storyId]; if (!st || !isStory(st)) return;
+  const snap = buildStorySnapshotRow(st);
+  const fmt = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+  shareAsImage({
+    kicker: 'Story · ' + (snap.date_start === snap.date_end ? fmt(snap.date_end) : fmt(snap.date_start) + ' – ' + fmt(snap.date_end)),
+    title: st.title, polylines: snap.polylines, colors: snap.colors,
+    stats: [['Distance', snap.distance ? fmtKm(snap.distance) : ''], ['Moments', String(snap.moment_count || '')], ['Time', snap.duration ? formatDur(snap.duration) : '']],
+    author: _profile.name || '',
+  });
 }
 
 // ════════════════════════════════════════
@@ -8010,7 +8133,7 @@ window.addEventListener('resize', () => { if (map) map.resize(); if (document.ge
 const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
-_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
+_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
