@@ -605,6 +605,31 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .fc-story-type-pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: var(--r-pill); color: #fff; }
 .fc-moment-count { font-size: 13px; color: var(--text-3); padding: 0 18px 8px; }
 
+/* Getting-started checklist + "On this day" (top of the feed) */
+.gs-card { padding: 18px 18px 8px; margin-bottom: 18px; position: relative; }
+.gs-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; padding-right: 30px; }
+.gs-ring { width: 46px; height: 46px; flex-shrink: 0; }
+.gs-head h3 { font: 600 17px var(--font-ui); color: var(--ink); }
+.gs-head p { font-size: 13px; color: var(--text-3); margin-top: 1px; }
+.gs-close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; border: none; background: none; color: var(--text-3); font-size: 20px; cursor: pointer; }
+.gs-close:hover { background: var(--paper2); color: var(--ink); }
+.gs-step { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 6px; border: none; border-top: 1px solid var(--border); background: none; text-align: left; cursor: pointer; font: 500 14px var(--font-ui); color: var(--ink); }
+.gs-step:hover { background: var(--paper2); }
+.gs-step .gs-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--paper3); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; }
+.gs-step .gs-check .ic { width: 14px; height: 14px; stroke-width: 3; opacity: 0; }
+.gs-step.done { color: var(--text-3); text-decoration: line-through; cursor: default; }
+.gs-step.done:hover { background: none; }
+.gs-step.done .gs-check { background: var(--success); border-color: var(--success); }
+.gs-step.done .gs-check .ic { opacity: 1; }
+.gs-step .chev { margin-left: auto; color: var(--text-3); width: 18px; height: 18px; }
+.gs-step.done .chev { display: none; }
+.otd-card { display: flex; gap: 14px; align-items: center; padding: 12px; margin-bottom: 18px; cursor: pointer; overflow: hidden; position: relative; }
+.otd-card:hover { box-shadow: var(--sh-2); }
+.otd-thumb { width: 92px; height: 92px; border-radius: var(--r-md); overflow: hidden; flex-shrink: 0; position: relative; background: var(--paper2); }
+.otd-kicker { font: 700 12px var(--font-ui); color: var(--accent); text-transform: uppercase; letter-spacing: .06em; }
+.otd-title { font: 600 18px/1.25 var(--font-display); color: var(--ink); margin: 3px 0 2px; }
+.otd-meta { font-size: 13px; color: var(--text-3); }
+
 /* Feed empty / loading states */
 .empty-block { text-align: center; padding: 48px 24px; }
 .empty-block .eb-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; }
@@ -1796,6 +1821,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
               <button data-tab="you" onclick="setFeedTab('you')">You</button>
             </div>
           </div>
+          <div id="feed-top"></div>
           <div id="feed-container"></div>
           <div class="load-more" id="feed-more"></div>
         </div>
@@ -5194,6 +5220,7 @@ async function shareLink(url, title, text) {
 }
 function shareMyProfile() {
   if (!currentUser) return;
+  _lsSet('relic_invited', '1');
   shareLink(profileLink(currentUser.id), 'My map on Relic', 'Follow my adventures on Relic' + (_profile.name ? ' — ' + _profile.name : ''));
   const nPublic = getMoments().filter(m => m.isPublic).length;
   if (!nPublic) setTimeout(() => toast('Tip: your activities are all private, so friends will see an empty profile.', {
@@ -5540,6 +5567,65 @@ let feedTab = 'following';
 let _feedCursor = null, _feedLoading = false, _feedDone = false, _feedToken = 0, _feedStories = [];
 const _canvasJobs = [];
 
+// ── Top of the feed: getting-started checklist + "On this day" ──
+function _uKey(k) { return k + '_' + (currentUser?.id || ''); }
+function _lsGet(k) { try { return localStorage.getItem(_uKey(k)); } catch (e) { return null; } }
+function _lsSet(k, v) { try { localStorage.setItem(_uKey(k), v); } catch (e) {} }
+function gettingStartedSteps() {
+  const pins = getPins().filter(p => p.pinCategory !== 'airport');
+  return [
+    { done: getMoments().length > 0, label: 'Bring in your history — Strava or GPX', fn: `switchView('settings')` },
+    { done: !!_profile.photo, label: 'Add a profile photo', fn: `switchView('profile');document.getElementById('profile-photo-input').click()` },
+    { done: pins.length > 0, label: 'Pin a place that matters to you', fn: `openPinModal()` },
+    { done: getMoments().some(m => m.isPublic) || getStories().some(s => s.isPublic), label: 'Share something with followers', fn: `switchView('settings')` },
+    { done: myFollowingIds.size >= 3, label: 'Follow 3 people', fn: `switchView('people')` },
+    { done: !!_lsGet('relic_invited'), label: 'Invite a friend', fn: `shareMyProfile()` },
+  ];
+}
+function renderGettingStarted() {
+  if (_lsGet('relic_gs_dismissed')) return '';
+  const steps = gettingStartedSteps(), n = steps.filter(s => s.done).length;
+  if (n === steps.length) return '';
+  const pct = n / steps.length, r = 19, c = 2 * Math.PI * r;
+  return `<div class="card gs-card">
+    <button class="gs-close" onclick="dismissGettingStarted()" aria-label="Hide checklist">&times;</button>
+    <div class="gs-head">
+      <svg class="gs-ring" viewBox="0 0 46 46"><circle cx="23" cy="23" r="${r}" fill="none" stroke="var(--paper3)" stroke-width="5"/><circle cx="23" cy="23" r="${r}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(c * pct).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 23 23)"/><text x="23" y="27.5" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)" font-family="Inter, sans-serif">${n}/${steps.length}</text></svg>
+      <div><h3>Get the most out of Relic</h3><p>A few quick steps to fill your map and bring your friends along.</p></div>
+    </div>
+    ${steps.map(s => `<button class="gs-step${s.done ? ' done' : ''}" ${s.done ? 'disabled' : `onclick="${s.fn}"`}><span class="gs-check"><svg class="ic"><use href="#i-check"/></svg></span>${escapeHtml(s.label)}<svg class="ic chev"><use href="#i-chevron-right"/></svg></button>`).join('')}
+  </div>`;
+}
+function dismissGettingStarted() { _lsSet('relic_gs_dismissed', '1'); renderFeedTop(); }
+// A moment from this calendar day in an earlier year, if there is one.
+function onThisDay() {
+  const now = new Date(), md = String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+  const y = now.getFullYear();
+  const hits = getMoments().filter(m => m.date && m.date.slice(5, 10) === md && +m.date.slice(0, 4) < y);
+  if (!hits.length) return null;
+  return hits.sort((a, b) => (b.distance || 0) - (a.distance || 0))[0];
+}
+function renderOnThisDay() {
+  const today = new Date().toISOString().slice(0, 10);
+  if (_lsGet('relic_otd_dismissed') === today) return '';
+  const m = onThisDay(); if (!m) return '';
+  const years = new Date().getFullYear() - +m.date.slice(0, 4);
+  const color = m.customColor || getColor(m.type);
+  const poly = encodedPolyOf(m);
+  const thumb = poly ? mapboxStaticImg([`path-4+${color.replace('#', '')}-0.9(${encodeURIComponent(poly)})`], 184, 184) : '';
+  return `<div class="card otd-card" onclick="goToActivity(${jsAttr(m.id)})">
+    <div class="otd-thumb">${thumb}</div>
+    <div style="min-width:0;flex:1"><div class="otd-kicker">On this day · ${years} year${years > 1 ? 's' : ''} ago</div>
+      <div class="otd-title">${escapeHtml(m.name || 'Untitled')}</div>
+      <div class="otd-meta">${escapeHtml([TYPE_CONFIG[getGroup(m.type)]?.label || m.type, m.distance ? fmtKm(m.distance) : '', new Date(m.date).getFullYear()].filter(Boolean).join(' · '))}</div></div>
+    <button class="gs-close" style="position:static;align-self:flex-start" onclick="event.stopPropagation();_lsSet('relic_otd_dismissed',new Date().toISOString().slice(0,10));renderFeedTop()" aria-label="Hide">&times;</button>
+  </div>`;
+}
+function renderFeedTop() {
+  const el = document.getElementById('feed-top'); if (!el) return;
+  el.innerHTML = renderOnThisDay() + renderGettingStarted();
+}
+
 function setFeedTab(tab) {
   feedTab = tab;
   document.querySelectorAll('#feed-seg button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
@@ -5548,6 +5634,7 @@ function setFeedTab(tab) {
 function buildFeed() {
   document.querySelectorAll('#feed-seg button').forEach(b => b.classList.toggle('active', b.dataset.tab === feedTab));
   renderSideSuggestions();
+  renderFeedTop();
   if (feedTab === 'you') buildOwnFeed();
   else buildFollowingFeed(true);
 }
@@ -5691,7 +5778,7 @@ async function buildFollowingFeed(reset) {
   _feedLoading = true;
   const token = _feedToken;
   try {
-    if (reset) await Social.graph();
+    if (reset) { await Social.graph(); renderFeedTop(); }
     const authors = [...myFollowingIds];
     if (!authors.length) {
       c.innerHTML = emptyBlock('users', 'Your feed is waiting for friends',
@@ -7839,7 +7926,7 @@ _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',bu
 _r('toggleKudos',toggleKudos);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
-_r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);
+_r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);
 
 // Retrospective entry — Pins, manual entry, NL route parser, draw-route, Airports, cover photo
 _r('setCoverPhoto',setCoverPhoto);
