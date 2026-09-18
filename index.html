@@ -5420,7 +5420,7 @@ const Social = {
     (f.data || []).forEach(r => out.push({ kind: 'follow', actor: r.follower_id, at: r.created_at }));
     (k.data || []).forEach(r => out.push({ kind: 'kudos', actor: r.user_id, at: r.created_at, activityId: r.activity_id }));
     (c.data || []).forEach(r => out.push({ kind: 'comment', actor: r.user_id, at: r.created_at, activityId: r.activity_id, body: r.body }));
-    return out.sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 60);
+    return out.sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 60);
   },
   // People you may know: followers you don't follow back, friends of friends,
   // then anyone who's posted public activities recently.
@@ -6797,11 +6797,14 @@ async function reportUser(uid, name) {
 let _notifItems = [], _notifTimer = null;
 function _notifSeenKey() { return 'relic_notif_seen_' + (currentUser?.id || ''); }
 function notifSeenAt() { try { return localStorage.getItem(_notifSeenKey()) || ''; } catch (e) { return ''; } }
+// Compare as dates: Supabase returns "+00:00" offsets, we store "Z" — string
+// comparison between the two isn't reliable.
+function isUnread(n, seen) { return Date.parse(n.at) > (Date.parse(seen) || 0); }
 async function refreshNotifications() {
   if (!currentUser) return;
   try { _notifItems = (await Social.notifications()).filter(n => !myBlockedIds.has(n.actor)); } catch (e) { console.warn('Notifications failed', e); return; }
   const seen = notifSeenAt();
-  const unread = _notifItems.filter(n => n.at > seen).length;
+  const unread = _notifItems.filter(n => isUnread(n, seen)).length;
   const dot = document.getElementById('notif-dot');
   if (dot) { dot.hidden = !unread; dot.textContent = unread > 9 ? '9+' : unread; }
 }
@@ -6845,13 +6848,13 @@ async function renderNotifications(seen) {
       : n.kind === 'kudos' ? `<b>${escapeHtml(p.name)}</b> gave kudos to ${actName}`
       : `<b>${escapeHtml(p.name)}</b> commented on ${actName}: <q>${escapeHtml((n.body || '').slice(0, 120))}</q>`;
     const click = n.kind === 'follow' ? `closeNotifications();openPublicProfile(${jsAttr(n.actor)})` : `closeNotifications();goToActivity(${jsAttr(n.activityId)})`;
-    return `<div class="notif${n.at > seen ? ' unread' : ''}" onclick="${click}">
+    return `<div class="notif${isUnread(n, seen) ? ' unread' : ''}" onclick="${click}">
       ${avatarHtml(p.avatarUrl, p.name, 'av-44', n.actor)}<span class="notif-badge ${n.kind}"><svg class="ic"><use href="#i-${icon[n.kind]}"/></svg></span>
       <div class="notif-text">${text}<div class="notif-time">${escapeHtml(relTime(n.at))}</div></div>
       ${n.kind === 'follow' && !myFollowingIds.has(n.actor) ? followBtnHtml(n.actor, 'btn-sm') : ''}
     </div>`;
   };
-  const fresh = _notifItems.filter(n => n.at > seen), older = _notifItems.filter(n => n.at <= seen);
+  const fresh = _notifItems.filter(n => isUnread(n, seen)), older = _notifItems.filter(n => !isUnread(n, seen));
   body.innerHTML = (fresh.length ? `<div class="nd-group">New</div>${fresh.map(row).join('')}` : '') +
     (older.length ? `<div class="nd-group">Earlier</div>${older.map(row).join('')}` : '');
 }
