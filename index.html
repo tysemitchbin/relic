@@ -1712,7 +1712,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           <button class="sb-mobile-close" onclick="toggleSidebar()">×</button>
         </div>
         <div class="sb-header">
-          <input class="sb-search" type="text" id="search" placeholder="Search memories..." oninput="onSearchInput(this.value)">
+          <input class="sb-search" type="text" id="search" placeholder="Search activities" oninput="onSearchInput(this.value)">
           <div class="sb-sort-row">
             <button class="sb-sort-btn active" data-sort="recent" onclick="setSidebarSort('recent')">Recent</button>
             <button class="sb-sort-btn" data-sort="name" onclick="setSidebarSort('name')">Name</button>
@@ -1734,7 +1734,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             <div class="detail-type-dot" id="d-type-dot"></div>
             <div class="detail-type-label" id="d-type-label"></div>
           </div>
-          <input class="detail-name-input" id="d-name-input" placeholder="Name this memory..." oninput="onNameEdit()">
+          <input class="detail-name-input" id="d-name-input" placeholder="Give it a name" oninput="onNameEdit()" aria-label="Name">
           <div class="detail-date" id="d-date"></div>
         </div>
         <div class="detail-body" id="detail-body">
@@ -1757,7 +1757,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           </div>
           <div class="detail-section">
             <div class="detail-section-title">Note</div>
-            <textarea class="note-textarea" id="d-note" placeholder="Write about this memory..." oninput="onNoteEdit()"></textarea>
+            <textarea class="note-textarea" id="d-note" placeholder="What happened? Who were you with?" oninput="onNoteEdit()"></textarea>
           </div>
           <div class="detail-section" id="d-mood-section">
             <div class="detail-section-title">Feeling</div>
@@ -2402,7 +2402,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 </div>
 
 <!-- LIGHTBOX -->
-<div id="lightbox">
+<div id="lightbox" onclick="if(event.target===this)closeLightbox()">
   <button id="lightbox-close" onclick="closeLightbox()">×</button>
   <img id="lightbox-img" src="" alt="">
   <div id="lightbox-caption"></div>
@@ -4247,6 +4247,7 @@ function extractGPSCoords(v,go,le,base){try{const n=v.getUint16(go,le);let latR,
 function readRationals(v,o,c,le){const vals=[];for(let i=0;i<c;i++){const n=v.getUint32(o+i*8,le);const d=v.getUint32(o+i*8+4,le);vals.push(d?n/d:0);}return vals;}
 function addPhotoMarker(lat,lng,dataUrl,idx){const el=document.createElement('div');el.style.cssText=`width:28px;height:28px;border-radius:50%;border:2px solid white;background:url(${dataUrl}) center/cover;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3)`;el.onclick=()=>openLightbox(idx);new mapboxgl.Marker(el).setLngLat([lng,lat]).addTo(map);}
 function openLightbox(idx){if(!selectedId)return;const p=db[selectedId].photos[idx];document.getElementById('lightbox-img').src=p.dataUrl;document.getElementById('lightbox-caption').textContent=p.lat?`${p.lat.toFixed(4)}°N  ${p.lng.toFixed(4)}°E`:'';document.getElementById('lightbox').classList.add('open');}
+function openLightboxUrl(url){document.getElementById('lightbox-img').src=url;document.getElementById('lightbox-caption').textContent='';document.getElementById('lightbox').classList.add('open');}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
 
 async function setCoverPhoto(memId, idx) {
@@ -5798,7 +5799,7 @@ function renderActivityCard(it) {
     h += `<div class="fc-map" onclick="${open}"><canvas id="${cid}" width="640" height="260"></canvas>${mapboxStaticImg(it.polylines.map(p => `path-4+${stroke}-0.9(${encodeURIComponent(p)})`), 640, 260)}</div>`;
     _canvasJobs.push({ id: cid, polylines: it.polylines, color });
   }
-  if (it.photos && it.photos.length) h += `<div class="fc-photos">${it.photos.slice(0, 3).map(u => `<img src="${escapeHtml(u)}" alt="" loading="lazy">`).join('')}</div>`;
+  if (it.photos && it.photos.length) h += `<div class="fc-photos">${it.photos.slice(0, 3).map(u => `<img src="${escapeHtml(u)}" alt="" loading="lazy" style="cursor:zoom-in" onclick="openLightboxUrl(this.src)">`).join('')}</div>`;
   if (mood) h += `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>`;
   const social = it.isPublic && !_socialOff.kudos;
   const k = it.kudos || { count: 0, mine: false };
@@ -8171,7 +8172,7 @@ window.addEventListener('resize', () => { if (map) map.resize(); if (document.ge
 const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
-_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
+_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
