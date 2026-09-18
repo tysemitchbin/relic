@@ -119,8 +119,9 @@ pushed):
 | `7daf06d` | Share as image (1080×1350 cards). |
 | `8a329d5` | Kilometres / miles setting. |
 | `1ac48c6` | Feed photo lightbox, copy tweaks. |
+| `e85cd15` | PNG app icons + Open Graph share image. |
 
 ### Open items
 - **Run `docs/supabase-social-v2.sql`** (kudos, comments, public stories, blocks, public-photo RLS fix).
 - Two-account test on a `*.pages.dev` preview (checklist at the end of the review).
-- URL-restrict the Mapbox token; add a PNG `og:image` / `apple-touch-icon`.
+- URL-restrict the Mapbox token; make `og:image` absolute once the production origin is final.
