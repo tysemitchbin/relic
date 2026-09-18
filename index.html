@@ -3,11 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#1a1814">
+<meta name="theme-color" content="#f4efe6">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Relic">
-<title>Relic — Your Life, Mapped</title>
+<title>Relic — Your life, mapped</title>
+<meta name="description" content="Every place you've been, on one map. Bring in Strava, GPX and KML, pin the places that matter, and follow your friends' adventures.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Relic">
+<meta property="og:title" content="Relic — Your life, mapped">
+<meta property="og:description" content="Every place you've been, on one map. Follow your friends' adventures.">
+<meta name="twitter:card" content="summary">
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,32 +75,33 @@
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
-body { font-family: var(--font-ui); background: var(--ink); color: var(--ink); -webkit-tap-highlight-color: transparent; }
+body { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -webkit-tap-highlight-color: transparent; }
 
 /* ── LOADING ── */
 #loading {
-  position: fixed; inset: 0; background: var(--ink); z-index: 9999;
+  position: fixed; inset: 0; background: var(--bg); z-index: 9999;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
   transition: opacity 0.8s ease;
 }
+.loading-mark { width: 64px; height: 64px; animation: fadeUp .8s ease both; filter: drop-shadow(0 8px 20px rgba(192,86,43,.3)); }
 .loading-wordmark {
-  font-family: var(--font-display); font-size: 56px; font-weight: 300;
-  letter-spacing: 20px; text-transform: uppercase; color: var(--paper);
-  animation: fadeUp 1s ease 0.2s both;
+  font-family: var(--font-display); font-size: 44px; font-weight: 600; margin-top: -8px;
+  letter-spacing: -0.02em; color: var(--ink);
+  animation: fadeUp 1s ease 0.15s both;
 }
-.loading-tagline { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--warm); animation: fadeUp 1s ease 0.5s both; }
-.loading-status { font-size: 12px; letter-spacing: 0.04em; color: var(--muted); animation: fadeUp 1s ease 0.7s both; min-height: 14px; }
-.loading-bar { width: 180px; height: 1px; background: #2a2520; animation: fadeUp 1s ease 0.7s both; }
-.loading-fill { height: 100%; background: linear-gradient(90deg, var(--warm), var(--accent)); width: 0%; transition: width 0.5s ease; }
+.loading-tagline { font-size: 15px; margin-top: -12px; color: var(--text-2); animation: fadeUp 1s ease 0.5s both; }
+.loading-status { font-size: 13px; color: var(--text-3); animation: fadeUp 1s ease 0.7s both; min-height: 14px; }
+.loading-bar { width: 200px; height: 4px; border-radius: 4px; overflow: hidden; background: var(--paper3); animation: fadeUp 1s ease 0.7s both; }
+.loading-fill { height: 100%; border-radius: 4px; background: var(--accent); width: 0%; transition: width 0.5s ease; }
 #loading-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 #loading-actions[hidden] { display: none; }
 #loading-actions button {
-  font-family: var(--font-ui); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
-  padding: 10px 18px; border: 1px solid var(--paper); background: var(--paper); color: var(--ink);
+  font: 600 15px var(--font-ui); border-radius: var(--r-pill);
+  padding: 12px 22px; border: 1px solid var(--accent); background: var(--accent); color: #fff;
   cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.15s;
 }
 #loading-actions button:hover { opacity: 0.85; }
-#loading-actions button.ghost { background: transparent; color: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.2); }
+#loading-actions button.ghost { background: var(--surface); color: var(--ink); border-color: var(--border); }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── LAYOUT ── */
@@ -310,56 +319,56 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 #mode-banner-text { overflow: hidden; text-overflow: ellipsis; }
 
+/* Pin markers — shrink as you zoom out (--pin-scale set from the map's zoom) */
+.pin-wrap { cursor: pointer; }
+.pin-mk {
+  position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--c, #6b7280);
+  border: 2.5px solid #fff; box-shadow: 0 3px 10px rgba(28,26,23,.35);
+  display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;
+  margin-bottom: 7px; transform: scale(var(--pin-scale, 1)); transform-origin: 50% calc(100% + 7px);
+  transition: transform .18s var(--ease);
+}
+.pin-mk::after { content: ''; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); border: 5px solid transparent; border-top: 7px solid #fff; }
+.pin-wrap:hover .pin-mk { transform: scale(calc(var(--pin-scale, 1) * 1.12)); }
+
 /* Legacy tools panel (superseded by the filter drawer; element kept empty) */
 #tools-panel { display: none; }
 
-/* Tab bar */
-.tp-tabs { display: flex; border-bottom: 1px solid var(--border); }
-.tp-tab {
-  flex: 1; padding: 7px 4px; font-family: var(--font-ui);
-  font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--muted); background: none; border: none; cursor: pointer;
-  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s;
-}
-.tp-tab:hover { color: var(--ink); }
-.tp-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
-
-/* Tab content */
-.tp-pane { display: none; padding: 10px; overflow-y: auto; max-height: 360px; }
-.tp-pane.active { display: block; }
-
-.tp-type-grid { display: flex; flex-direction: column; gap: 1px; }
+/* Type toggles + colour rows (used inside the filter drawer) */
+.tp-type-grid { display: flex; flex-direction: column; gap: 2px; }
 .tp-type-row {
-  display: flex; align-items: center; gap: 8px; padding: 4px 4px; cursor: pointer; transition: background 0.1s;
+  display: flex; align-items: center; gap: 12px; padding: 8px 8px; min-height: 42px; border-radius: var(--r-sm); cursor: pointer; transition: background .1s;
 }
 .tp-type-row:hover { background: var(--paper2); }
-.tp-type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.tp-type-label { font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); flex: 1; }
+.tp-type-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.tp-type-label { font-size: 14px; font-weight: 500; text-transform: none; color: var(--ink); flex: 1; }
 .tp-type-toggle {
-  width: 28px; height: 16px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--paper2); position: relative; cursor: pointer; transition: background 0.15s; flex-shrink: 0;
+  width: 40px; height: 24px; border-radius: var(--r-pill); border: none;
+  background: var(--paper3); position: relative; cursor: pointer; transition: background .18s; flex-shrink: 0;
 }
-.tp-type-toggle.on { background: var(--ink); border-color: var(--ink); }
+.tp-type-toggle.on { background: var(--accent); }
 .tp-type-toggle::after {
-  content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px;
-  border-radius: 50%; background: white; transition: transform 0.15s;
+  content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; box-shadow: var(--sh-1); transition: transform .18s var(--ease);
 }
-.tp-type-toggle.on::after { transform: translateX(12px); }
+.tp-type-toggle.on::after { transform: translateX(16px); }
 
-.tp-color-row { display: flex; align-items: center; gap: 10px; padding: 5px 4px; border-bottom: 1px solid var(--border); }
+.tp-color-row { display: flex; align-items: center; gap: 12px; padding: 8px 4px; border-bottom: 1px solid var(--border); }
 .tp-color-row:last-child { border-bottom: none; }
 .tp-color-swatch {
-  width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.12);
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--border);
   cursor: pointer; position: relative; overflow: hidden; flex-shrink: 0;
 }
-.tp-color-swatch input[type="color"] { position: absolute; inset: -4px; opacity: 0; cursor: pointer; width: 28px; height: 28px; }
-.tp-color-label { font-size: 12px; letter-spacing: 0; text-transform: uppercase; color: var(--ink); flex: 1; }
+.tp-color-swatch input[type="color"] { position: absolute; inset: -4px; opacity: 0; cursor: pointer; width: 34px; height: 34px; }
+.tp-color-label { font-size: 14px; text-transform: none; color: var(--ink); flex: 1; }
+
 
 .coord-bar {
-  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-  font-size: 12px; letter-spacing: 0.04em; color: rgba(255,255,255,0.7);
-  background: rgba(26,24,20,0.5); padding: 3px 10px; z-index: 50; pointer-events: none; white-space: nowrap;
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); border-radius: var(--r-pill);
+  font: 500 11px var(--font-mono); color: #fff; font-variant-numeric: tabular-nums;
+  background: rgba(28,26,23,0.55); padding: 3px 10px; z-index: 50; pointer-events: none; white-space: nowrap;
 }
+.coord-bar:empty { display: none; }
 
 /* ── DETAIL PANEL ── floating card, right side (full-screen sheet on mobile) */
 #detail-panel {
@@ -394,6 +403,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .dstat-val { font: 700 17px var(--font-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dstat-label { font-size: 12px; color: var(--text-3); }
 .detail-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.pin-place { display: flex; gap: 12px; align-items: flex-start; }
+.pin-place .ic { width: 22px; height: 22px; color: var(--accent); margin-top: 1px; }
+.pin-place b { display: block; font-size: 15px; color: var(--ink); }
+.pin-place span { font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 .detail-section-title { font: 600 13px var(--font-ui); color: var(--ink); margin-bottom: 10px; }
 .note-textarea {
   width: 100%; min-height: 84px; background: var(--paper2); border: 1px solid transparent; border-radius: var(--r-md);
@@ -1268,7 +1281,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .login-brand {
   flex: 1.1; position: relative; overflow: hidden; color: #fff; padding: 48px;
   background: radial-gradient(120% 90% at 20% 10%, #3b4a36 0%, #232a22 55%, #1c1a17 100%);
-  display: flex; flex-direction: column; justify-content: space-between;
+  display: flex; flex-direction: column; justify-content: space-between; gap: 24px;
 }
 .login-brand svg.lb-map { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
 .lb-top { position: relative; display: flex; align-items: center; gap: 12px; }
@@ -1307,6 +1320,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 #login button.login-link:hover { color: var(--accent); filter: none; }
 #login .login-links { display: flex; justify-content: space-between; gap: 10px; margin-top: 2px; }
 #login .login-consent-row { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--text-2); line-height: 1.5; margin: 2px 0 4px; cursor: pointer; }
+#login .login-consent-row[hidden] { display: none; }
 #login .login-consent-row input[type=checkbox] { margin-top: 3px; flex-shrink: 0; accent-color: var(--accent); width: 16px; height: 16px; }
 #login .login-consent-row a { color: var(--ink); }
 #login .login-link-sep { margin-top: 10px; padding-top: 14px !important; border-top: 1px solid var(--border) !important; border-radius: 0 !important; }
@@ -1540,7 +1554,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <input type="email" id="login-email" placeholder="you@email.com" autocomplete="email" required>
     <input type="password" id="login-password" placeholder="password" autocomplete="current-password" minlength="6" required>
     <label id="login-consent-row" class="login-consent-row" hidden>
-      <input type="checkbox" id="login-consent" required>
+      <input type="checkbox" id="login-consent">
       I agree to the <a href="terms.html" target="_blank" onclick="event.stopPropagation()">Terms of Service</a>
       and <a href="privacy.html" target="_blank" onclick="event.stopPropagation()">Privacy Policy</a>
     </label>
@@ -1568,6 +1582,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 
 <!-- LOADING -->
 <div id="loading">
+  <svg class="loading-mark" viewBox="0 0 32 32" aria-hidden="true"><use href="#logo-mark"/></svg>
   <div class="loading-wordmark">Relic</div>
   <div class="loading-tagline">Your life, mapped</div>
   <div class="loading-status" id="loading-status">Initialising archive...</div>
@@ -3102,6 +3117,12 @@ function initMap() {
       maybeAutoSyncStrava();
     }
   });
+  // Pins: full size from zoom ~9 up, down to ~45% at continent scale.
+  const setPinScale = () => {
+    const z = map.getZoom(), sc = Math.max(0.45, Math.min(1, 0.45 + (z - 3) * 0.09));
+    document.getElementById('map').style.setProperty('--pin-scale', sc.toFixed(2));
+  };
+  map.on('zoom', setPinScale); map.on('load', setPinScale);
   map.on('mousemove', e => {
     const {lng,lat}=e.lngLat;
     document.getElementById('coord-bar').textContent=`${lat.toFixed(4)}°N  ${lng.toFixed(4)}°E`;
@@ -3281,14 +3302,18 @@ function renderPinMarkers() {
     const catKey = PIN_CATEGORIES[p.pinCategory] ? p.pinCategory : 'other';
     if (!activePinCategories.has(catKey)) return;
     const cat = getPinCategory(catKey);
+    // Mapbox owns the root element's transform (it positions the marker with
+    // it), so all our styling/scaling lives on the inner .pin-mk.
     const el = document.createElement('div');
-    el.style.cssText = `width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${p.customColor||cat.color};border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;cursor:pointer`;
-    const inner = document.createElement('span');
-    inner.style.cssText = 'transform:rotate(45deg);font-size:15px;line-height:1';
+    el.className = 'pin-wrap';
+    el.title = p.name || cat.label;
+    const inner = document.createElement('div');
+    inner.className = 'pin-mk';
+    inner.style.setProperty('--c', p.customColor || cat.color);
     inner.textContent = cat.icon;
     el.appendChild(inner);
     el.addEventListener('click', e => { e.stopPropagation(); if (_pinDropMode || _drawMode) return; showDetail(p.id); });
-    try { _pinMarkers.push(new mapboxgl.Marker(el).setLngLat([p.startLng, p.startLat]).addTo(map)); }
+    try { _pinMarkers.push(new mapboxgl.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.startLng, p.startLat]).addTo(map)); }
     catch (e) { console.warn('Pin marker failed', e); }
   });
 }
@@ -3777,7 +3802,16 @@ function showDetail(memId) {
     {val:mem.maxSpeed?(getGroup(mem.type)==='Ride'||getGroup(mem.type)==='Drive'||getGroup(mem.type)==='Flight'?(mem.maxSpeed*3.6).toFixed(1)+' km/h':formatPace(mem.maxSpeed,mem.type)):'—',label:'Max Speed'},
     {val:mem.avgHR?mem.avgHR+' bpm':'—',label:'Avg Heart Rate'},
   ].filter(s=>hasTrack||!['Distance','Pace / Speed','Max Speed'].includes(s.label))
+   .filter(s=>s.val!=='—')
    .map(s=>`<div class="dstat"><div class="dstat-val">${s.val}</div><div class="dstat-label">${s.label}</div></div>`).join('');
+  // Pins are places, not workouts: no stat tiles, just where it is.
+  const statsEl = document.getElementById('d-stats');
+  if (mem.isPin) {
+    statsEl.innerHTML = `<div class="pin-place"><svg class="ic"><use href="#i-pin"/></svg><div><b>${escapeHtml(mem.startPlace || mem.name || 'Pinned place')}</b><span>${mem.startLat != null ? mem.startLat.toFixed(4) + ', ' + mem.startLng.toFixed(4) : ''}</span></div></div>`;
+    statsEl.style.display = 'block';
+  } else {
+    statsEl.style.display = statsEl.innerHTML ? '' : 'none';
+  }
   document.getElementById('d-note').value=mem.note||'';
   document.getElementById('d-note').style.display='';
   document.getElementById('d-visibility').innerHTML=
@@ -3880,6 +3914,7 @@ function showStoryDetail(storyId) {
     { val: story._totalElevation > 0 ? Math.round(story._totalElevation) + ' m' : '—', label: 'Total Elevation' },
     { val: story._momentCount || 0, label: 'Moments' },
   ].map(function(s) { return '<div class="dstat"><div class="dstat-val">' + s.val + '</div><div class="dstat-label">' + s.label + '</div></div>'; }).join('');
+  document.getElementById('d-stats').style.display = '';
 
   // Hide moment-specific sections
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = 'none'; });
@@ -7724,6 +7759,9 @@ function setLoginMode(mode) {
   _pwEl().setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
   document.getElementById('login-consent-row').hidden = !signup;
   document.getElementById('login-consent').checked = false;
+  // Only required when creating an account — a hidden required checkbox would
+  // silently block sign-in form submission.
+  document.getElementById('login-consent').required = signup;
   _loginStatus().textContent = '';
 }
 
