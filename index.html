@@ -4160,7 +4160,7 @@ function setVisibility(memId, isPublic, btn) {
   markDirty(memId);
 }
 // ── Privacy radius (km/mi display, meters storage) ──
-let privacyUnit = localStorage.getItem('relic_privacy_unit') || (/^en-(US|LR|MM)$/i.test(navigator.language || '') ? 'mi' : 'km');
+let privacyUnit = localStorage.getItem('relic_privacy_unit') || (localStorage.getItem('relic_units') === 'imperial' ? 'mi' : 'km');
 function metersToUnit(m, unit) { if(!m) return ''; const v = unit==='mi' ? m/1609.344 : m/1000; return Math.round(v*100)/100; }
 function unitToMeters(v, unit) { const n = parseFloat(v); if(!n || n<0) return 0; return unit==='mi' ? n*1609.344 : n*1000; }
 function renderPrivacyUnitButtons() {
@@ -5246,7 +5246,9 @@ function activityWhen(iso) {
   return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 }
 // ── Units (metric / imperial) — every user-facing distance/elevation/pace goes through these ──
-let units = (() => { try { const u = localStorage.getItem('relic_units'); if (u) return u; } catch (e) {} return /^en-(US|LR|MM)$/i.test(navigator.language || '') ? 'imperial' : 'metric'; })();
+// Metric unless the user picks miles in Settings (browser locale is a poor
+// signal — plenty of non-US users run en-US browsers).
+let units = (() => { try { return localStorage.getItem('relic_units') || 'metric'; } catch (e) { return 'metric'; } })();
 const MI = 1609.344, FT = 0.3048;
 // digits: decimals (default 1; auto 0 once the number is ≥100)
 function fmtDist(meters, digits) {
