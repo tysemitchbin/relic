@@ -79,6 +79,10 @@
   --tabbar-h: 56px;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
+/* The [hidden] attribute must always win. A class with display:flex beating
+   [hidden] has caused real bugs here (empty-state card, Terms checkbox on
+   sign-in, "Follows you" chip) — this closes that whole class of bug. */
+[hidden] { display: none !important; }
 html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 body { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -webkit-tap-highlight-color: transparent; }
 
