@@ -79,10 +79,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .wordmark { display: flex; align-items: center; padding: 0 24px; border-right: 1px solid var(--border); cursor: pointer; gap: 12px; }
 .wordmark-r { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 600; letter-spacing: 8px; text-transform: uppercase; color: var(--ink); }
 .wordmark-sub { font-size: 7px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 1px; }
-.header-stats { display: flex; align-items: center; padding: 0 20px; gap: 28px; }
-.hstat { display: flex; flex-direction: column; gap: 1px; }
-.hstat-val { font-size: 13px; font-weight: 500; color: var(--ink); }
-.hstat-label { font-size: 7px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; }
 .header-nav { margin-left: auto; display: flex; align-items: stretch; border-left: 1px solid var(--border); }
 .nav-btn {
   display: flex; align-items: center; padding: 0 16px;
@@ -397,58 +393,11 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 .fc-story-type-pill { font-size: 7px; padding: 2px 7px; letter-spacing: 0.5px; text-transform: uppercase; color: white; }
 .fc-moment-count { font-size: 8px; color: var(--muted); padding: 0 16px 8px; letter-spacing: 0.5px; }
 
-/* ── ARCHIVE VIEW ── */
-#stats-view { background: var(--paper); flex-direction: column; overflow-y: auto; padding: 40px; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.stats-page-title { font-family: 'Cormorant Garamond', serif; font-size: 48px; font-weight: 300; letter-spacing: 8px; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; }
-.stats-page-sub { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px; }
-.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); margin-bottom: 40px; }
-.stat-card { background: var(--paper2); padding: 24px 20px; }
-.stat-card-val { font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 400; color: var(--ink); line-height: 1; margin-bottom: 6px; }
-.stat-card-label { font-size: 8px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
-.stat-card-sub { font-size: 9px; color: var(--muted); margin-top: 4px; font-style: italic; }
-.stats-section-title {
-  font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 400; letter-spacing: 3px;
-  text-transform: uppercase; color: var(--ink); margin-bottom: 16px; margin-top: 40px;
-  border-bottom: 1px solid var(--border); padding-bottom: 8px;
-}
-.type-breakdown { display: flex; flex-direction: column; gap: 10px; margin-bottom: 40px; }
-.tb-row { display: flex; align-items: center; gap: 12px; }
-.tb-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink); width: 100px; flex-shrink: 0; }
-.tb-bar-wrap { flex: 1; height: 6px; background: var(--border); overflow: hidden; }
-.tb-bar { height: 100%; transition: width 1s ease; }
-.tb-val { font-size: 9px; color: var(--muted); width: 80px; text-align: right; flex-shrink: 0; }
-
-/* Heatmap calendar */
-.heatmap-wrap { margin-bottom: 40px; overflow-x: auto; }
-.heatmap-year-label { font-size: 11px; font-weight: 500; color: var(--ink); margin-bottom: 8px; }
-.heatmap-grid { display: flex; gap: 2px; }
-.heatmap-week { display: flex; flex-direction: column; gap: 2px; }
-.heatmap-day {
-  width: 11px; height: 11px; border-radius: 2px; background: var(--paper3);
-  cursor: pointer; transition: transform 0.1s;
-}
-.heatmap-day:hover { transform: scale(1.3); }
-.heatmap-day.l1 { background: #c6dbef; }
-.heatmap-day.l2 { background: #6baed6; }
-.heatmap-day.l3 { background: #2171b5; }
-.heatmap-day.l4 { background: #08306b; }
-.heatmap-months { display: flex; margin-bottom: 4px; }
-.heatmap-month-label { font-size: 7px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
-.heatmap-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 7px; color: var(--muted); }
-.heatmap-legend-box { width: 11px; height: 11px; border-radius: 2px; }
-
-.year-timeline { display: flex; flex-direction: column; gap: 8px; }
-.yt-row { display: flex; align-items: center; gap: 12px; }
-.yt-year { font-size: 11px; font-weight: 500; color: var(--ink); width: 40px; flex-shrink: 0; }
-.yt-bar-wrap { flex: 1; height: 24px; background: var(--border); overflow: hidden; position: relative; }
-.yt-bar { height: 100%; transition: width 1s ease; display: flex; align-items: center; padding-left: 8px; }
-.yt-bar-label { font-size: 8px; color: white; letter-spacing: 0.5px; white-space: nowrap; }
-.yt-count { font-size: 9px; color: var(--muted); width: 60px; text-align: right; flex-shrink: 0; }
-
 /* ── PROFILE VIEW ── */
 #profile-view { background: var(--paper); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 #people-view { background: var(--paper); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 #public-profile-view { background: var(--paper); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#settings-view { background: var(--paper); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .profile-wrap { max-width: 800px; margin: 0 auto; padding: 40px; }
 .profile-hero { display: flex; gap: 32px; align-items: flex-start; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
 .profile-photo-wrap { cursor: pointer; flex-shrink: 0; }
@@ -858,30 +807,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 /* Mobile-only action row on Profile (Import / Sync / Sign out) */
 .profile-mobile-actions { display: none; }
 
-/* Profile hamburger menu (Sync/Import/Feedback/Sign out + future settings) —
-   replaces the old mobile-only action row, works on every screen size. */
 .profile-wrap { position: relative; }
-#profile-menu-btn {
-  position: absolute; top: 24px; right: 24px; width: 36px; height: 36px;
-  border: 1px solid var(--border); background: var(--paper); cursor: pointer;
-  font-size: 16px; color: var(--ink); z-index: 5;
-}
-#profile-menu-btn:hover { border-color: var(--warm); color: var(--warm); }
-#profile-menu {
-  position: absolute; top: 64px; right: 24px; z-index: 6; min-width: 170px;
-  flex-direction: column; background: var(--paper); border: 1px solid var(--border);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.14);
-}
-#profile-menu { display: flex; }
-#profile-menu[hidden] { display: none; }
-.profile-menu-item {
-  display: block; width: 100%; text-align: left; padding: 10px 14px; border: none;
-  border-bottom: 1px solid var(--border); background: transparent;
-  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.5px;
-  color: var(--ink); cursor: pointer;
-}
-.profile-menu-item:last-child { border-bottom: none; }
-.profile-menu-item:hover { background: var(--paper2); }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 3px; }
@@ -896,7 +822,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   #header { height: 48px; }
   .wordmark { padding: 0 14px; border-right: none; }
   .wordmark-r { font-size: 18px; letter-spacing: 5px; }
-  .wordmark-sub, .header-stats, .header-nav { display: none; }
+  .wordmark-sub, .header-nav { display: none; }
   .hamburger, #mobile-menu { display: none !important; }
 
   /* Header, main and tab bar are all normal flex children of #app (which is
@@ -1016,15 +942,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   .fc-name { font-size: 16px; }
   .fc-stat-val { font-size: 14px; }
 
-  /* Archive / Stats */
-  #stats-view { padding: 20px 16px calc(24px + var(--safe-b)); -webkit-overflow-scrolling: touch; }
-  .stats-page-title { font-size: 28px; letter-spacing: 4px; }
-  .stats-grid { grid-template-columns: 1fr 1fr; }
-  .stat-card { padding: 16px 12px; }
-  .stat-card-val { font-size: 24px; }
-  .heatmap-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .tb-label { width: 70px; font-size: 8px; }
-
   /* Profile */
   #profile-view { -webkit-overflow-scrolling: touch; }
   .profile-wrap { padding: 20px 16px calc(24px + var(--safe-b)); }
@@ -1070,7 +987,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
   #filter-fab-mobile { display: none; }
   #mobile-tabbar { display: none; }
   .sb-mobile-header { display: none; }
-  .mm-stats { display: none; }
   .profile-mobile-actions { display: none; }
 }
 
@@ -1091,6 +1007,13 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
 }
 #login input:focus { border-color: var(--warm); }
 #login input::placeholder { color: rgba(255,255,255,0.25); }
+#login textarea {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15);
+  color: var(--paper); font-family: 'Cormorant Garamond', serif; font-size: 14px;
+  padding: 11px 13px; outline: none; resize: vertical; transition: border-color 0.15s;
+}
+#login textarea:focus { border-color: var(--warm); }
+#login textarea::placeholder { color: rgba(255,255,255,0.25); }
 #login button {
   background: var(--paper); color: var(--ink); border: none;
   font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
@@ -1269,6 +1192,12 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <input type="password" id="recovery-password" placeholder="new password" autocomplete="new-password" minlength="6" required>
     <button type="submit" id="recovery-btn">Save &amp; sign in</button>
   </form>
+  <form id="onboarding-form" hidden>
+    <div class="recovery-label">Welcome — let's set up your profile</div>
+    <input type="text" id="onboarding-name" placeholder="Your name" maxlength="60" autocomplete="name" required>
+    <textarea id="onboarding-bio" placeholder="A short bio (optional)" rows="2"></textarea>
+    <button type="submit" id="onboarding-btn">Continue</button>
+  </form>
   <div id="login-status"></div>
 </div>
 
@@ -1290,12 +1219,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <div class="wordmark" onclick="switchView('map')">
       <div><div class="wordmark-r">Relic</div><div class="wordmark-sub">Life Archive</div></div>
     </div>
-    <div class="header-stats">
-      <div class="hstat"><div class="hstat-val" id="h-moments">—</div><div class="hstat-label">Moments</div></div>
-      <div class="hstat"><div class="hstat-val" id="h-km">—</div><div class="hstat-label">Kilometres</div></div>
-      <div class="hstat"><div class="hstat-val" id="h-elev">—</div><div class="hstat-label">Elevation</div></div>
-      <div class="hstat"><div class="hstat-val" id="h-years">—</div><div class="hstat-label">Years</div></div>
-    </div>
     <div class="header-nav">
       <button class="nav-btn active" id="nav-map" onclick="switchView('map')">Map</button>
       <button class="nav-btn" id="nav-feed" onclick="switchView('feed')">Feed</button>
@@ -1304,9 +1227,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       <button class="nav-btn" id="nav-people" onclick="switchView('people')">People</button>
       <button class="nav-btn" onclick="openAddModal()">+ Add</button>
       <button class="nav-btn" onclick="openImport()">+ Import</button>
-      <button class="nav-btn" onclick="forceSync()">↺ Sync</button>
-      <button class="nav-btn" onclick="openFeedback()">💬 Feedback</button>
-      <button class="nav-btn" onclick="signOut()">Sign out</button>
+      <button class="nav-btn" id="nav-settings" onclick="switchView('settings')">Settings</button>
     </div>
     <button class="hamburger" id="hamburger-btn" onclick="toggleMobileMenu()">
       <span></span><span></span><span></span>
@@ -1321,14 +1242,7 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
     <button class="mobile-menu-item" data-view="people" onclick="mobileNav('people')">◇ People</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openAddModal()">+ Add</button>
     <button class="mobile-menu-item" onclick="mobileNav(null); openImport()">+ Import</button>
-    <button class="mobile-menu-item" onclick="mobileNav(null); forceSync()">↺ Sync</button>
-    <button class="mobile-menu-item" onclick="signOut()">Sign out</button>
-    <div class="mm-stats">
-      <div class="mm-stat"><div class="mm-stat-val" id="hm-moments">—</div><div class="mm-stat-label">Moments</div></div>
-      <div class="mm-stat"><div class="mm-stat-val" id="hm-km">—</div><div class="mm-stat-label">Kilometres</div></div>
-      <div class="mm-stat"><div class="mm-stat-val" id="hm-elev">—</div><div class="mm-stat-label">Elevation</div></div>
-      <div class="mm-stat"><div class="mm-stat-val" id="hm-years">—</div><div class="mm-stat-label">Years</div></div>
-    </div>
+    <button class="mobile-menu-item" data-view="settings" onclick="mobileNav('settings')">◇ Settings</button>
   </div>
 
   <div id="main">
@@ -1491,30 +1405,13 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
       </div>
     </div>
 
-    <!-- ARCHIVE / STATS VIEW — parked: no longer in the nav, kept for a later profile-stats pass (buildStats() still works) -->
-    <div class="view" id="stats-view" hidden>
-      <div style="max-width:900px;margin:0 auto;width:100%">
-        <div class="stats-page-title">Archive</div>
-        <div class="stats-page-sub" id="stats-sub">Loading your story...</div>
-        <div class="stats-grid" id="stats-grid"></div>
-        <div class="stats-section-title">Activity Heatmap</div>
-        <div id="heatmap-container"></div>
-        <div class="stats-section-title">Distance by Activity</div>
-        <div class="type-breakdown" id="type-breakdown"></div>
-        <div class="stats-section-title">Year by Year</div>
-        <div class="year-timeline" id="year-timeline"></div>
-      </div>
-    </div>
 
     <!-- PROFILE VIEW -->
     <div class="view" id="profile-view">
       <div class="profile-wrap">
-        <button id="profile-menu-btn" onclick="toggleProfileMenu(event)" title="Menu">☰</button>
-        <div id="profile-menu" hidden>
-          <button class="profile-menu-item" onclick="openImport()">+ Import</button>
-          <button class="profile-menu-item" onclick="forceSync()">↺ Sync</button>
-          <button class="profile-menu-item" onclick="openFeedback()">💬 Feedback</button>
-          <button class="profile-menu-item" onclick="signOut()">Sign out</button>
+        <div class="profile-mobile-actions">
+          <button onclick="openImport()">+ Import</button>
+          <button onclick="switchView('settings')">⚙ Settings</button>
         </div>
         <div class="profile-hero">
           <div class="profile-photo-wrap" onclick="document.getElementById('profile-photo-input').click()">
@@ -1541,36 +1438,6 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
           </div>
         </div>
 
-        <div class="strava-section" id="strava-section">
-          <div class="strava-row">
-            <div class="strava-info">
-              <div class="strava-title">Strava</div>
-              <div class="strava-state" id="strava-state">Checking…</div>
-            </div>
-            <div class="strava-actions" id="strava-actions"></div>
-          </div>
-          <div class="strava-progress" id="strava-progress" hidden>
-            <div class="strava-progress-track"><div class="strava-progress-fill" id="strava-progress-fill"></div></div>
-            <div class="strava-progress-label" id="strava-progress-label"></div>
-          </div>
-        </div>
-
-        <div class="strava-section" id="account-section">
-          <div class="strava-row">
-            <div class="strava-info">
-              <div class="strava-title">Your Data</div>
-              <div class="strava-state">Export everything Relic has stored for you, or permanently delete your account.</div>
-            </div>
-            <div class="strava-actions">
-              <button class="btn-ghost" id="export-data-btn" onclick="exportMyData()">Export my data</button>
-              <button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="openDeleteAccountModal()">Delete account</button>
-            </div>
-          </div>
-          <div class="detail-section-sub" style="margin-top:10px;margin-bottom:0">
-            <a href="privacy.html" target="_blank" style="color:var(--muted)">Privacy Policy</a> &middot; <a href="terms.html" target="_blank" style="color:var(--muted)">Terms of Service</a>
-          </div>
-        </div>
-
         <div class="profile-stories-section" id="profile-stories-section" style="display:none">
           <div class="profile-stories-header">
             <div class="profile-stories-title">Stories</div>
@@ -1588,6 +1455,78 @@ body { font-family: 'JetBrains Mono', monospace; background: var(--ink); color: 
         </div>
         <div class="profile-honeycomb-wrap">
           <div class="profile-honeycomb" id="profile-honeycomb"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS VIEW -->
+    <div class="view" id="settings-view">
+      <div class="profile-wrap">
+        <div class="strava-section" id="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Strava</div>
+              <div class="strava-state" id="strava-state">Checking…</div>
+            </div>
+            <div class="strava-actions" id="strava-actions"></div>
+          </div>
+          <div class="strava-progress" id="strava-progress" hidden>
+            <div class="strava-progress-track"><div class="strava-progress-fill" id="strava-progress-fill"></div></div>
+            <div class="strava-progress-label" id="strava-progress-label"></div>
+          </div>
+        </div>
+
+        <div class="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Privacy &amp; Analytics</div>
+              <div class="strava-state" id="analytics-state">Checking…</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" onclick="setAnalyticsConsent(true)">Enable</button>
+              <button class="btn-ghost" onclick="setAnalyticsConsent(false)">Disable</button>
+            </div>
+          </div>
+          <div class="detail-section-sub" style="margin-top:10px;margin-bottom:0">
+            <a href="privacy.html" target="_blank" style="color:var(--muted)">Privacy Policy</a> &middot; <a href="terms.html" target="_blank" style="color:var(--muted)">Terms of Service</a>
+          </div>
+        </div>
+
+        <div class="strava-section" id="account-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Your Data</div>
+              <div class="strava-state">Export everything Relic has stored for you, or permanently delete your account.</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" id="export-data-btn" onclick="exportMyData()">Export my data</button>
+              <button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="openDeleteAccountModal()">Delete account</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Support</div>
+              <div class="strava-state">Found a bug, or have an idea?</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" onclick="openFeedback()">Send feedback</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="strava-section">
+          <div class="strava-row">
+            <div class="strava-info">
+              <div class="strava-title">Account</div>
+              <div class="strava-state">Signed in as <span id="settings-email"></span></div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" onclick="signOut()">Sign out</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2118,7 +2057,6 @@ function restoreBasemap(p) {
 }
 let sidebarSort = 'recent';
 let profileSort = 'recent';
-let statsBuilt = false;
 let _profile = { name:'', bio:'', avatarPath:null, photo:null };
 let _profileTimer = null;
 
@@ -2777,8 +2715,7 @@ async function renderAll() {
   allStories.forEach(s => computeStoryStats(s));
   initMapLayers();
   computeFilterBounds();
-  updateHeaderStats(); buildFilterDrawer(); applyFilters();
-  statsBuilt = false; // parked Archive view rebuilds with fresh data if revived
+  buildFilterDrawer(); applyFilters();
   updateEmptyState();
   await syncAirportPins();
 }
@@ -3808,7 +3745,7 @@ async function saveManualEntry() {
   };
   db[id] = entry;
   allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
-  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+  initMapLayers(); applyFilters();
   const result = await persistMoments([entry]);
   if (result.ok) {
     statusEl.textContent = 'Saved.';
@@ -4133,7 +4070,7 @@ async function saveParsedRoute() {
 
   allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
   allStories = getStories(); allStories.forEach(s => computeStoryStats(s));
-  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+  initMapLayers(); applyFilters();
 
   statusEl.textContent = 'Saving…';
   const legsResult = await persistMoments(legs);
@@ -4322,7 +4259,7 @@ async function finishDrawRoute() {
   db[id] = entry;
   cancelActiveMode();
   allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
-  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+  initMapLayers(); applyFilters();
   const result = await persistMoments([entry]);
   if (!result.ok) {
     delete db[id];
@@ -4747,152 +4684,6 @@ function drawFeedMap(memId, coords, color, canvasId) {
 }
 
 // ════════════════════════════════════════
-// STATS / ARCHIVE
-// ════════════════════════════════════════
-function buildStats() {
-  const mems=getMoments();
-  if(!mems.length){
-    const pinCount = getPins().length;
-    document.getElementById('stats-sub').textContent = pinCount
-      ? `No tracked activities yet — but you have ${pinCount} pin${pinCount===1?'':'s'} on the map.`
-      : 'Nothing archived yet — connect Strava or import files to see your story.';
-    document.getElementById('stats-grid').innerHTML='';
-    document.getElementById('type-breakdown').innerHTML='';
-    document.getElementById('year-timeline').innerHTML='';
-    document.getElementById('heatmap-container').innerHTML='';
-    return;
-  }
-
-  // Single pass over all memories for all aggregates
-  let totalDist=0, totalElev=0, withNotes=0, withPhotos=0;
-  const years=new Set(), byType={}, byYear={}, counts={};
-  mems.forEach(m => {
-    totalDist += m.distance||0;
-    totalElev += m.elevation||0;
-    if(m.note) withNotes++;
-    if(m.photos?.length) withPhotos++;
-    const y = m.date?.substring(0,4);
-    if(y) { years.add(y); byYear[y]=(byYear[y]||0)+1; }
-    const g = getGroup(m.type);
-    byType[g] = (byType[g]||0) + (m.distance||0)/1000;
-    if(m.date) { const key=m.date.substring(0,10); counts[key]=(counts[key]||0)+1; }
-  });
-  totalDist /= 1000;
-  const evDist = Math.round(totalDist/40075*100)/100;
-
-  document.getElementById('stats-sub').textContent=`${mems.length} memories across ${years.size} years`;
-  document.getElementById('stats-grid').innerHTML=[
-    {val:mems.length.toLocaleString(),label:'Total Moments',sub:'recorded in your archive'},
-    {val:Math.round(totalDist).toLocaleString()+' km',label:'Total Distance',sub:`${evDist.toFixed(2)}× around the Earth`},
-    {val:Math.round(totalElev/1000)+'k m',label:'Total Elevation',sub:`${(totalElev/8849).toFixed(1)}× height of Everest`},
-    {val:withNotes,label:'Notes',sub:`${withPhotos} moments with photos`},
-  ].map(s=>`<div class="stat-card"><div class="stat-card-val">${s.val}</div><div class="stat-card-label">${s.label}</div><div class="stat-card-sub">${s.sub}</div></div>`).join('');
-
-  // Type breakdown
-  const maxDist=Math.max(...Object.values(byType));
-  document.getElementById('type-breakdown').innerHTML=Object.entries(byType).sort((a,b)=>b[1]-a[1]).map(([key,dist])=>`
-    <div class="tb-row"><div class="tb-label">${TYPE_CONFIG[key]?.label||key}</div>
-    <div class="tb-bar-wrap"><div class="tb-bar" style="width:${(dist/maxDist*100).toFixed(1)}%;background:${TYPE_CONFIG[key]?.color||'#92400e'}"></div></div>
-    <div class="tb-val">${Math.round(dist).toLocaleString()} km</div></div>`).join('');
-
-  // Year timeline
-  const maxYear=Math.max(...Object.values(byYear));
-  document.getElementById('year-timeline').innerHTML=Object.entries(byYear).sort((a,b)=>b[0].localeCompare(a[0])).map(([year,count])=>`
-    <div class="yt-row"><div class="yt-year">${year}</div>
-    <div class="yt-bar-wrap"><div class="yt-bar" style="width:${(count/maxYear*100).toFixed(1)}%;background:var(--accent)"><span class="yt-bar-label">${count} moments</span></div></div>
-    <div class="yt-count">${count}</div></div>`).join('');
-
-  // Heatmap — pass pre-computed daily counts
-  buildHeatmap(counts);
-}
-
-function buildHeatmap(counts) {
-  const container = document.getElementById('heatmap-container');
-  container.innerHTML = '';
-
-  // Show last 12 months
-  const today = new Date();
-  const startDate = new Date(today); startDate.setMonth(startDate.getMonth()-12);
-  startDate.setDate(startDate.getDate()-startDate.getDay()); // align to Sunday
-
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let html = '<div class="heatmap-wrap">';
-
-  // Month labels
-  html += '<div class="heatmap-months" style="padding-left:0">';
-  let lastMonth = -1;
-  const d = new Date(startDate);
-  let weekIdx = 0;
-  while(d <= today) {
-    if(d.getDay()===0) {
-      if(d.getMonth()!==lastMonth) {
-        html += `<div class="heatmap-month-label" style="width:${13*1}px;min-width:fit-content;margin-left:${weekIdx===0?0:0}px">${MONTHS[d.getMonth()]}</div>`;
-        lastMonth = d.getMonth();
-      }
-      weekIdx++;
-    }
-    d.setDate(d.getDate()+1);
-  }
-  html += '</div>';
-
-  html += '<div class="heatmap-grid">';
-  const cur = new Date(startDate);
-  let weekHtml = '<div class="heatmap-week">';
-  let dayInWeek = 0;
-  while(cur <= today) {
-    if(dayInWeek===7) { weekHtml+='</div>'; html+=weekHtml; weekHtml='<div class="heatmap-week">'; dayInWeek=0; }
-    const key = cur.toISOString().substring(0,10);
-    const count = counts[key]||0;
-    const level = count===0?'':count===1?'l1':count===2?'l2':count<=4?'l3':'l4';
-    const title = `${key}: ${count} activit${count===1?'y':'ies'}`;
-    weekHtml += `<div class="heatmap-day ${level}" title="${title}" onclick="showHeatmapDay('${key}')"></div>`;
-    cur.setDate(cur.getDate()+1);
-    dayInWeek++;
-  }
-  // Fill remaining days in last week
-  while(dayInWeek<7) { weekHtml+='<div class="heatmap-day" style="visibility:hidden"></div>'; dayInWeek++; }
-  weekHtml+='</div>';
-  html+=weekHtml;
-  html += '</div>';
-
-  // Legend
-  html += `<div class="heatmap-legend">Less
-    <div class="heatmap-legend-box" style="background:var(--paper3)"></div>
-    <div class="heatmap-legend-box" style="background:#c6dbef"></div>
-    <div class="heatmap-legend-box" style="background:#6baed6"></div>
-    <div class="heatmap-legend-box" style="background:#2171b5"></div>
-    <div class="heatmap-legend-box" style="background:#08306b"></div>
-    More</div>`;
-  html += '</div>';
-  container.innerHTML = html;
-}
-
-function showHeatmapDay(dateKey) {
-  const acts = getMoments().filter(m=>m.date?.substring(0,10)===dateKey);
-  if(acts.length===0) return;
-  if(acts.length===1) { goToActivity(acts[0].id); return; }
-  // Multiple — show first one
-  goToActivity(acts[0].id);
-}
-
-function updateHeaderStats() {
-  const mems=getMoments();
-  const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
-  const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
-  const years=new Set(mems.map(m=>m.date?.substring(0,4)).filter(Boolean));
-  document.getElementById('h-moments').textContent=mems.length.toLocaleString();
-  document.getElementById('h-km').textContent=Math.round(totalDist).toLocaleString();
-  document.getElementById('h-elev').textContent=Math.round(totalElev/1000)+'k m';
-  document.getElementById('h-years').textContent=years.size;
-  // Mobile menu stats
-  const hm=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
-  hm('hm-moments',mems.length.toLocaleString());
-  hm('hm-km',Math.round(totalDist).toLocaleString());
-  hm('hm-elev',Math.round(totalElev/1000)+'k m');
-  hm('hm-years',years.size);
-}
-
-// ════════════════════════════════════════
 // STRAVA CONNECTION (Profile)
 // ════════════════════════════════════════
 function connectStrava() {
@@ -5067,25 +4858,35 @@ async function handleProfilePhoto(input) {
   }
 }
 
-function buildProfile() {
+async function buildProfile() {
   const profile=loadProfile();
   document.getElementById('profile-name').value=profile.name||'';
   document.getElementById('profile-bio').value=profile.bio||'';
   if(profile.photo) document.getElementById('profile-photo-display').innerHTML=`<img src="${profile.photo}" alt="Profile">`;
   const mems=getMoments();
-  const stories=getStories();
   const totalDist=mems.reduce((s,m)=>s+(m.distance||0),0)/1000;
   const totalElev=mems.reduce((s,m)=>s+(m.elevation||0),0);
-  const withNotes=mems.filter(m=>m.note).length, withPhotos=mems.filter(m=>m.photos?.length).length;
+  await loadFollowGraph();
   document.getElementById('profile-stats-row').innerHTML=[
     {val:mems.length,label:'Moments'},{val:Math.round(totalDist).toLocaleString()+' km',label:'Distance'},
-    {val:Math.round(totalElev/1000)+'k m',label:'Elevation'},{val:stories.length+' / '+withNotes,label:'Stories / Notes'},
-  ].map(s=>`<div class="profile-stat"><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
+    {val:Math.round(totalElev/1000)+'k m',label:'Elevation'},
+    {val:myFollowingIds.size+' / '+myFollowerIds.size,label:'Following / Followers',onclick:"switchView('people')"},
+  ].map(s=>`<div class="profile-stat"${s.onclick?` style="cursor:pointer" onclick="${s.onclick}"`:''}><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
 
   renderProfileStories();
   renderProfileHoneycomb();
-  renderStravaSection();
   updatePinNudge();
+}
+
+function buildSettings() {
+  renderStravaSection();
+  document.getElementById('settings-email').textContent = currentUser?.email || '';
+  const analyticsEl = document.getElementById('analytics-state');
+  try {
+    if (posthog.has_opted_in_capturing()) analyticsEl.textContent = 'Enabled';
+    else if (posthog.has_opted_out_capturing()) analyticsEl.textContent = 'Disabled';
+    else analyticsEl.textContent = 'Not decided yet';
+  } catch (e) { analyticsEl.textContent = 'Unavailable'; }
 }
 
 // ════════════════════════════════════════
@@ -5428,7 +5229,6 @@ async function deleteStory(storyId) {
   if (!confirm('Delete this story? The moments inside will not be affected.')) return;
   delete db[storyId];
   allStories = getStories();
-  statsBuilt = false;
   if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
   const { error } = await sb.from('stories').delete().eq('id', storyId);
   if (error) console.warn('Story delete failed', error);
@@ -5445,7 +5245,7 @@ async function deleteMoment(memId) {
   closeDetail();
   allMemories = getMoments().sort((a,b) => (b.date||'') > (a.date||'') ? 1 : -1);
   allStories = getStories(); allStories.forEach(s => computeStoryStats(s));
-  initMapLayers(); updateHeaderStats(); applyFilters(); buildStats();
+  initMapLayers(); applyFilters();
   const { error } = await sb.from('activities').delete().eq('id', memId);
   if (error) console.warn('Moment delete failed', error);
   if (photoPaths.length) sb.storage.from('photos').remove(photoPaths).catch(e => console.warn('Photo cleanup failed', e));
@@ -5594,7 +5394,7 @@ async function doImport() {
   allMemories = getMoments().sort((a,b) => new Date(b.date) - new Date(a.date));
   allStories = getStories();
   computeFilterBounds();
-  initMapLayers(); updateHeaderStats(); buildFilterDrawer(); applyFilters();
+  initMapLayers(); buildFilterDrawer(); applyFilters();
 
   if(importedEntries.length) {
     progress.textContent = `Saving ${importedEntries.length} to your archive...`;
@@ -5876,7 +5676,6 @@ async function saveStory() {
 
   // Refresh app state
   allStories = getStories();
-  statsBuilt = false;
 
   btn.disabled = false;
   setTimeout(() => { closeStoryModal(); if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile(); }, 1200);
@@ -6136,18 +5935,17 @@ function goToActivity(id) {
 let currentView = 'map';
 function switchView(view) {
   currentView = view;
-  closeProfileMenu();
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(`${view}-view`).classList.add('active');
   document.getElementById(`nav-${view}`)?.classList.add('active');
   document.querySelectorAll('.mobile-menu-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   document.querySelectorAll('.tab-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
-  if(view==='stats') { if(!statsBuilt) { buildStats(); statsBuilt=true; } }  // parked view
   if(view==='activities') renderActivitiesView();
   if(view==='feed') buildFeed();
   if(view==='profile') buildProfile();
   if(view==='people') buildPeople();
+  if(view==='settings') buildSettings();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
 }
 
@@ -6219,21 +6017,11 @@ function toggleMobileMenu() {
 }
 function closeMobileMenu() { document.getElementById('mobile-menu').classList.remove('open'); document.getElementById('hamburger-btn').classList.remove('open'); }
 
-function toggleProfileMenu(e) {
-  if (e) e.stopPropagation(); // don't let the immediate document click listener below close it again
-  document.getElementById('profile-menu').hidden = !document.getElementById('profile-menu').hidden;
-}
-function closeProfileMenu() { document.getElementById('profile-menu').hidden = true; }
-document.addEventListener('click', e => {
-  const menu = document.getElementById('profile-menu');
-  if (menu && !menu.hidden && !menu.contains(e.target) && e.target.id !== 'profile-menu-btn') closeProfileMenu();
-});
 function mobileNav(view) {
   closeMobileMenu();
   document.getElementById('sidebar').classList.add('collapsed');
   if(view) switchView(view);
 }
-function forceSync() { location.reload(); }
 async function signOut() { try { posthog.reset(); await sb.auth.signOut(); } catch(e){} location.reload(); }
 
 // ── GDPR: export my data ──
@@ -6327,7 +6115,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeProfileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();}});
 window.addEventListener('resize', () => {if(map)map.resize();    if(map) map.resize(); if(document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb();});
 
 // Register all functions
@@ -6344,20 +6132,19 @@ _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox'
 _r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
 _r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
 _r('setPrivacyUnit',setPrivacyUnit);_r('onPrivacyRadiusEdit',onPrivacyRadiusEdit);
-_r('forceSync',forceSync);_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
+_r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('onPeopleSearchInput',onPeopleSearchInput);_r('toggleFollow',toggleFollow);
 _r('openPublicProfile',openPublicProfile);_r('closePublicProfile',closePublicProfile);
 _r('togglePublicProfileFollow',togglePublicProfileFollow);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
-_r('toggleProfileMenu',toggleProfileMenu);_r('closeProfileMenu',closeProfileMenu);
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
 _r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
 _r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);
 _r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);
 _r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
 _r('renderActivitiesView',renderActivitiesView);_r('buildFilterDrawer',buildFilterDrawer);
-_r('setProfileSort',setProfileSort);_r('showHeatmapDay',showHeatmapDay);_r('removeImportFile',removeImportFile);
+_r('setProfileSort',setProfileSort);_r('removeImportFile',removeImportFile);
 _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
 _r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
 _r('computeStoryStats',computeStoryStats);_r('stableStoryId',stableStoryId);
@@ -6469,16 +6256,55 @@ function showPasswordRecovery() {
   setTimeout(() => { try { document.getElementById('recovery-password').focus(); } catch (e) {} }, 60);
 }
 
-function startApp() {
+async function startApp() {
   if (appBooted) return;
   appBooted = true;
   posthog.identify(currentUser.id, { email: currentUser.email });
   showAnalyticsConsent();
+
+  if (!DEMO) {
+    try {
+      const { data } = await sb.from('profiles').select('name').eq('id', currentUser.id).limit(1);
+      if (!data?.[0]?.name?.trim()) { showOnboarding(); return; }
+    } catch (e) { console.error('Profile check failed', e); }
+  }
+
   document.getElementById('login').classList.remove('show');
   document.getElementById('login').style.display = 'none';
   document.getElementById('loading').style.display = 'flex';
   initMap();
 }
+
+// ── Mandatory profile setup for brand-new accounts ──
+function showOnboarding() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('login-form').hidden = true;
+  document.getElementById('recovery-form').hidden = true;
+  document.getElementById('onboarding-form').hidden = false;
+  document.getElementById('login').classList.add('show');
+  setTimeout(() => { try { document.getElementById('onboarding-name').focus(); } catch (e) {} }, 60);
+}
+document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('onboarding-name').value.trim();
+  if (!name) return;
+  const btn = document.getElementById('onboarding-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+  try {
+    const bio = document.getElementById('onboarding-bio').value.trim();
+    const { error } = await sb.from('profiles').upsert({ id: currentUser.id, name, bio });
+    if (error) throw error;
+    document.getElementById('login').classList.remove('show');
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('loading').style.display = 'flex';
+    initMap();
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Continue';
+    alert('Could not save your profile: ' + (err.message || err));
+  }
+});
 // ── GDPR: analytics consent (PostHog inits opted-out by default) ──
 function showAnalyticsConsent() {
   if (location.hostname === 'localhost') return; // PostHog isn't initialised there
@@ -6492,6 +6318,8 @@ function setAnalyticsConsent(accept) {
   try { accept ? posthog.opt_in_capturing() : posthog.opt_out_capturing(); } catch (e) {}
   const el = document.getElementById('analytics-consent');
   if (el) el.hidden = true;
+  const stateEl = document.getElementById('analytics-state');
+  if (stateEl) stateEl.textContent = accept ? 'Enabled' : 'Disabled';
 }
 
 async function bootRelic() {
