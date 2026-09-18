@@ -6023,7 +6023,7 @@ function mobileNav(view) {
   document.getElementById('sidebar').classList.add('collapsed');
   if(view) switchView(view);
 }
-async function signOut() { try { posthog.reset(); await sb.auth.signOut(); } catch(e){} location.reload(); }
+async function signOut() { try { posthog.reset(); } catch(e){} try { await sb.auth.signOut(); } catch(e){} location.reload(); }
 
 // ── GDPR: export my data ──
 async function exportMyData() {
@@ -6260,7 +6260,7 @@ function showPasswordRecovery() {
 async function startApp() {
   if (appBooted) return;
   appBooted = true;
-  posthog.identify(currentUser.id, { email: currentUser.email });
+  try { posthog.identify(currentUser.id, { email: currentUser.email }); } catch (e) {} // not initialised on localhost
   showAnalyticsConsent();
 
   if (!DEMO) {
