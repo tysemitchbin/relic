@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#f4efe6">
+<meta name="theme-color" content="#F4F0E8">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Relic">
@@ -43,31 +43,43 @@
    semantic names (--bg/--surface/--text/--text-2/…). --text-2 and --text-3 are
    both ≥4.5:1 on --bg and --surface (WCAG AA for small text). */
 :root {
-  --ink: #1c1a17;
-  --paper: #fffdf9;
-  --paper2: #f3eee5;
-  --paper3: #e9e2d6;
-  --warm: #d9b98f;
-  --accent: #c0562b;
-  --accent-strong: #9c3f1b;
-  --accent-soft: #f7e6dc;
-  --muted: #6f675b;
-  --border: #e4dccf;
-  --bg: #f4efe6;
-  --surface: #fffdf9;
-  --surface-2: #f3eee5;
-  --text: #1c1a17;
-  --text-2: #5c554b;
-  --text-3: #6f675b;
-  --danger: #b3261e;
-  --success: #2f7d4f;
+  /* Brand palette (docs/brand-colors.md). Rust is the one constant across
+     light and dark; light mode is the app, dark (forest) is hero screens. */
+  --brand-rust: #C1502E;
+  --route-sage: #8FA888;
+  --route-tan: #C9B896;
+  --accent-gold: #B8934A;        /* pins / story markers only, never lines */
+  --forest: #1A2318;             /* dark-mode surface (login, loading, hero) */
+  --forest-deep: #0F140D;
+  --ink-on-dark: #F5F1E8;
+  --ink-on-dark-2: #B8C4B0;
+  --line-faint: #DCD3BF;
+
+  --ink: #2A3324;
+  --paper: #FBF9F4;
+  --paper2: #EDE6D5;
+  --paper3: #E3DAC5;
+  --warm: #C9B896;
+  --accent: var(--brand-rust);
+  --accent-strong: #9A3B22;
+  --accent-soft: #F6E3D9;
+  --muted: #5C6B54;
+  --border: var(--line-faint);
+  --bg: #F4F0E8;
+  --surface: #FBF9F4;
+  --surface-2: #EDE6D5;
+  --text: #2A3324;
+  --text-2: #4B5944;
+  --text-3: #5C6B54;
+  --danger: #B3261E;
+  --success: #3F6B3A;
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px; --r-pill: 999px;
-  --sh-1: 0 1px 2px rgba(28,26,23,.06), 0 1px 1px rgba(28,26,23,.03);
-  --sh-2: 0 6px 18px rgba(28,26,23,.08), 0 1px 3px rgba(28,26,23,.06);
-  --sh-3: 0 24px 60px rgba(28,26,23,.22), 0 4px 12px rgba(28,26,23,.08);
+  --sh-1: 0 1px 2px rgba(26,35,24,.06), 0 1px 1px rgba(26,35,24,.03);
+  --sh-2: 0 6px 18px rgba(26,35,24,.08), 0 1px 3px rgba(26,35,24,.06);
+  --sh-3: 0 24px 60px rgba(26,35,24,.22), 0 4px 12px rgba(26,35,24,.08);
   --ease: cubic-bezier(.2,.8,.2,1);
   --header-h: 60px;
   --panel-w: 340px;
@@ -88,19 +100,19 @@ body { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -w
 
 /* ── LOADING ── */
 #loading {
-  position: fixed; inset: 0; background: var(--bg); z-index: 9999;
+  position: fixed; inset: 0; background: radial-gradient(120% 90% at 25% 15%, #2A3A26 0%, var(--forest) 55%, var(--forest-deep) 100%); z-index: 9999;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
   transition: opacity 0.8s ease;
 }
-.loading-mark { width: 64px; height: 64px; animation: fadeUp .8s ease both; filter: drop-shadow(0 8px 20px rgba(192,86,43,.3)); }
+.loading-mark { width: 64px; height: 64px; animation: fadeUp .8s ease both; filter: drop-shadow(0 8px 20px rgba(0,0,0,.35)); }
 .loading-wordmark {
   font-family: var(--font-display); font-size: 44px; font-weight: 600; margin-top: -8px;
-  letter-spacing: -0.02em; color: var(--ink);
+  letter-spacing: -0.02em; color: var(--ink-on-dark);
   animation: fadeUp 1s ease 0.15s both;
 }
-.loading-tagline { font-size: 15px; margin-top: -12px; color: var(--text-2); animation: fadeUp 1s ease 0.5s both; }
-.loading-status { font-size: 13px; color: var(--text-3); animation: fadeUp 1s ease 0.7s both; min-height: 14px; }
-.loading-bar { width: 200px; height: 4px; border-radius: 4px; overflow: hidden; background: var(--paper3); animation: fadeUp 1s ease 0.7s both; }
+.loading-tagline { font-size: 15px; margin-top: -12px; color: var(--ink-on-dark-2); animation: fadeUp 1s ease 0.5s both; }
+.loading-status { font-size: 13px; color: var(--ink-on-dark-2); animation: fadeUp 1s ease 0.7s both; min-height: 14px; }
+.loading-bar { width: 200px; height: 4px; border-radius: 4px; overflow: hidden; background: rgba(245,241,232,.14); animation: fadeUp 1s ease 0.7s both; }
 .loading-fill { height: 100%; border-radius: 4px; background: var(--accent); width: 0%; transition: width 0.5s ease; }
 #loading-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 #loading-actions[hidden] { display: none; }
@@ -110,7 +122,7 @@ body { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -w
   cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.15s;
 }
 #loading-actions button:hover { opacity: 0.85; }
-#loading-actions button.ghost { background: var(--surface); color: var(--ink); border-color: var(--border); }
+#loading-actions button.ghost { background: transparent; color: var(--ink-on-dark); border-color: rgba(245,241,232,.3); }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── LAYOUT ── */
@@ -118,7 +130,7 @@ body { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -w
 
 /* ── HEADER ── */
 #header {
-  height: var(--header-h); background: rgba(255,253,249,0.92); border-bottom: 1px solid var(--border);
+  height: var(--header-h); background: rgba(251,249,244,0.92); border-bottom: 1px solid var(--border);
   -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px);
   display: flex; align-items: center; gap: 20px; padding: 0 20px 0 18px;
   flex-shrink: 0; z-index: 200; position: relative;
@@ -336,7 +348,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .pin-wrap { cursor: pointer; }
 .pin-mk {
   position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--c, #6b7280);
-  border: 2.5px solid #fff; box-shadow: 0 3px 10px rgba(28,26,23,.35);
+  border: 2.5px solid #fff; box-shadow: 0 3px 10px rgba(26,35,24,.35);
   display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;
   margin-bottom: 7px; transform: scale(var(--pin-scale, 1)); transform-origin: 50% calc(100% + 7px);
   transition: transform .18s var(--ease);
@@ -379,7 +391,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .coord-bar {
   position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); border-radius: var(--r-pill);
   font: 500 11px var(--font-mono); color: #fff; font-variant-numeric: tabular-nums;
-  background: rgba(28,26,23,0.55); padding: 3px 10px; z-index: 50; pointer-events: none; white-space: nowrap;
+  background: rgba(26,35,24,0.55); padding: 3px 10px; z-index: 50; pointer-events: none; white-space: nowrap;
 }
 .coord-bar:empty { display: none; }
 
@@ -449,7 +461,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .photo-thumb-wrap { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: var(--r-sm); }
 .photo-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
 .photo-thumb-wrap .photo-remove {
-  position: absolute; top: 4px; right: 4px; background: rgba(28,26,23,0.72); color: #fff;
+  position: absolute; top: 4px; right: 4px; background: rgba(26,35,24,0.72); color: #fff;
   border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 14px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s;
 }
@@ -659,10 +671,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .profile-wrap { max-width: 880px; width: 100%; margin: 0 auto; padding: 28px 24px 60px; position: relative; }
 .profile-cover {
   height: 180px; border-radius: var(--r-xl); overflow: hidden; position: relative;
-  background: linear-gradient(135deg, #2b3a2e 0%, #4b5f3f 45%, #c0562b 130%);
+  background: linear-gradient(135deg, var(--forest) 0%, #2F3D2A 50%, var(--brand-rust) 140%);
 }
 .profile-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
-.profile-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(28,26,23,.35), transparent 60%); }
+.profile-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(26,35,24,.35), transparent 60%); }
 .profile-hero { display: flex; gap: 22px; align-items: flex-end; margin: -56px 0 0; padding: 0 24px 22px; position: relative; z-index: 1; border-bottom: none; }
 .profile-photo-wrap { cursor: pointer; flex-shrink: 0; position: relative; }
 .profile-photo {
@@ -743,7 +755,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
    display rule below (a plain #empty-state{display:flex} would keep the card on screen
    forever). No pointer-events:none here — a pointer-events:auto child inside a
    pointer-events:none parent loses taps in iOS Safari, which broke the ✕ / buttons. */
-#empty-state { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(244,239,230,.55); }
+#empty-state { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(244,240,232,.55); }
 #empty-state[hidden] { display: none; }
 /* Retrospective entry — same [hidden] pattern as #empty-state above: these
    two also need `display:flex` when shown, so that has to live here (not as
@@ -773,7 +785,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #reveal {
   position: absolute; inset: 0; z-index: 400;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(28,26,23,0.93); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  background: rgba(26,35,24,0.93); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
   opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
 }
 #reveal.show { opacity: 1; }
@@ -871,7 +883,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .hex-img { width: 100%; height: 100%; object-fit: cover; }
 .hex-overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(28,26,23,0.85) 0%, rgba(28,26,23,0.1) 60%);
+  background: linear-gradient(to top, rgba(26,35,24,0.85) 0%, rgba(26,35,24,0.1) 60%);
   display: flex; flex-direction: column; justify-content: flex-end; padding: 16px 14px 26px; text-align: center;
 }
 .hex-map { position: absolute; inset: 0; }
@@ -880,7 +892,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .hex-mood { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 15px; }
 
 /* ── NOTIFICATIONS DRAWER ── */
-#notif-backdrop { position: fixed; inset: 0; background: rgba(28,26,23,0.3); z-index: 840; opacity: 0; pointer-events: none; transition: opacity .25s; }
+#notif-backdrop { position: fixed; inset: 0; background: rgba(26,35,24,0.3); z-index: 840; opacity: 0; pointer-events: none; transition: opacity .25s; }
 #notif-backdrop.open { opacity: 1; pointer-events: auto; }
 #notif-drawer {
   position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 100vw; z-index: 850;
@@ -895,7 +907,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .notif { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-md); cursor: pointer; position: relative; }
 .notif:hover { background: var(--paper2); }
 .notif.unread { background: var(--accent-soft); }
-.notif.unread:hover { background: #f3dccf; }
+.notif.unread:hover { background: #F1D8CB; }
 .notif .av { margin-top: 2px; }
 .notif-badge { position: absolute; left: 44px; top: 38px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; border: 2px solid var(--surface); }
 .notif-badge .ic { width: 11px; height: 11px; stroke-width: 2.6; }
@@ -926,7 +938,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 /* ── MODALS + BUTTONS + FORM CONTROLS ── */
 .modal-overlay {
-  display: none; position: fixed; inset: 0; background: rgba(28,26,23,0.5); z-index: 500;
+  display: none; position: fixed; inset: 0; background: rgba(26,35,24,0.5); z-index: 500;
   align-items: center; justify-content: center; padding: 16px;
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
@@ -1026,7 +1038,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .be-name small { display: block; font-weight: 400; font-size: 12px; color: var(--text-3); }
 .vis-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: var(--r-pill); background: var(--paper2); color: var(--text-2); flex-shrink: 0; }
 .vis-pill .ic { width: 13px; height: 13px; }
-.vis-pill.pub { background: #e3f1e8; color: var(--success); }
+.vis-pill.pub { background: #E2EADC; color: var(--success); }
 .bulk-bar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: 12px 16px 12px 24px; background: var(--ink); color: #fff; flex-shrink: 0;
@@ -1170,7 +1182,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card-type-dot { width: 8px; height: 8px; border-radius: 50%; }
 .story-card-badge {
   position: absolute; top: 10px; left: 10px; font-size: 12px; font-weight: 600;
-  background: rgba(28,26,23,0.72); color: #fff; padding: 3px 10px; border-radius: var(--r-pill);
+  background: rgba(26,35,24,0.72); color: #fff; padding: 3px 10px; border-radius: var(--r-pill);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
 .story-card-actions { display: flex; gap: 6px; margin-top: 12px; }
@@ -1238,7 +1250,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .tab-add { flex: 0 0 72px; }
 .tab-add .tab-add-circle {
   width: 50px; height: 50px; border-radius: 17px; background: var(--accent); color: #fff;
-  display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(192,86,43,.35);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(193,80,46,.35);
   transition: transform .15s;
 }
 .tab-add:active .tab-add-circle { transform: scale(.94); }
@@ -1275,7 +1287,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   /* Bottom tab bar — in flow at the bottom of the column */
   #mobile-tabbar {
     display: flex; align-items: center; flex-shrink: 0; z-index: 450;
-    background: rgba(255,253,249,.96); border-top: 1px solid var(--border);
+    background: rgba(251,249,244,.96); border-top: 1px solid var(--border);
     -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
     padding: 0 4px var(--safe-b);
   }
@@ -1382,8 +1394,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 }
 #login.show { display: flex; }
 .login-brand {
-  flex: 1.1; position: relative; overflow: hidden; color: #fff; padding: 48px;
-  background: radial-gradient(120% 90% at 20% 10%, #3b4a36 0%, #232a22 55%, #1c1a17 100%);
+  flex: 1.1; position: relative; overflow: hidden; color: var(--ink-on-dark); padding: 48px;
+  background: radial-gradient(120% 90% at 20% 10%, #2A3A26 0%, var(--forest) 55%, var(--forest-deep) 100%);
   display: flex; flex-direction: column; justify-content: space-between; gap: 24px;
 }
 .login-brand svg.lb-map { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
@@ -1392,8 +1404,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .lb-top span { font: 600 28px var(--font-display); letter-spacing: -0.01em; }
 .lb-copy { position: relative; max-width: 460px; }
 .lb-copy h1 { font: 600 clamp(34px, 4vw, 52px)/1.05 var(--font-display); letter-spacing: -0.03em; margin-bottom: 16px; }
-.lb-copy p { font-size: 17px; line-height: 1.55; color: rgba(255,255,255,.78); }
-.lb-points { position: relative; display: flex; gap: 22px; flex-wrap: wrap; font-size: 14px; color: rgba(255,255,255,.8); }
+.lb-copy p { font-size: 17px; line-height: 1.55; color: var(--ink-on-dark-2); }
+.lb-points { position: relative; display: flex; gap: 22px; flex-wrap: wrap; font-size: 14px; color: var(--ink-on-dark-2); }
 .lb-points span { display: inline-flex; align-items: center; gap: 8px; }
 .lb-points .ic { width: 18px; height: 18px; color: var(--warm); }
 .login-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; gap: 16px; }
@@ -1444,7 +1456,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 
 /* ── FILTER DRAWER ── */
 #filter-backdrop {
-  position: fixed; inset: 0; background: rgba(28,26,23,0.3); z-index: 840;
+  position: fixed; inset: 0; background: rgba(26,35,24,0.3); z-index: 840;
   opacity: 0; pointer-events: none; transition: opacity 0.28s ease;
 }
 #filter-backdrop.open { opacity: 1; pointer-events: auto; }
@@ -1577,7 +1589,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 <!-- ICON SPRITE — stroke icons on a 24px grid (Feather/Lucide-style paths).
      Use as <svg class="ic"><use href="#i-name"/></svg>. -->
 <svg id="icon-sprite" xmlns="http://www.w3.org/2000/svg" style="display:none">
-  <symbol id="logo-mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#c0562b"/><path d="M8.5 22.5c2.6-.6 3.6-4.6 6.6-5.6s4.4 1.6 7.2-1.1c1.9-1.9 1.7-5.3 1.7-5.3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="8.5" cy="22.5" r="2.5" fill="#fff"/><circle cx="24" cy="10.5" r="2.5" fill="#fff" stroke="#c0562b" stroke-width="0"/></symbol>
+  <symbol id="logo-mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#C1502E"/><path d="M8.5 22.5c2.6-.6 3.6-4.6 6.6-5.6s4.4 1.6 7.2-1.1c1.9-1.9 1.7-5.3 1.7-5.3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="8.5" cy="22.5" r="2.5" fill="#fff"/><circle cx="24" cy="10.5" r="2.5" fill="#fff" stroke="#C1502E" stroke-width="0"/></symbol>
   <symbol id="i-map" viewBox="0 0 24 24"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9.5 12 3l9 6.5V20a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 20z"/><polyline points="9 21.5 9 13 15 13 15 21.5"/></symbol>
   <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
@@ -1630,11 +1642,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           <path d="M-20 520c120-40 200 30 300 0s140-70 220-40 120 30 120 30"/><path d="M-20 570c120-40 210 35 310 5s140-65 210-35 120 30 120 30"/>
           <path d="M60 720c20-90 90-140 70-230s40-150 120-170 160 20 200-40"/><path d="M110 720c20-90 90-140 70-230s40-150 120-170 160 20 200-40"/>
         </g>
-        <path d="M70 610c40-40 60-110 120-130s90 30 140-10 40-120 100-150 90-10 120-60" stroke="#c0562b" stroke-width="3.5"/>
-        <path d="M40 300c50 10 90-40 150-20s60 90 130 90 90-70 160-60 70 40 120 30" stroke="#d9b98f" stroke-width="3"/>
-        <path d="M200 60c-10 60 40 100 20 160s-70 80-40 150 110 60 120 130" stroke="#8fb38a" stroke-width="3"/>
-        <circle cx="70" cy="610" r="6" fill="#c0562b"/><circle cx="550" cy="140" r="6" fill="#c0562b"/>
-        <circle cx="40" cy="300" r="5" fill="#d9b98f"/><circle cx="200" cy="60" r="5" fill="#8fb38a"/>
+        <path d="M70 610c40-40 60-110 120-130s90 30 140-10 40-120 100-150 90-10 120-60" stroke="#C1502E" stroke-width="3.5"/>
+        <path d="M40 300c50 10 90-40 150-20s60 90 130 90 90-70 160-60 70 40 120 30" stroke="#C9B896" stroke-width="3"/>
+        <path d="M200 60c-10 60 40 100 20 160s-70 80-40 150 110 60 120 130" stroke="#8FA888" stroke-width="3"/>
+        <circle cx="70" cy="610" r="6" fill="#B8934A"/><circle cx="550" cy="140" r="6" fill="#B8934A"/>
+        <circle cx="40" cy="300" r="5" fill="#B8934A"/><circle cx="200" cy="60" r="5" fill="#B8934A"/>
       </g>
     </svg>
     <div class="lb-top"><svg class="wordmark-mark" viewBox="0 0 32 32"><use href="#logo-mark"/></svg><span>Relic</span></div>
@@ -2575,44 +2587,47 @@ const MOODS = [
   { id:'peaceful', emoji:'🌿', label:'Calm' },
 ];
 
+// Default track colours follow the brand's three route families, in shades
+// (docs/brand-colors.md): rust = on foot, sage = snow, tan = wheels and air.
+// Users can still recolour any type (relic_colors_v1 overrides these).
 const TYPE_CONFIG = {
-  Run: { label:'Run', color:'#c0392b', types:['Run','TrailRun','VirtualRun'] },
-  Ride: { label:'Ride', color:'#2563eb', types:['Ride','VirtualRide','MountainBikeRide'] },
-  Hike: { label:'Hike', color:'#16a34a', types:['Hike'] },
-  Walk: { label:'Walk', color:'#7c3aed', types:['Walk'] },
-  Alpine: { label:'Alpine Ski', color:'#e11d48', types:['AlpineSki'] },
-  Nordic: { label:'Nordic Ski', color:'#0891b2', types:['NordicSki'] },
-  Backcountry: { label:'Backcountry', color:'#6d28d9', types:['BackcountrySki'] },
-  Flight: { label:'Flight', color:'#d97706', types:['Flight'] },
-  Drive: { label:'Drive', color:'#374151', types:['Drive'] },
-  Other: { label:'Other', color:'#92400e', types:[] },
+  Run: { label:'Run', color:'#C1502E', types:['Run','TrailRun','VirtualRun'] },
+  Hike: { label:'Hike', color:'#9A3B22', types:['Hike'] },
+  Walk: { label:'Walk', color:'#D8785A', types:['Walk'] },
+  Alpine: { label:'Alpine Ski', color:'#6F8B66', types:['AlpineSki'] },
+  Nordic: { label:'Nordic Ski', color:'#8FA888', types:['NordicSki'] },
+  Backcountry: { label:'Backcountry', color:'#4F6A4A', types:['BackcountrySki'] },
+  Ride: { label:'Ride', color:'#B39A6A', types:['Ride','VirtualRide','MountainBikeRide'] },
+  Drive: { label:'Drive', color:'#8C7650', types:['Drive'] },
+  Flight: { label:'Flight', color:'#C9B896', types:['Flight'] },
+  Other: { label:'Other', color:'#A89F8C', types:[] },
 };
 
 // Reverse lookup: Strava type string → TYPE_CONFIG key, built once at startup
 const TYPE_GROUP_MAP = {};
 Object.entries(TYPE_CONFIG).forEach(([k,cfg]) => cfg.types.forEach(t => { TYPE_GROUP_MAP[t] = k; }));
 function getGroup(type) { return TYPE_GROUP_MAP[type] || 'Other'; }
-function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#92400e'; }
+function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#A89F8C'; }
 
 // Pins (point Moments — no polyline). Kept separate from TYPE_CONFIG so pin
 // categories never enter TYPE_GROUP_MAP's reverse lookup, which assumes
 // GPS-shaped tracked activities.
 const PIN_CATEGORIES = {
-  restaurant: { label:'Restaurant', color:'#d97706', icon:'🍽️' },
-  cafe_bar: { label:'Cafe / Bar', color:'#92400e', icon:'☕' },
-  accommodation: { label:'Accommodation', color:'#0ea5e9', icon:'🏨' },
-  shop: { label:'Shop', color:'#7c3aed', icon:'🛍️' },
-  nature: { label:'Nature', color:'#16a34a', icon:'🌿' },
-  camping: { label:'Camping Spot', color:'#0d9488', icon:'⛺' },
-  mountain: { label:'Mountain', color:'#57534e', icon:'⛰️' },
-  home: { label:'Home (Past or Present)', color:'#c0392b', icon:'🏠' },
-  school: { label:'School', color:'#2563eb', icon:'🎓' },
-  job: { label:'Job', color:'#374151', icon:'💼' },
-  special: { label:'Special Place', color:'#e11d48', icon:'✨' },
-  other: { label:'Other', color:'#6b7280', icon:'📍' },
+  restaurant: { label:'Restaurant', color:'#B8934A', icon:'🍽️' },
+  cafe_bar: { label:'Cafe / Bar', color:'#B8934A', icon:'☕' },
+  accommodation: { label:'Accommodation', color:'#B8934A', icon:'🏨' },
+  shop: { label:'Shop', color:'#B8934A', icon:'🛍️' },
+  nature: { label:'Nature', color:'#B8934A', icon:'🌿' },
+  camping: { label:'Camping Spot', color:'#B8934A', icon:'⛺' },
+  mountain: { label:'Mountain', color:'#B8934A', icon:'⛰️' },
+  home: { label:'Home (Past or Present)', color:'#B8934A', icon:'🏠' },
+  school: { label:'School', color:'#B8934A', icon:'🎓' },
+  job: { label:'Job', color:'#B8934A', icon:'💼' },
+  special: { label:'Special Place', color:'#B8934A', icon:'✨' },
+  other: { label:'Other', color:'#B8934A', icon:'📍' },
   // Auto-managed — created/synced by syncAirportPins() from Flight moments,
   // not offered in the manual "add a pin" category picker. See below.
-  airport: { label:'Airport', color:'#0891b2', icon:'✈️' },
+  airport: { label:'Airport', color:'#B8934A', icon:'✈️' },
 };
 let activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
 function getPinCategory(cat) { return PIN_CATEGORIES[cat] || PIN_CATEGORIES.other; }
@@ -3528,6 +3543,10 @@ function initMapLayers() {
   const tracksGeoJSON = buildTracksGeoJSON(allMemories);
   if(map.getSource('tracks')) { map.getSource('tracks').setData(tracksGeoJSON); } else {
     map.addSource('tracks',{type:'geojson',data:tracksGeoJSON,tolerance:0.5,buffer:0});
+    // Dark casing under every track: sage/tan (and light shades) disappear
+    // on the outdoors tiles without it — tested on real tiles, see docs/brand-colors.md.
+    map.addLayer({id:'tracks-casing',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
+      paint:{'line-color':'#1A2318','line-width':['interpolate',['linear'],['zoom'],2,2,6,3,10,4.5,14,6],'line-opacity':0.45}});
     map.addLayer({id:'tracks-layer',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
       paint:{'line-color':['get','color'],'line-width':['interpolate',['linear'],['zoom'],2,0.8,6,1.5,10,2.5,14,3.5],'line-opacity':0.85}});
     map.addLayer({id:'tracks-highlight',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
@@ -3552,7 +3571,7 @@ function initMapLayers() {
   }
   if(!DEMO && !map.getSource('satellite')) {
     map.addSource('satellite',{type:'raster',url:'mapbox://mapbox.satellite',tileSize:256});
-    map.addLayer({id:'satellite-layer',type:'raster',source:'satellite',paint:{'raster-opacity':1}},'tracks-layer');
+    map.addLayer({id:'satellite-layer',type:'raster',source:'satellite',paint:{'raster-opacity':1}},'tracks-casing');
     map.setLayoutProperty('satellite-layer','visibility','none');
   }
 }
@@ -3563,9 +3582,13 @@ function updateTrackHighlight(memId) {
   if(memId) {
     map.setPaintProperty('tracks-layer','line-opacity',['case',['==',['get','id'],memId],1,0.2]);
     map.setPaintProperty('tracks-layer','line-width',['case',['==',['get','id'],memId],5,1.5]);
+    map.setPaintProperty('tracks-casing','line-opacity',['case',['==',['get','id'],memId],0.6,0.08]);
+    map.setPaintProperty('tracks-casing','line-width',['case',['==',['get','id'],memId],8,2.5]);
   } else {
     map.setPaintProperty('tracks-layer','line-opacity',0.85);
     map.setPaintProperty('tracks-layer','line-width',['interpolate',['linear'],['zoom'],2,0.8,6,1.5,10,2.5,14,3.5]);
+    map.setPaintProperty('tracks-casing','line-opacity',0.45);
+    map.setPaintProperty('tracks-casing','line-width',['interpolate',['linear'],['zoom'],2,2,6,3,10,4.5,14,6]);
   }
 }
 
@@ -4026,7 +4049,7 @@ function fitArchive() {
 }
 
 function getSatelliteToggleLayers() {
-  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','draw-route-hit','satellite-layer','sky','friends-layer','friends-hit'].includes(l.id)).map(l=>l.id);
+  return map.getStyle().layers.filter(l=>!['tracks-casing','tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','draw-route-hit','satellite-layer','sky','friends-layer','friends-hit'].includes(l.id)).map(l=>l.id);
 }
 
 function updateTypeColor(typeKey, color) {
@@ -5911,7 +5934,7 @@ function renderOnThisDay() {
   const years = new Date().getFullYear() - +m.date.slice(0, 4);
   const color = m.customColor || getColor(m.type);
   const poly = encodedPolyOf(m);
-  const thumb = poly ? mapboxStaticImg([`path-4+${color.replace('#', '')}-0.9(${encodeURIComponent(poly)})`], 184, 184) : '';
+  const thumb = poly ? mapboxStaticImg([pathOv(poly, color.replace('#', ''), 4, 0.9)], 184, 184) : '';
   return `<div class="card otd-card" onclick="goToActivity(${jsAttr(m.id)})">
     <div class="otd-thumb">${thumb}</div>
     <div style="min-width:0;flex:1"><div class="otd-kicker">On this day · ${years} year${years > 1 ? 's' : ''} ago</div>
@@ -5941,7 +5964,7 @@ function buildFeed() {
 // One card renderer for everyone's activities. `it` is a normalised item —
 // see itemFromMoment() / itemFromPublicRow().
 function renderActivityCard(it) {
-  const color = it.color || '#c0562b';
+  const color = it.color || '#C1502E';
   const group = getGroup(it.type);
   const typeLabel = TYPE_CONFIG[group]?.label || it.type || 'Activity';
   const authorClick = it.isOwn ? `switchView('profile')` : `openPublicProfile(${jsAttr(it.ownerId)})`;
@@ -5967,7 +5990,7 @@ function renderActivityCard(it) {
   if (it.polylines && it.polylines.length) {
     const cid = 'fcv-' + Math.random().toString(36).slice(2, 9);
     const stroke = color.replace('#', '');
-    h += `<div class="fc-map" onclick="${open}"><canvas id="${cid}" width="640" height="260"></canvas>${mapboxStaticImg(it.polylines.map(p => `path-4+${stroke}-0.9(${encodeURIComponent(p)})`), 640, 260)}</div>`;
+    h += `<div class="fc-map" onclick="${open}"><canvas id="${cid}" width="640" height="260"></canvas>${mapboxStaticImg(it.polylines.map(p => pathOv(p, stroke, 4, 0.9)), 640, 260)}</div>`;
     _canvasJobs.push({ id: cid, polylines: it.polylines, color });
   }
   if (it.photos && it.photos.length) h += `<div class="fc-photos">${it.photos.slice(0, 3).map(u => `<img src="${escapeHtml(u)}" alt="" loading="lazy" style="cursor:zoom-in" onclick="openLightboxUrl(this.src)">`).join('')}</div>`;
@@ -5999,7 +6022,7 @@ function flushCanvasJobs() {
     all.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); });
     const sc = Math.min((W - pad * 2) / (maxX - minX || 1), (H - pad * 2) / (maxY - minY || 1));
     const ox = (W - (maxX - minX) * sc) / 2, oy = (H - (maxY - minY) * sc) / 2;
-    ctx.fillStyle = '#efe9dd'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#EDE6D5'; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = j.color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     segs.forEach(s => { ctx.beginPath(); s.forEach(([x, y], i) => { const px = ox + (x - minX) * sc, py = H - oy - (y - minY) * sc; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); });
   }));
@@ -6273,15 +6296,15 @@ async function renderShareCard(o) {
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
   try { await Promise.all([document.fonts.load('600 64px Fraunces'), document.fonts.load('600 32px Inter'), document.fonts.load('700 44px Inter')]); } catch (e) {}
-  ctx.fillStyle = '#f4efe6'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#F4F0E8'; ctx.fillRect(0, 0, W, H);
   // Map: Mapbox static image when the URL fits, otherwise our own drawing.
   const segs = [];
-  (o.polylines || []).forEach((p, i) => { try { const c = decodePolyline(p); if (c.length > 1) segs.push({ c, color: (o.colors || [])[i] || o.color || '#c0562b' }); } catch (e) {} });
+  (o.polylines || []).forEach((p, i) => { try { const c = decodePolyline(p); if (c.length > 1) segs.push({ c, color: (o.colors || [])[i] || o.color || '#C1502E' }); } catch (e) {} });
   let drewMap = false;
   if (segs.length) {
     const overlays = []; let budget = 7400;
     (o.polylines || []).forEach((p, i) => {
-      const seg = `path-6+${(((o.colors || [])[i]) || o.color || '#c0562b').replace('#', '')}-1(${encodeURIComponent(p)})`;
+      const seg = pathOv(p, (((o.colors || [])[i]) || o.color || '#C1502E').replace('#', ''), 6, 1);
       if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
     });
     if (overlays.length) {
@@ -6299,18 +6322,18 @@ async function renderShareCard(o) {
       segs.forEach(s => { ctx.strokeStyle = s.color; ctx.beginPath(); s.c.forEach(([x, y], i) => { const px = ox + (x - minX) * sc, py = MAP_H - oy - (y - minY) * sc; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); });
     }
   } else {
-    const g = ctx.createLinearGradient(0, 0, W, MAP_H); g.addColorStop(0, '#2b3a2e'); g.addColorStop(1, '#c0562b');
+    const g = ctx.createLinearGradient(0, 0, W, MAP_H); g.addColorStop(0, '#1A2318'); g.addColorStop(1, '#C1502E');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, MAP_H);
   }
   // Soft fade from map into the paper panel
-  const fade = ctx.createLinearGradient(0, MAP_H - 120, 0, MAP_H); fade.addColorStop(0, 'rgba(244,239,230,0)'); fade.addColorStop(1, 'rgba(244,239,230,1)');
+  const fade = ctx.createLinearGradient(0, MAP_H - 120, 0, MAP_H); fade.addColorStop(0, 'rgba(244,240,232,0)'); fade.addColorStop(1, 'rgba(244,240,232,1)');
   ctx.fillStyle = fade; ctx.fillRect(0, MAP_H - 120, W, 120);
   // Kicker (type · date)
   let y = MAP_H + 40;
-  ctx.fillStyle = '#c0562b'; ctx.font = '700 30px Inter, sans-serif';
+  ctx.fillStyle = '#C1502E'; ctx.font = '700 30px Inter, sans-serif';
   ctx.fillText(String(o.kicker || '').toUpperCase(), 72, y); y += 22;
   // Title
-  ctx.fillStyle = '#1c1a17'; ctx.font = '600 74px Fraunces, Georgia, serif';
+  ctx.fillStyle = '#2A3324'; ctx.font = '600 74px Fraunces, Georgia, serif';
   _wrapText(ctx, o.title || 'Untitled', W - 144, 2).forEach(line => { y += 80; ctx.fillText(line, 72, y); });
   // Stats
   y += 150;
@@ -6318,17 +6341,17 @@ async function renderShareCard(o) {
   const colW = (W - 144) / Math.max(1, stats.length);
   stats.forEach(([label, val], i) => {
     const x = 72 + i * colW;
-    ctx.fillStyle = '#6f675b'; ctx.font = '500 30px Inter, sans-serif'; ctx.fillText(label, x, y - 56);
-    ctx.fillStyle = '#1c1a17'; ctx.font = '700 58px Inter, sans-serif'; ctx.fillText(val, x, y);
+    ctx.fillStyle = '#5C6B54'; ctx.font = '500 30px Inter, sans-serif'; ctx.fillText(label, x, y - 56);
+    ctx.fillStyle = '#2A3324'; ctx.font = '700 58px Inter, sans-serif'; ctx.fillText(val, x, y);
   });
   // Footer: brand + author
   const fy = H - 64;
-  ctx.fillStyle = '#c0562b';
+  ctx.fillStyle = '#C1502E';
   if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(72, fy - 44, 56, 56, 16); ctx.fill(); } else ctx.fillRect(72, fy - 44, 56, 56);
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(86, fy - 4); ctx.bezierCurveTo(98, fy - 8, 100, fy - 24, 108, fy - 24); ctx.bezierCurveTo(118, fy - 24, 116, fy - 34, 114, fy - 32); ctx.stroke();
-  ctx.fillStyle = '#1c1a17'; ctx.font = '600 44px Fraunces, Georgia, serif'; ctx.fillText('Relic', 144, fy);
-  if (o.author) { ctx.fillStyle = '#6f675b'; ctx.font = '500 30px Inter, sans-serif'; ctx.textAlign = 'right'; ctx.fillText(o.author, W - 72, fy); ctx.textAlign = 'left'; }
+  ctx.fillStyle = '#2A3324'; ctx.font = '600 44px Fraunces, Georgia, serif'; ctx.fillText('Relic', 144, fy);
+  if (o.author) { ctx.fillStyle = '#5C6B54'; ctx.font = '500 30px Inter, sans-serif'; ctx.textAlign = 'right'; ctx.fillText(o.author, W - 72, fy); ctx.textAlign = 'left'; }
   return new Promise(res => cv.toBlob(res, 'image/png'));
 }
 async function shareAsImage(o) {
@@ -6443,11 +6466,11 @@ function renderPublicStoryCard(r, prof) {
   const mood = MOODS.find(m => m.id === r.mood);
   const overlays = []; let budget = 7400;
   (r.polylines || []).forEach((p, i) => {
-    const seg = `path-3+${((r.colors || [])[i] || '#c0562b').replace('#', '')}-0.9(${encodeURIComponent(p)})`;
+    const seg = pathOv(p, ((r.colors || [])[i] || '#C1502E').replace('#', ''), 3, 0.9);
     if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
   });
   const cid = 'fcs-' + Math.random().toString(36).slice(2, 9);
-  if (r.polylines && r.polylines.length) _canvasJobs.push({ id: cid, polylines: r.polylines, color: (r.colors || [])[0] || '#c0562b' });
+  if (r.polylines && r.polylines.length) _canvasJobs.push({ id: cid, polylines: r.polylines, color: (r.colors || [])[0] || '#C1502E' });
   return `<article class="feed-card story-card-feed" data-story="${escapeHtml(socialKey(r.user_id, r.story_id))}">
     <header class="fc-header">
       <div class="fc-avatar" onclick="${authorClick}">${avatarHtml(prof?.avatarUrl, prof?.name, 'av-44', r.user_id)}</div>
@@ -6476,7 +6499,7 @@ function drawFeedStoryMap(story, canvasId) {
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
   var W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#f5f0e8';
+  ctx.fillStyle = '#EDE6D5';
   ctx.fillRect(0, 0, W, H);
 
   var tracks = [];
@@ -6528,6 +6551,12 @@ function encodedPolyOf(m) {
   if (!c || c.length < 2) return null;
   try { return encodePolyline(c); } catch (e) { return null; }
 }
+// A track overlay for the Static Images API: a dark casing path under the
+// coloured one (same reason as the map's tracks-casing layer).
+function pathOv(poly, color, width, opacity) {
+  const enc = encodeURIComponent(poly), hex = String(color || '#C1502E').replace('#', '');
+  return `path-${width + 3}+1A2318-0.45(${enc}),path-${width}+${hex}-${opacity}(${enc})`;
+}
 function mapboxStaticImg(overlays, w, h) {
   if (!overlays.length) return '';
   const url = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${overlays.join(',')}/auto/${w}x${h}@2x`
@@ -6539,7 +6568,7 @@ function staticMapImg(mem, color, w, h) {
   const poly = encodedPolyOf(mem);
   if (!poly) return '';
   const stroke = (color || '#c0392b').replace('#', '');
-  return mapboxStaticImg([`path-4+${stroke}-0.9(${encodeURIComponent(poly)})`], w, h);
+  return mapboxStaticImg([pathOv(poly, stroke, 4, 0.9)], w, h);
 }
 // Story = one map with every child moment's track, coloured per type. Adds tracks
 // until the URL budget runs out, so a big story still gets most of its tracks.
@@ -6552,7 +6581,7 @@ function staticStoryMapImg(story, w, h) {
     const poly = encodedPolyOf(m);
     if (!poly) return;
     const stroke = (m.customColor || getColor(m.type) || '#c0392b').replace('#', '');
-    const seg = `path-3+${stroke}-0.9(${encodeURIComponent(poly)})`;
+    const seg = pathOv(poly, stroke, 3, 0.9);
     if (seg.length + 1 > budget) return;
     overlays.push(seg);
     budget -= seg.length + 1;
@@ -6571,7 +6600,7 @@ function drawFeedMap(memId, coords, color, canvasId) {
   const scaleX=(W-pad*2)/(maxX-minX||1), scaleY=(H-pad*2)/(maxY-minY||1), scale=Math.min(scaleX,scaleY);
   const offX=(W-(maxX-minX)*scale)/2, offY=(H-(maxY-minY)*scale)/2;
   // Background
-  ctx.fillStyle='#f5f0e8'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#EDE6D5'; ctx.fillRect(0,0,W,H);
   // Track
   ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.globalAlpha=0.85;
   coords.forEach(([lng,lat],i)=>{const x=offX+(lng-minX)*scale;const y=H-offY-(lat-minY)*scale;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
@@ -6790,7 +6819,7 @@ function renderProfileCover() {
   const overlays = []; let budget = 7000;
   getMoments().sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1)).slice(0, 80).forEach(m => {
     const p = encodedPolyOf(m); if (!p) return;
-    const seg = `path-3+${(m.customColor || getColor(m.type)).replace('#', '')}-0.9(${encodeURIComponent(p)})`;
+    const seg = pathOv(p, (m.customColor || getColor(m.type)).replace('#', ''), 3, 0.9);
     if (seg.length + 1 > budget) return;
     overlays.push(seg); budget -= seg.length + 1;
   });
@@ -7415,7 +7444,7 @@ function renderPublicMap(acts, focusActivityId) {
     console.warn('Interactive profile map unavailable, using static image', e);
     const overlays = []; let budget = 7000;
     acts.forEach(a => (a.polylines || []).forEach(p => {
-      const seg = `path-3+${(a.custom_color || getColor(a.type)).replace('#', '')}-0.9(${encodeURIComponent(p)})`;
+      const seg = pathOv(p, (a.custom_color || getColor(a.type)).replace('#', ''), 3, 0.9);
       if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
     }));
     el.innerHTML = mapboxStaticImg(overlays, 880, 340) || '<div class="pp-map-empty">Map unavailable</div>';
@@ -7655,7 +7684,7 @@ function drawStoryCardMap(story) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#f5f0e8';
+  ctx.fillStyle = '#EDE6D5';
   ctx.fillRect(0, 0, W, H);
 
   // Collect all coords from child moments
@@ -7724,6 +7753,8 @@ function viewStoryOnMap(storyId) {
       map.setFilter('tracks-highlight', matchFilter);
       map.setPaintProperty('tracks-layer', 'line-opacity', ['case', matchFilter.slice(0), 1, 0.15]);
       map.setPaintProperty('tracks-layer', 'line-width', ['case', matchFilter.slice(0), 4, 1]);
+      map.setPaintProperty('tracks-casing', 'line-opacity', ['case', matchFilter.slice(0), 0.55, 0.08]);
+      map.setPaintProperty('tracks-casing', 'line-width', ['case', matchFilter.slice(0), 7, 2.5]);
     }
 
     // Fit bounds to all member tracks
