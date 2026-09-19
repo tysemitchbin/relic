@@ -25,7 +25,7 @@ together as one brand.
 | `--brand-rust` (= `--accent`) | `#C1502E` | Logo mark, primary buttons/CTAs, selected route. Never swap for another accent in either mode. 4.7:1 with white text. |
 | `--route-sage` | `#8FA888` | Decorative route lines on hero art (not map tracks) |
 | `--route-tan` | `#C9B896` | Decorative route lines on hero art (not map tracks) |
-| `--accent-gold` | `#B8934A` | Decorative markers on hero art. **Not** used for map pins: pins keep a distinct colour per category (decided 2026-09-19) |
+| `--accent-gold` | `#B8934A` | Decorative markers on hero art. **Not** used for map pins: pins default to **white** for every category, and users choose their own colours in Filters → Pins (decided 2026-09-19) |
 | `--forest` / `--forest-deep` | `#1A2318` / `#0F140D` | Dark-mode background / gradient end |
 | `--ink-on-dark` / `--ink-on-dark-2` | `#F5F1E8` / `#B8C4B0` | Text on dark surfaces |
 | `--bg` | `#F4F0E8` | Light-mode page background |
