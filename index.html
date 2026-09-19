@@ -48,7 +48,7 @@
   --brand-rust: #C1502E;
   --route-sage: #8FA888;
   --route-tan: #C9B896;
-  --accent-gold: #B8934A;        /* pins / story markers only, never lines */
+  --accent-gold: #B8934A;        /* decorative markers on hero art (map pins use per-category colours) */
   --forest: #1A2318;             /* dark-mode surface (login, loading, hero) */
   --forest-deep: #0F140D;
   --ink-on-dark: #F5F1E8;
@@ -2613,21 +2613,21 @@ function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#8D6E63'
 // categories never enter TYPE_GROUP_MAP's reverse lookup, which assumes
 // GPS-shaped tracked activities.
 const PIN_CATEGORIES = {
-  restaurant: { label:'Restaurant', color:'#B8934A', icon:'🍽️' },
-  cafe_bar: { label:'Cafe / Bar', color:'#B8934A', icon:'☕' },
-  accommodation: { label:'Accommodation', color:'#B8934A', icon:'🏨' },
-  shop: { label:'Shop', color:'#B8934A', icon:'🛍️' },
-  nature: { label:'Nature', color:'#B8934A', icon:'🌿' },
-  camping: { label:'Camping Spot', color:'#B8934A', icon:'⛺' },
-  mountain: { label:'Mountain', color:'#B8934A', icon:'⛰️' },
-  home: { label:'Home (Past or Present)', color:'#B8934A', icon:'🏠' },
-  school: { label:'School', color:'#B8934A', icon:'🎓' },
-  job: { label:'Job', color:'#B8934A', icon:'💼' },
-  special: { label:'Special Place', color:'#B8934A', icon:'✨' },
-  other: { label:'Other', color:'#B8934A', icon:'📍' },
+  restaurant: { label:'Restaurant', color:'#d97706', icon:'🍽️' },
+  cafe_bar: { label:'Cafe / Bar', color:'#92400e', icon:'☕' },
+  accommodation: { label:'Accommodation', color:'#0ea5e9', icon:'🏨' },
+  shop: { label:'Shop', color:'#7c3aed', icon:'🛍️' },
+  nature: { label:'Nature', color:'#16a34a', icon:'🌿' },
+  camping: { label:'Camping Spot', color:'#0d9488', icon:'⛺' },
+  mountain: { label:'Mountain', color:'#57534e', icon:'⛰️' },
+  home: { label:'Home (Past or Present)', color:'#c0392b', icon:'🏠' },
+  school: { label:'School', color:'#2563eb', icon:'🎓' },
+  job: { label:'Job', color:'#374151', icon:'💼' },
+  special: { label:'Special Place', color:'#e11d48', icon:'✨' },
+  other: { label:'Other', color:'#6b7280', icon:'📍' },
   // Auto-managed — created/synced by syncAirportPins() from Flight moments,
   // not offered in the manual "add a pin" category picker. See below.
-  airport: { label:'Airport', color:'#B8934A', icon:'✈️' },
+  airport: { label:'Airport', color:'#0891b2', icon:'✈️' },
 };
 let activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
 function getPinCategory(cat) { return PIN_CATEGORIES[cat] || PIN_CATEGORIES.other; }
@@ -3543,10 +3543,6 @@ function initMapLayers() {
   const tracksGeoJSON = buildTracksGeoJSON(allMemories);
   if(map.getSource('tracks')) { map.getSource('tracks').setData(tracksGeoJSON); } else {
     map.addSource('tracks',{type:'geojson',data:tracksGeoJSON,tolerance:0.5,buffer:0});
-    // Dark casing under every track: sage/tan (and light shades) disappear
-    // on the outdoors tiles without it — tested on real tiles, see docs/brand-colors.md.
-    map.addLayer({id:'tracks-casing',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
-      paint:{'line-color':'#1A2318','line-width':['interpolate',['linear'],['zoom'],2,2,6,3,10,4.5,14,6],'line-opacity':0.45}});
     map.addLayer({id:'tracks-layer',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
       paint:{'line-color':['get','color'],'line-width':['interpolate',['linear'],['zoom'],2,0.8,6,1.5,10,2.5,14,3.5],'line-opacity':0.85}});
     map.addLayer({id:'tracks-highlight',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
@@ -3571,7 +3567,7 @@ function initMapLayers() {
   }
   if(!DEMO && !map.getSource('satellite')) {
     map.addSource('satellite',{type:'raster',url:'mapbox://mapbox.satellite',tileSize:256});
-    map.addLayer({id:'satellite-layer',type:'raster',source:'satellite',paint:{'raster-opacity':1}},'tracks-casing');
+    map.addLayer({id:'satellite-layer',type:'raster',source:'satellite',paint:{'raster-opacity':1}},'tracks-layer');
     map.setLayoutProperty('satellite-layer','visibility','none');
   }
 }
@@ -3582,13 +3578,9 @@ function updateTrackHighlight(memId) {
   if(memId) {
     map.setPaintProperty('tracks-layer','line-opacity',['case',['==',['get','id'],memId],1,0.2]);
     map.setPaintProperty('tracks-layer','line-width',['case',['==',['get','id'],memId],5,1.5]);
-    map.setPaintProperty('tracks-casing','line-opacity',['case',['==',['get','id'],memId],0.6,0.08]);
-    map.setPaintProperty('tracks-casing','line-width',['case',['==',['get','id'],memId],8,2.5]);
   } else {
     map.setPaintProperty('tracks-layer','line-opacity',0.85);
     map.setPaintProperty('tracks-layer','line-width',['interpolate',['linear'],['zoom'],2,0.8,6,1.5,10,2.5,14,3.5]);
-    map.setPaintProperty('tracks-casing','line-opacity',0.45);
-    map.setPaintProperty('tracks-casing','line-width',['interpolate',['linear'],['zoom'],2,2,6,3,10,4.5,14,6]);
   }
 }
 
@@ -4049,7 +4041,7 @@ function fitArchive() {
 }
 
 function getSatelliteToggleLayers() {
-  return map.getStyle().layers.filter(l=>!['tracks-casing','tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','draw-route-hit','satellite-layer','sky','friends-layer','friends-hit'].includes(l.id)).map(l=>l.id);
+  return map.getStyle().layers.filter(l=>!['tracks-layer','tracks-highlight','tracks-hit','draw-route-layer','draw-route-hit','satellite-layer','sky','friends-layer','friends-hit'].includes(l.id)).map(l=>l.id);
 }
 
 function updateTypeColor(typeKey, color) {
@@ -6551,11 +6543,10 @@ function encodedPolyOf(m) {
   if (!c || c.length < 2) return null;
   try { return encodePolyline(c); } catch (e) { return null; }
 }
-// A track overlay for the Static Images API: a dark casing path under the
-// coloured one (same reason as the map's tracks-casing layer).
+// A track overlay for the Static Images API.
 function pathOv(poly, color, width, opacity) {
-  const enc = encodeURIComponent(poly), hex = String(color || '#C1502E').replace('#', '');
-  return `path-${width + 3}+1A2318-0.45(${enc}),path-${width}+${hex}-${opacity}(${enc})`;
+  const hex = String(color || '#C1502E').replace('#', '');
+  return `path-${width}+${hex}-${opacity}(${encodeURIComponent(poly)})`;
 }
 function mapboxStaticImg(overlays, w, h) {
   if (!overlays.length) return '';
@@ -7753,8 +7744,6 @@ function viewStoryOnMap(storyId) {
       map.setFilter('tracks-highlight', matchFilter);
       map.setPaintProperty('tracks-layer', 'line-opacity', ['case', matchFilter.slice(0), 1, 0.15]);
       map.setPaintProperty('tracks-layer', 'line-width', ['case', matchFilter.slice(0), 4, 1]);
-      map.setPaintProperty('tracks-casing', 'line-opacity', ['case', matchFilter.slice(0), 0.55, 0.08]);
-      map.setPaintProperty('tracks-casing', 'line-width', ['case', matchFilter.slice(0), 7, 2.5]);
     }
 
     // Fit bounds to all member tracks

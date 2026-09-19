@@ -25,7 +25,7 @@ together as one brand.
 | `--brand-rust` (= `--accent`) | `#C1502E` | Logo mark, primary buttons/CTAs, selected route. Never swap for another accent in either mode. 4.7:1 with white text. |
 | `--route-sage` | `#8FA888` | Decorative route lines on hero art (not map tracks) |
 | `--route-tan` | `#C9B896` | Decorative route lines on hero art (not map tracks) |
-| `--accent-gold` | `#B8934A` | Pins and story markers **only**, never lines |
+| `--accent-gold` | `#B8934A` | Decorative markers on hero art. **Not** used for map pins: pins keep a distinct colour per category (decided 2026-09-19) |
 | `--forest` / `--forest-deep` | `#1A2318` / `#0F140D` | Dark-mode background / gradient end |
 | `--ink-on-dark` / `--ink-on-dark-2` | `#F5F1E8` / `#B8C4B0` | Text on dark surfaces |
 | `--bg` | `#F4F0E8` | Light-mode page background |
@@ -62,23 +62,14 @@ overrides win.
 | Other | Brown | `#8D6E63` |
 
 All ten stay distinct on outdoors and satellite tiles (renders in
-`brand/track-colours-bright-*.png`). Hike (green on green terrain) and Drive
-lean on the dark casing most. A selected track is drawn thicker with
+`brand/track-colours-bright-*.png`). Tracks are drawn **without** a dark
+outline/casing (tried, rejected 2026-09-19); Hike, green on green terrain, is
+the weakest on the outdoors style. A selected track is drawn thicker with
 everything else dimmed.
 
 ## Contrast on real map tiles (tested 2026-09-19)
 
-The spec flagged that rust, sage and tan sit at similar lightness. Rendered on
-real Mapbox tiles through the Static Images API:
-
-- **Satellite** and **dark** tiles: all three read clearly.
-- **Outdoors** (the default light style): sage almost vanished into the forest
-  green, and tan washed out on pale ground.
-- **Fix:** a dark casing (`#1A2318` at 45%, about 3 px wider) under every
-  track. With it, all three stay distinct on outdoors, including where tracks
-  overlap. It's applied on the live map (`tracks-casing` layer) and in every
-  static map image (`pathOv()`).
-
-Pairwise contrast between the three route colours is low (sage vs tan about
-1.3:1), so never rely on colour alone to tell two overlapping tracks apart.
-The casing, line width and selection state carry that job.
+The spec flagged that rust, sage and tan sit at similar lightness. On real
+Mapbox tiles, sage and tan nearly vanished on the outdoors style, which is
+one reason the track colours moved to bright per-type colours instead. A dark
+casing under tracks was also tried and rejected on looks.
