@@ -55,4 +55,8 @@ Gamified, rewarding moments — make opening the app feel good.
 
 ## Later / maybe
 
-- (add ideas here)
+- redo the buttons on the map navigation. the map layer selector doesn't make sense, the align north doesn't either. the filters button doesn't make sense. full rework of these buttons.
+- move content on people page to profile. just have followersr and folwing buttons, like on strava. clicking on either will open a page showing me what i want to see.
+- Pins shouldn't have the same look as tracks when i click on them, since they have no distance, elevation etc.. maybe in pins you can add visit dates. as many as you want. but it doesn't need to display the date in the same way tracks to. rework the pins. also when i zoom out, i want the pins to shrink, otherwise they are taking way too much space.
+- why can't i import photos from strava posts? why can't i take the privacy setting of strava tracks?
+
