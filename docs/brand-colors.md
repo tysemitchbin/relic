@@ -1,52 +1,74 @@
 # Relic brand colours
 
+What's actually in the app as of 2026-09-19. The tokens live on `:root` at the
+top of `index.html`'s `<style>`. If this doc and the code disagree, the code
+wins; update this file.
+
 Relic should feel like a keepsake (an old atlas, a travel journal), not a
 fitness-tracker dashboard. It is explicitly **not** Strava orange, and not
-the AllTrails/Gaia green-and-orange "outdoor gear" look. Full design-system
-artifact (with cover/preview): https://claude.ai/artifact/3ojmhe25HU1F6iY3GRMy1g
+the AllTrails/Gaia green-and-orange "outdoor gear" look. The original
+design-system artifact (with cover and preview):
+https://claude.ai/artifact/3ojmhe25HU1F6iY3GRMy1g
 
-## Two modes, one brand
+## Where each mode is used
 
-Rust is the one colour that stays the same in both modes. It's what ties them
-together as one brand.
+Rust is the one colour that stays the same in both modes.
 
-- **Light mode** is the app: data entry, lists, forms, the map (for now), and
-  later the printed photo book (v0.9). Dark backgrounds don't work on paper,
-  so the book inherits light mode.
-- **Dark mode** is hero/marketing surfaces: the login brand panel, the loading
-  screen, the Open Graph image, the Discord banners. A dark live-map view is
-  part of the spec but deliberately **not built yet** (decided 2026-09-19:
-  keep the map light for now).
-
-## Palette
-
-| Token (in `index.html` `:root`) | Hex | Use |
-|---|---|---|
-| `--brand-rust` (= `--accent`) | `#C1502E` | Logo mark, primary buttons/CTAs, selected route. Never swap for another accent in either mode. 4.7:1 with white text. |
-| `--route-sage` | `#8FA888` | Decorative route lines on hero art (not map tracks) |
-| `--route-tan` | `#C9B896` | Decorative route lines on hero art (not map tracks) |
-| `--accent-gold` | `#B8934A` | Decorative markers on hero art. **Not** used for map pins: pins default to **white** for every category, and users choose their own colours in Filters → Pins (decided 2026-09-19) |
-| `--forest` / `--forest-deep` | `#1A2318` / `#0F140D` | Dark-mode background / gradient end |
-| `--ink-on-dark` / `--ink-on-dark-2` | `#F5F1E8` / `#B8C4B0` | Text on dark surfaces |
-| `--bg` | `#F4F0E8` | Light-mode page background |
-| `--surface-2` / `--paper2` | `#EDE6D5` | Light-mode deep background, input fills |
-| `--text` (= `--ink`) | `#2A3324` | Light-mode text |
-| `--text-3` / `--muted` | `#5C6B54` | Light-mode secondary text (AA on `--bg` and `--surface`) |
-| `--line-faint` (= `--border`) | `#DCD3BF` | Hairlines and dividers (light). Dark-mode equivalent `#3A4536` at reduced opacity. |
+- **Light mode is the app:** every screen, including the map, plus lists,
+  forms and, later, the printed photo book (v0.9). Dark backgrounds don't work
+  on paper, so the book inherits light mode.
+- **Dark (forest) mode is hero surfaces only:** the loading screen, the login
+  brand panel, the Open Graph share image and the Discord banners.
+- A dark live-map view is in the original spec but **not built**. Decided
+  2026-09-19: keep the map light for now.
 
 Don't pair a dark-mode background with light-mode text, or the reverse.
 
-Note: in the codebase `--ink` means *light-mode text* (a legacy name). The
+## Brand colours
+
+| Token | Hex | Used for |
+|---|---|---|
+| `--brand-rust` (= `--accent`) | `#C1502E` | Logo mark, primary buttons, active states, kudos heart, links. 4.7:1 with white text. Never swap for another accent. |
+| `--accent-strong` | `#9A3B22` | Rust text on light rust tints (chips, badges) |
+| `--accent-soft` | `#F6E3D9` | Light rust tint behind chips, unread notifications, selected rows |
+| `--route-sage` | `#8FA888` | Decorative route lines on hero art only |
+| `--route-tan` (= `--warm`) | `#C9B896` | Decorative route lines on hero art only |
+| `--accent-gold` | `#B8934A` | Decorative dots on hero art only |
+
+## Light mode (the app)
+
+| Token | Hex | Used for |
+|---|---|---|
+| `--bg` | `#F4F0E8` | Page background |
+| `--surface` (= `--paper`) | `#FBF9F4` | Cards, panels, modals |
+| `--surface-2` (= `--paper2`) | `#EDE6D5` | Input fills, hover states, deep background |
+| `--paper3` | `#E3DAC5` | Pressed and inactive fills, segmented-control track |
+| `--text` (= `--ink`) | `#2A3324` | Body text, dark buttons |
+| `--text-2` | `#4B5944` | Secondary text |
+| `--text-3` (= `--muted`) | `#5C6B54` | Tertiary text and captions (still AA on `--bg` and `--surface`) |
+| `--line-faint` (= `--border`) | `#DCD3BF` | Hairlines and dividers |
+| `--success` | `#3F6B3A` | Checks, "Public" badges |
+| `--danger` | `#B3261E` | Destructive actions and errors |
+
+Note: in the code, `--ink` means light-mode text (a legacy name). The
 spec's dark-mode "ink" is `--ink-on-dark`.
 
-## Activity-type colours (map tracks)
+## Dark mode (hero surfaces)
 
-Decided 2026-09-19: tracks deliberately **don't** use the brand palette. Each
-activity type gets its own bright, distinct colour (Material 600 shades),
-because telling types apart at a glance is more fun and more useful than
-matching the brand. (A rust/sage/tan family version was tried and rejected.)
-Users can still recolour any type (Filters → Track colours), and those
-overrides win.
+| Token | Hex | Used for |
+|---|---|---|
+| `--forest` | `#1A2318` | Background |
+| `--forest-deep` | `#0F140D` | Gradient end |
+| `--ink-on-dark` | `#F5F1E8` | Text |
+| `--ink-on-dark-2` | `#B8C4B0` | Secondary text |
+| (hairline) | `#3A4536` | Decorative route texture, at reduced opacity |
+
+## Map: activity tracks
+
+Tracks deliberately **don't** use the brand palette. Each activity type has
+its own bright, distinct colour (Material 600 shades), because telling types
+apart at a glance matters more on a map than matching the brand. Users can
+recolour any type in Filters → Track colours, and saved colours win.
 
 | Type | Colour | Hex |
 |---|---|---|
@@ -61,15 +83,35 @@ overrides win.
 | Drive | Blue-grey | `#546E7A` |
 | Other | Brown | `#8D6E63` |
 
-All ten stay distinct on outdoors and satellite tiles (renders in
-`brand/track-colours-bright-*.png`). Tracks are drawn **without** a dark
-outline/casing (tried, rejected 2026-09-19); Hike, green on green terrain, is
-the weakest on the outdoors style. A selected track is drawn thicker with
-everything else dimmed.
+- Tracks are plain lines with no outline. A selected track is drawn thicker,
+  with everything else dimmed.
+- All ten stay distinct on the outdoors and satellite map styles (renders in
+  `brand/track-colours-bright-*.png`). Hike, green on green terrain, is the
+  weakest on outdoors.
 
-## Contrast on real map tiles (tested 2026-09-19)
+## Map: pins
 
-The spec flagged that rust, sage and tan sit at similar lightness. On real
-Mapbox tiles, sage and tan nearly vanished on the outdoors style, which is
-one reason the track colours moved to bright per-type colours instead. A dark
-casing under tracks was also tried and rejected on looks.
+- Every pin category defaults to **white** (`#FFFFFF`). The emoji icon tells
+  the categories apart. Users choose their own colour per category in
+  Filters → Pins, and saved colours win.
+- Pin markers have a white border and a faint dark ring, so white pins stay
+  visible on light map tiles.
+
+## Assets in these colours
+
+- `icon.svg` (favicon), `apple-touch-icon.png`, `icon-512.png` (web app
+  manifest), `og-image.jpg` (link previews)
+- `brand/`: app icons (512, 1024, 1024 rounded) and Discord banners (server
+  960×540, profile 680×240)
+
+## Tried and rejected (2026-09-19)
+
+So these don't come back by accident:
+
+- **Tracks in rust/sage/tan families.** On the outdoors map, sage nearly
+  vanished into the forest green and tan washed out, and ten types in three
+  families were too hard to tell apart.
+- **A dark outline under tracks.** It fixed the contrast but didn't look
+  right.
+- **Gold pins.** Replaced by white defaults that users can colour themselves.
+- **A dark map view.** Parked for now rather than rejected.
