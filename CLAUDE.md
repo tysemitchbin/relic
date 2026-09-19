@@ -45,8 +45,8 @@ to know:
 
 - **Brand palette:** see `docs/brand-colors.md` (rust `--brand-rust` #C1502E is
   the one constant; light mode is the app, forest-dark only for hero screens;
-  gold `--accent-gold` for pins/markers only, never lines; activity types are
-  shades of rust/sage/tan; every track gets a dark casing: `tracks-casing`
+  gold `--accent-gold` for pins/markers only, never lines; map tracks do NOT
+  use the brand palette: one bright distinct colour per activity type; every track gets a dark casing: `tracks-casing`
   layer on the map, `pathOv()` for static images).
 - **Tokens, not literals.** Colours/radii/shadows/fonts are CSS variables on
   `:root` (`--bg`, `--surface`, `--text`, `--text-2`, `--text-3`, `--accent`,

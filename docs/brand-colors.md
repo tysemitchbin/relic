@@ -23,8 +23,8 @@ together as one brand.
 | Token (in `index.html` `:root`) | Hex | Use |
 |---|---|---|
 | `--brand-rust` (= `--accent`) | `#C1502E` | Logo mark, primary buttons/CTAs, selected route. Never swap for another accent in either mode. 4.7:1 with white text. |
-| `--route-sage` | `#8FA888` | Route family (snow activities) |
-| `--route-tan` | `#C9B896` | Route family (wheels and air) |
+| `--route-sage` | `#8FA888` | Decorative route lines on hero art (not map tracks) |
+| `--route-tan` | `#C9B896` | Decorative route lines on hero art (not map tracks) |
 | `--accent-gold` | `#B8934A` | Pins and story markers **only**, never lines |
 | `--forest` / `--forest-deep` | `#1A2318` / `#0F140D` | Dark-mode background / gradient end |
 | `--ink-on-dark` / `--ink-on-dark-2` | `#F5F1E8` / `#B8C4B0` | Text on dark surfaces |
@@ -41,17 +41,30 @@ spec's dark-mode "ink" is `--ink-on-dark`.
 
 ## Activity-type colours (map tracks)
 
-Ten activity types and three route colours, so each family comes in shades.
+Decided 2026-09-19: tracks deliberately **don't** use the brand palette. Each
+activity type gets its own bright, distinct colour (Material 600 shades),
+because telling types apart at a glance is more fun and more useful than
+matching the brand. (A rust/sage/tan family version was tried and rejected.)
 Users can still recolour any type (Filters → Track colours), and those
 overrides win.
 
-| Family | Types (default shade) |
-|---|---|
-| **Rust, on foot** | Run `#C1502E` · Hike `#9A3B22` · Walk `#D8785A` |
-| **Sage, snow** | Alpine ski `#6F8B66` · Nordic ski `#8FA888` · Backcountry `#4F6A4A` |
-| **Tan, wheels and air** | Ride `#B39A6A` · Drive `#8C7650` · Flight `#C9B896` · Other `#A89F8C` |
+| Type | Colour | Hex |
+|---|---|---|
+| Run | Red | `#E53935` |
+| Ride | Blue | `#1E88E5` |
+| Hike | Green | `#43A047` |
+| Walk | Purple | `#8E24AA` |
+| Alpine ski | Pink | `#D81B60` |
+| Nordic ski | Cyan | `#00ACC1` |
+| Backcountry | Indigo | `#3949AB` |
+| Flight | Orange | `#FB8C00` |
+| Drive | Blue-grey | `#546E7A` |
+| Other | Brown | `#8D6E63` |
 
-A selected track is drawn thicker with everything else dimmed.
+All ten stay distinct on outdoors and satellite tiles (renders in
+`brand/track-colours-bright-*.png`). Hike (green on green terrain) and Drive
+lean on the dark casing most. A selected track is drawn thicker with
+everything else dimmed.
 
 ## Contrast on real map tiles (tested 2026-09-19)
 

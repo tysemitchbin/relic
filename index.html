@@ -2587,27 +2587,27 @@ const MOODS = [
   { id:'peaceful', emoji:'🌿', label:'Calm' },
 ];
 
-// Default track colours follow the brand's three route families, in shades
-// (docs/brand-colors.md): rust = on foot, sage = snow, tan = wheels and air.
+// Default track colours: one bright, distinct colour per type (Material 600
+// shades), tested on real outdoors + satellite tiles — see docs/brand-colors.md.
 // Users can still recolour any type (relic_colors_v1 overrides these).
 const TYPE_CONFIG = {
-  Run: { label:'Run', color:'#C1502E', types:['Run','TrailRun','VirtualRun'] },
-  Hike: { label:'Hike', color:'#9A3B22', types:['Hike'] },
-  Walk: { label:'Walk', color:'#D8785A', types:['Walk'] },
-  Alpine: { label:'Alpine Ski', color:'#6F8B66', types:['AlpineSki'] },
-  Nordic: { label:'Nordic Ski', color:'#8FA888', types:['NordicSki'] },
-  Backcountry: { label:'Backcountry', color:'#4F6A4A', types:['BackcountrySki'] },
-  Ride: { label:'Ride', color:'#B39A6A', types:['Ride','VirtualRide','MountainBikeRide'] },
-  Drive: { label:'Drive', color:'#8C7650', types:['Drive'] },
-  Flight: { label:'Flight', color:'#C9B896', types:['Flight'] },
-  Other: { label:'Other', color:'#A89F8C', types:[] },
+  Run: { label:'Run', color:'#E53935', types:['Run','TrailRun','VirtualRun'] },
+  Ride: { label:'Ride', color:'#1E88E5', types:['Ride','VirtualRide','MountainBikeRide'] },
+  Hike: { label:'Hike', color:'#43A047', types:['Hike'] },
+  Walk: { label:'Walk', color:'#8E24AA', types:['Walk'] },
+  Alpine: { label:'Alpine Ski', color:'#D81B60', types:['AlpineSki'] },
+  Nordic: { label:'Nordic Ski', color:'#00ACC1', types:['NordicSki'] },
+  Backcountry: { label:'Backcountry', color:'#3949AB', types:['BackcountrySki'] },
+  Flight: { label:'Flight', color:'#FB8C00', types:['Flight'] },
+  Drive: { label:'Drive', color:'#546E7A', types:['Drive'] },
+  Other: { label:'Other', color:'#8D6E63', types:[] },
 };
 
 // Reverse lookup: Strava type string → TYPE_CONFIG key, built once at startup
 const TYPE_GROUP_MAP = {};
 Object.entries(TYPE_CONFIG).forEach(([k,cfg]) => cfg.types.forEach(t => { TYPE_GROUP_MAP[t] = k; }));
 function getGroup(type) { return TYPE_GROUP_MAP[type] || 'Other'; }
-function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#A89F8C'; }
+function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#8D6E63'; }
 
 // Pins (point Moments — no polyline). Kept separate from TYPE_CONFIG so pin
 // categories never enter TYPE_GROUP_MAP's reverse lookup, which assumes
