@@ -998,6 +998,55 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .choice span { display: block; font-size: 13px; color: var(--text-3); margin-top: 2px; }
 .choice .chev { margin-left: auto; color: var(--text-3); }
 
+/* Bulk editor (Settings → Sharing → Manage activities) */
+.bulk-modal { width: 720px; padding: 0; display: flex; flex-direction: column; max-height: 90vh; overflow: hidden; }
+.bulk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 16px 14px 24px; border-bottom: 1px solid var(--border); }
+.bulk-filters { padding: 14px 24px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.bulk-filter-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+.bulk-dates { display: flex; align-items: center; gap: 6px; color: var(--text-3); }
+.bulk-dates .fd-input { width: 150px; padding: 7px 10px; }
+.bulk-filters .fd-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; }
+.bulk-filters .fd-chip .av-type-dot { margin: 0; }
+.bulk-filters .fd-chip:not(.on) .av-type-dot { opacity: .35; }
+.bulk-listhead { display: flex; align-items: center; justify-content: space-between; padding: 10px 24px; border-bottom: 1px solid var(--border); font: 600 14px var(--font-ui); }
+.bulk-listhead label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.bulk-listhead input, .be-row input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.bulk-listhead .link-btn { font: 600 13px var(--font-ui); color: var(--accent); background: none; border: none; cursor: pointer; }
+.bulk-list { flex: 1; min-height: 180px; overflow-y: auto; padding: 6px 12px; overscroll-behavior: contain; }
+.be-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: var(--r-md); cursor: pointer; }
+.be-row:hover { background: var(--paper2); }
+.be-row.selected { background: var(--accent-soft); }
+.be-row .av-type-dot { margin: 0; flex-shrink: 0; }
+.be-name { flex: 1; min-width: 0; font: 600 14px var(--font-ui); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.be-name small { display: block; font-weight: 400; font-size: 12px; color: var(--text-3); }
+.vis-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: var(--r-pill); background: var(--paper2); color: var(--text-2); flex-shrink: 0; }
+.vis-pill .ic { width: 13px; height: 13px; }
+.vis-pill.pub { background: #e3f1e8; color: var(--success); }
+.bulk-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px 12px 24px; background: var(--ink); color: #fff; flex-shrink: 0;
+}
+.bb-count { font-size: 14px; }
+.bb-count b { font-size: 16px; }
+.bb-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bulk-bar .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
+.bulk-bar .btn-ghost:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.5); }
+.bulk-bar button:disabled, .bulk-bar select:disabled { opacity: .4; cursor: not-allowed; }
+.bb-radius { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: rgba(255,255,255,.8); }
+.bb-radius select { height: 34px; border-radius: var(--r-pill); border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; padding: 0 10px; font: 500 13px var(--font-ui); }
+.bb-radius option { color: var(--ink); }
+@media (max-width: 768px) {
+  .bulk-modal { height: calc(100dvh - 12px - var(--safe-t)); max-height: none; }
+  .bulk-modal::before { margin: 8px auto 0; }
+  .bulk-head { padding: 10px 12px 12px 18px; }
+  .bulk-filters, .bulk-listhead { padding-left: 16px; padding-right: 16px; }
+  .bulk-dates { width: 100%; } .bulk-dates .fd-input { flex: 1; width: auto; }
+  #be-vis { width: 100%; } #be-vis button { flex: 1; }
+  .bulk-list { padding: 4px 6px; }
+  .bulk-bar { padding: 10px 14px calc(10px + var(--safe-b)); }
+  .bb-actions { width: 100%; } .bb-actions .btn-sm { flex: 1; }
+}
+
 /* Confirm sheet */
 #confirm-modal .modal { width: 420px; }
 #confirm-modal .modal-sub { margin-bottom: 4px; }
@@ -1987,6 +2036,15 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
               <button class="btn-ghost" onclick="bulkSetVisibility(false)"><svg class="ic"><use href="#i-lock"/></svg>Make all private</button>
             </div>
           </div>
+          <div class="strava-row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div class="strava-info">
+              <div class="strava-title">Choose which activities to share</div>
+              <div class="strava-state">Filter by type, date or visibility, select as many as you like, and change them all at once.</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" onclick="openBulkEditor()"><svg class="ic"><use href="#i-sliders"/></svg>Manage activities</button>
+            </div>
+          </div>
           <div class="detail-section-sub" style="margin:12px 0 0">Public activities show on your profile and in your followers' feeds. When you make everything public, Relic hides the first and last 500 m of each track, so your home stays private. You can change this for any single activity from its detail panel.</div>
         </div>
         <div class="strava-section">
@@ -2171,6 +2229,58 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="modal-actions">
       <button class="btn-ghost" id="confirm-cancel">Cancel</button>
       <button class="btn-primary" id="confirm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK EDITOR (Settings → Sharing → Manage activities) -->
+<div class="modal-overlay" id="bulk-modal">
+  <div class="modal bulk-modal">
+    <div class="bulk-head">
+      <div>
+        <div class="modal-title">Manage activities</div>
+        <div class="modal-sub" style="margin:0">Filter, select, then change them all at once.</div>
+      </div>
+      <button class="fd-close" onclick="closeBulkEditor()" aria-label="Close">&times;</button>
+    </div>
+    <div class="bulk-filters">
+      <input class="sb-search" id="be-search" type="search" placeholder="Search by name" oninput="beSet('search', this.value)">
+      <div class="bulk-filter-row">
+        <div class="seg" id="be-vis">
+          <button data-v="all" class="active" onclick="beSet('vis','all')">All</button>
+          <button data-v="public" onclick="beSet('vis','public')">Public</button>
+          <button data-v="private" onclick="beSet('vis','private')">Private</button>
+        </div>
+        <div class="bulk-dates">
+          <input class="fd-input" type="date" id="be-from" onchange="beSet('from', this.value)" aria-label="From date">
+          <span>–</span>
+          <input class="fd-input" type="date" id="be-to" onchange="beSet('to', this.value)" aria-label="To date">
+        </div>
+      </div>
+      <div class="fd-chips" id="be-types"></div>
+    </div>
+    <div class="bulk-listhead">
+      <label><input type="checkbox" id="be-all" onchange="beSelectAll(this.checked)"> <span id="be-count"></span></label>
+      <button class="link-btn" id="be-clear" onclick="beClearSel()">Clear selection</button>
+    </div>
+    <div class="bulk-list" id="be-list"></div>
+    <div class="bulk-bar" id="be-bar">
+      <div class="bb-count"><b id="be-n">0</b> selected</div>
+      <div class="bb-actions">
+        <button class="btn-primary btn-sm" onclick="beAction('public')"><svg class="ic"><use href="#i-globe"/></svg>Make public</button>
+        <button class="btn-ghost btn-sm" onclick="beAction('private')"><svg class="ic"><use href="#i-lock"/></svg>Make private</button>
+        <label class="bb-radius">Hide start/end
+          <select id="be-radius" onchange="beAction('radius', this.value); this.value=''">
+            <option value="">Choose…</option>
+            <option value="0">Don't hide</option>
+            <option value="200">200 m</option>
+            <option value="500">500 m</option>
+            <option value="1000">1 km</option>
+            <option value="2000">2 km</option>
+            <option value="5000">5 km</option>
+          </select>
+        </label>
+      </div>
     </div>
   </div>
 </div>
@@ -6678,34 +6788,163 @@ async function bulkSetVisibility(makePublic) {
     ok: 'Make private',
   });
   if (!ok) return;
-  const before = changing.map(m => ({ m, isPublic: m.isPublic, r: m.privacyRadiusM }));
-  changing.forEach(m => { m.isPublic = makePublic; if (makePublic && !m.privacyRadiusM) m.privacyRadiusM = 500; });
+  await applyBulkPrivacy(changing, { isPublic: makePublic });
   renderSharingState();
-  if (DEMO) { toast(`Updated ${n} activities`, { icon: 'check' }); return; }
-  const dismiss = toast(`Updating ${n} activities…`, { duration: 60000 });
+}
+
+// The one place that changes privacy for many activities (Settings "Make all",
+// and the bulk editor below). Updates local copies, writes `activities` + the
+// redacted `activity_public` snapshots in chunks of 150, and on failure rolls
+// back only the chunks that didn't save — and says so honestly.
+async function applyBulkPrivacy(mems, { isPublic, radiusM }) {
+  const before = new Map(mems.map(m => [m.id, { isPublic: m.isPublic, r: m.privacyRadiusM }]));
+  mems.forEach(m => {
+    if (isPublic != null) { m.isPublic = isPublic; if (isPublic && !m.privacyRadiusM) m.privacyRadiusM = 500; }
+    if (radiusM != null) m.privacyRadiusM = radiusM;
+  });
+  const n = mems.length.toLocaleString();
+  const done = isPublic === true ? `${n} activities are now public` : isPublic === false ? `${n} activities are now private` : `Privacy radius updated on ${n} activities`;
+  if (DEMO) { toast(done, { icon: 'check' }); return true; }
+  const dismiss = toast(`Updating ${n} activities…`, { duration: 120000 });
+  let saved = 0;
   try {
-    for (let i = 0; i < changing.length; i += 150) {
-      const chunk = changing.slice(i, i + 150);
+    for (let i = 0; i < mems.length; i += 150) {
+      const chunk = mems.slice(i, i + 150);
       const { error } = await sb.from('activities').upsert(chunk.map(momentToRow));
       if (error) throw error;
-      if (makePublic) {
-        const snaps = chunk.map(buildPublicSnapshotRow).filter(Boolean);
-        if (snaps.length) { const { error: e2 } = await sb.from('activity_public').upsert(snaps); if (e2) throw e2; }
-      } else {
-        const { error: e3 } = await sb.from('activity_public').delete().eq('user_id', currentUser.id).in('activity_id', chunk.map(m => m.id));
+      const pub = chunk.filter(m => m.isPublic), priv = chunk.filter(m => !m.isPublic);
+      if (pub.length) { const { error: e2 } = await sb.from('activity_public').upsert(pub.map(buildPublicSnapshotRow)); if (e2) throw e2; }
+      if (priv.length && isPublic === false) {
+        const { error: e3 } = await sb.from('activity_public').delete().eq('user_id', currentUser.id).in('activity_id', priv.map(m => m.id));
         if (e3) throw e3;
       }
+      saved += chunk.length;
     }
     saveArchiveCache();
     dismiss();
-    toast(makePublic ? `${n} activities are now public` : `${n} activities are now private`, { icon: 'check' });
+    toast(done, { icon: 'check' });
+    return true;
   } catch (e) {
-    console.error('Bulk visibility failed', e);
-    before.forEach(b => { b.m.isPublic = b.isPublic; b.m.privacyRadiusM = b.r; });
-    renderSharingState();
+    console.error('Bulk privacy failed', e);
+    mems.slice(saved).forEach(m => { const b = before.get(m.id); m.isPublic = b.isPublic; m.privacyRadiusM = b.r; });
+    saveArchiveCache();
     dismiss();
-    toast('Couldn\'t update everything. Nothing was changed. Try again.', { error: true });
+    toast(saved ? `Saved ${saved.toLocaleString()} of ${n} before an error. The rest were left unchanged. Try again.` : "Couldn't update — nothing was changed. Try again.", { error: true, duration: 7000 });
+    return false;
   }
+}
+
+// ── Bulk editor (Settings → Sharing → Manage activities) ──
+// Its own filter state — deliberately separate from the map's `filters`, so
+// managing privacy never changes what the map shows. Selection survives
+// filter changes, so you can build it up over several passes.
+let _be = { search: '', vis: 'all', from: '', to: '', types: null };
+const _beSel = new Set();
+function openBulkEditor() {
+  _beSel.clear();
+  _be = { search: '', vis: 'all', from: '', to: '', types: null };
+  ['be-search', 'be-from', 'be-to'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  document.getElementById('bulk-modal').classList.add('open');
+  renderBulkEditor();
+}
+function closeBulkEditor() { document.getElementById('bulk-modal')?.classList.remove('open'); renderSharingState(); }
+function beSet(key, val) { _be[key] = val; renderBulkEditor(); }
+function beToggleType(k) {
+  const all = Object.keys(TYPE_CONFIG);
+  const set = _be.types ? new Set(_be.types) : new Set(all);
+  if (set.has(k)) set.delete(k); else set.add(k);
+  _be.types = set.size === all.length ? null : [...set];
+  renderBulkEditor();
+}
+function beMatches() {
+  const q = _be.search.trim().toLowerCase();
+  return getMoments().filter(m => {
+    if (q && !(m.name || '').toLowerCase().includes(q)) return false;
+    if (_be.vis === 'public' && !m.isPublic) return false;
+    if (_be.vis === 'private' && m.isPublic) return false;
+    const d = (m.date || '').slice(0, 10);
+    if (_be.from && (!d || d < _be.from)) return false;
+    if (_be.to && (!d || d > _be.to)) return false;
+    if (_be.types && !_be.types.includes(getGroup(m.type))) return false;
+    return true;
+  }).sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1));
+}
+function renderBulkEditor() {
+  const list = beMatches();
+  document.querySelectorAll('#be-vis button').forEach(b => b.classList.toggle('active', b.dataset.v === _be.vis));
+  document.getElementById('be-types').innerHTML = Object.entries(TYPE_CONFIG).map(([k, c]) =>
+    `<button class="fd-chip${!_be.types || _be.types.includes(k) ? ' on' : ''}" onclick="beToggleType(${jsAttr(k)})"><span class="av-type-dot" style="background:${escapeHtml(c.color)}"></span>${escapeHtml(c.label)}</button>`).join('');
+  const cap = 400;
+  document.getElementById('be-list').innerHTML = list.slice(0, cap).map(m => {
+    const sel = _beSel.has(m.id);
+    const date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    const r = m.isPublic && m.privacyRadiusM ? ` · hides ${m.privacyRadiusM >= 1000 ? m.privacyRadiusM / 1000 + ' km' : Math.round(m.privacyRadiusM) + ' m'}` : '';
+    return `<label class="be-row${sel ? ' selected' : ''}">
+      <input type="checkbox" ${sel ? 'checked' : ''} onchange="beToggle(${jsAttr(m.id)}, this.checked, this)">
+      <span class="av-type-dot" style="background:${escapeHtml(m.customColor || getColor(m.type))}"></span>
+      <span class="be-name">${escapeHtml(m.name || 'Untitled')}<small>${escapeHtml(date)} · ${escapeHtml(TYPE_CONFIG[getGroup(m.type)]?.label || m.type)}${m.distance ? ' · ' + escapeHtml(fmtDist(m.distance)) : ''}</small></span>
+      <span class="vis-pill ${m.isPublic ? 'pub' : ''}" title="${m.isPublic ? 'Public' + r : 'Only you'}"><svg class="ic"><use href="#i-${m.isPublic ? 'globe' : 'lock'}"/></svg>${m.isPublic ? 'Public' : 'Private'}</span>
+    </label>`;
+  }).join('') + (list.length > cap ? `<div class="people-empty">Showing the first ${cap} of ${list.length.toLocaleString()}. "Select all" still selects every match.</div>` : '')
+    || '<div class="people-empty">No activities match these filters.</div>';
+  beUpdateSelUI(list);
+}
+function beToggle(id, on, cb) {
+  if (on) _beSel.add(id); else _beSel.delete(id);
+  cb?.closest('.be-row')?.classList.toggle('selected', on);
+  beUpdateSelUI();
+}
+function beSelectAll(on) {
+  beMatches().forEach(m => { if (on) _beSel.add(m.id); else _beSel.delete(m.id); });
+  renderBulkEditor();
+}
+function beClearSel() { _beSel.clear(); renderBulkEditor(); }
+function beUpdateSelUI(list) {
+  list = list || beMatches();
+  [..._beSel].forEach(id => { if (!db[id]) _beSel.delete(id); });
+  const selMatch = list.filter(m => _beSel.has(m.id)).length;
+  const all = document.getElementById('be-all');
+  all.checked = list.length > 0 && selMatch === list.length;
+  all.indeterminate = selMatch > 0 && selMatch < list.length;
+  document.getElementById('be-count').textContent = `Select all ${list.length.toLocaleString()} matching`;
+  document.getElementById('be-n').textContent = _beSel.size.toLocaleString();
+  document.getElementById('be-clear').hidden = !_beSel.size;
+  document.querySelectorAll('#be-bar button, #be-bar select').forEach(el => el.disabled = !_beSel.size);
+}
+async function beAction(kind, value) {
+  const mems = [..._beSel].map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin);
+  if (!mems.length) return;
+  if (kind === 'radius') {
+    if (value === '' || value == null) return;
+    const r = Number(value), label = r ? (r >= 1000 ? r / 1000 + ' km' : r + ' m') : '';
+    if (!(await uiConfirm(r ? {
+      title: `Hide ${label} at the start and end of ${mems.length.toLocaleString()} activities?`,
+      body: 'Other people see these tracks with the first and last ' + label + ' removed, so places like your home stay private. Public ones update straight away.',
+      ok: 'Apply',
+    } : {
+      title: `Show the full track on ${mems.length.toLocaleString()} activities?`,
+      body: 'Public ones will show exactly where they start and end — including your home, if that\'s where you set off.',
+      ok: 'Show full tracks', danger: true,
+    }))) return;
+    await applyBulkPrivacy(mems, { radiusM: r });
+  } else {
+    const makePublic = kind === 'public';
+    const changing = mems.filter(m => !!m.isPublic !== makePublic);
+    if (!changing.length) { toast(makePublic ? 'Those are already public' : 'Those are already private'); return; }
+    const n = changing.length.toLocaleString();
+    if (!(await uiConfirm(makePublic ? {
+      title: `Make ${n} activities public?`,
+      body: 'They\'ll appear on your profile and in your followers\' feeds. Any without a privacy radius get 500 m hidden at the start and end.',
+      ok: 'Make public',
+    } : {
+      title: `Make ${n} activities private?`,
+      body: 'They\'ll disappear from your profile and your followers\' feeds. Kudos and comments are kept for if you make them public again.',
+      ok: 'Make private',
+    }))) return;
+    await applyBulkPrivacy(changing, { isPublic: makePublic });
+  }
+  renderBulkEditor();
+  renderSharingState();
 }
 
 // ════════════════════════════════════════
@@ -8176,14 +8415,14 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
 window.addEventListener('resize', () => { if (map) map.resize(); if (document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb(); });
 
 // Register all functions
 const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
-_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
+_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openBulkEditor',openBulkEditor);_r('closeBulkEditor',closeBulkEditor);_r('beSet',beSet);_r('beToggleType',beToggleType);_r('beToggle',beToggle);_r('beSelectAll',beSelectAll);_r('beClearSel',beClearSel);_r('beAction',beAction);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
