@@ -1003,6 +1003,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .bulk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 16px 14px 24px; border-bottom: 1px solid var(--border); }
 .bulk-filters { padding: 14px 24px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border); background: var(--bg); }
 .bulk-filter-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+.be-select { width: auto; padding: 7px 10px; }
+.be-colour-row { display: flex; flex-direction: column; gap: 14px; }
+.be-colour { width: 100%; height: 48px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); padding: 4px; cursor: pointer; }
+#form-modal .modal { width: 440px; }
+#form-modal .modal-select, #form-modal .modal-input { margin-bottom: 10px; }
 .bulk-dates { display: flex; align-items: center; gap: 6px; color: var(--text-3); }
 .bulk-dates .fd-input { width: 150px; padding: 7px 10px; }
 .bulk-filters .fd-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; }
@@ -1042,8 +1047,19 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   .bulk-filters, .bulk-listhead { padding-left: 16px; padding-right: 16px; }
   .bulk-dates { width: 100%; } .bulk-dates .fd-input { flex: 1; width: auto; }
   #be-vis { width: 100%; } #be-vis button { flex: 1; }
-  .bulk-list { padding: 4px 6px; }
-  .bulk-bar { padding: 10px 14px calc(10px + var(--safe-b)); }
+  /* Phone: the whole sheet scrolls (filters included) and the action bar
+     stays pinned, instead of the list squeezing the bar off-screen. */
+  .bulk-modal { overflow-y: auto; }
+  .bulk-list { flex: none; min-height: 0; overflow: visible; padding: 4px 6px; }
+  .bulk-filters .fd-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .bulk-filters .fd-chips::-webkit-scrollbar { display: none; }
+  .bulk-filters .fd-chip { flex-shrink: 0; }
+  .be-select { flex: 1; }
+  .bulk-bar { position: sticky; bottom: 0; padding: 10px 14px calc(10px + var(--safe-b)); }
+  .bulk-bar { gap: 8px; }
+  .bulk-bar .bb-actions { flex-wrap: nowrap; gap: 6px; }
+  .bulk-bar .btn-sm { padding: 0 8px; font-size: 13px; min-width: 0; }
+  .bulk-bar .btn-sm .ic { display: none; }
   .bb-actions { width: 100%; } .bb-actions .btn-sm { flex: 1; }
 }
 
@@ -2233,6 +2249,19 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   </div>
 </div>
 
+<!-- FORM SHEET (uiForm) — small one-off forms, e.g. bulk rename / change type -->
+<div class="modal-overlay" id="form-modal">
+  <div class="modal">
+    <div class="modal-title" id="form-title"></div>
+    <div class="modal-sub" id="form-sub"></div>
+    <form id="form-body" onsubmit="return false"></form>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="form-cancel">Cancel</button>
+      <button class="btn-primary" id="form-ok">OK</button>
+    </div>
+  </div>
+</div>
+
 <!-- BULK EDITOR (Settings → Sharing → Manage activities) -->
 <div class="modal-overlay" id="bulk-modal">
   <div class="modal bulk-modal">
@@ -2251,6 +2280,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           <button data-v="public" onclick="beSet('vis','public')">Public</button>
           <button data-v="private" onclick="beSet('vis','private')">Private</button>
         </div>
+        <select class="fd-input be-select" id="be-color" onchange="beSet('color', this.value)" aria-label="Filter by colour">
+          <option value="any">Any colour</option>
+          <option value="custom">Custom colour</option>
+          <option value="default">Default colour</option>
+        </select>
         <div class="bulk-dates">
           <input class="fd-input" type="date" id="be-from" onchange="beSet('from', this.value)" aria-label="From date">
           <span>–</span>
@@ -2269,17 +2303,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <div class="bb-actions">
         <button class="btn-primary btn-sm" onclick="beAction('public')"><svg class="ic"><use href="#i-globe"/></svg>Make public</button>
         <button class="btn-ghost btn-sm" onclick="beAction('private')"><svg class="ic"><use href="#i-lock"/></svg>Make private</button>
-        <label class="bb-radius">Hide start/end
-          <select id="be-radius" onchange="beAction('radius', this.value); this.value=''">
-            <option value="">Choose…</option>
-            <option value="0">Don't hide</option>
-            <option value="200">200 m</option>
-            <option value="500">500 m</option>
-            <option value="1000">1 km</option>
-            <option value="2000">2 km</option>
-            <option value="5000">5 km</option>
-          </select>
-        </label>
+        <button class="btn-ghost btn-sm" id="be-more" onclick="beMoreMenu(event)"><svg class="ic"><use href="#i-more"/></svg>More actions</button>
       </div>
     </div>
   </div>
@@ -5421,10 +5445,36 @@ function openMenu(anchor, items) {
     m.appendChild(b);
   });
   const r = anchor.getBoundingClientRect();
-  m.style.top = (r.bottom + 6) + 'px';
   m.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
   m.style.left = 'auto';
-  m.hidden = false;
+  m.style.top = '0px'; m.hidden = false;
+  const h = m.offsetHeight;
+  m.style.top = (r.bottom + 6 + h > window.innerHeight - 8 ? Math.max(8, r.top - 6 - h) : r.bottom + 6) + 'px';
+}
+// Promise-based small form: resolves to { name: value } for the form's
+// [name] inputs, or null if cancelled. bodyHtml must already be escaped.
+function uiForm({ title, sub, bodyHtml, ok = 'Save', danger = false, validate }) {
+  return new Promise(resolve => {
+    const m = document.getElementById('form-modal'), body = document.getElementById('form-body');
+    document.getElementById('form-title').textContent = title || '';
+    document.getElementById('form-sub').textContent = sub || '';
+    document.getElementById('form-sub').hidden = !sub;
+    body.innerHTML = bodyHtml || '';
+    const okB = document.getElementById('form-ok'), noB = document.getElementById('form-cancel');
+    okB.textContent = ok; okB.classList.toggle('danger', !!danger);
+    const values = () => Object.fromEntries([...body.querySelectorAll('[name]')].map(el => [el.name, el.type === 'checkbox' ? el.checked : el.value]));
+    const refresh = () => { okB.disabled = validate ? !validate(values()) : false; };
+    body.oninput = body.onchange = refresh; refresh();
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    function done(v) { m.classList.remove('open'); okB.onclick = noB.onclick = m.onclick = body.oninput = body.onchange = null; document.removeEventListener('keydown', onKey, true); resolve(v); }
+    okB.onclick = () => { if (!okB.disabled) done(values()); };
+    noB.onclick = () => done(null);
+    body.onsubmit = () => { if (!okB.disabled) done(values()); return false; };
+    m.onclick = e => { if (e.target === m) done(null); };
+    document.addEventListener('keydown', onKey, true);
+    m.classList.add('open');
+    setTimeout(() => body.querySelector('input,select,textarea')?.focus(), 40);
+  });
 }
 document.addEventListener('click', e => {
   const am = document.getElementById('account-menu');
@@ -6838,12 +6888,13 @@ async function applyBulkPrivacy(mems, { isPublic, radiusM }) {
 // Its own filter state — deliberately separate from the map's `filters`, so
 // managing privacy never changes what the map shows. Selection survives
 // filter changes, so you can build it up over several passes.
-let _be = { search: '', vis: 'all', from: '', to: '', types: null };
+let _be = { search: '', vis: 'all', from: '', to: '', types: null, color: 'any' };
 const _beSel = new Set();
 function openBulkEditor() {
   _beSel.clear();
-  _be = { search: '', vis: 'all', from: '', to: '', types: null };
+  _be = { search: '', vis: 'all', from: '', to: '', types: null, color: 'any' };
   ['be-search', 'be-from', 'be-to'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  const bc = document.getElementById('be-color'); if (bc) bc.value = 'any';
   document.getElementById('bulk-modal').classList.add('open');
   renderBulkEditor();
 }
@@ -6866,6 +6917,8 @@ function beMatches() {
     if (_be.from && (!d || d < _be.from)) return false;
     if (_be.to && (!d || d > _be.to)) return false;
     if (_be.types && !_be.types.includes(getGroup(m.type))) return false;
+    if (_be.color === 'custom' && !m.customColor) return false;
+    if (_be.color === 'default' && m.customColor) return false;
     return true;
   }).sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1));
 }
@@ -6882,7 +6935,7 @@ function renderBulkEditor() {
     return `<label class="be-row${sel ? ' selected' : ''}">
       <input type="checkbox" ${sel ? 'checked' : ''} onchange="beToggle(${jsAttr(m.id)}, this.checked, this)">
       <span class="av-type-dot" style="background:${escapeHtml(m.customColor || getColor(m.type))}"></span>
-      <span class="be-name">${escapeHtml(m.name || 'Untitled')}<small>${escapeHtml(date)} · ${escapeHtml(TYPE_CONFIG[getGroup(m.type)]?.label || m.type)}${m.distance ? ' · ' + escapeHtml(fmtDist(m.distance)) : ''}</small></span>
+      <span class="be-name">${escapeHtml(m.name || 'Untitled')}<small>${escapeHtml(date)} · ${escapeHtml(TYPE_CONFIG[getGroup(m.type)]?.label || m.type)}${m.distance ? ' · ' + escapeHtml(fmtDist(m.distance)) : ''}${m.customColor ? ' · custom colour' : ''}</small></span>
       <span class="vis-pill ${m.isPublic ? 'pub' : ''}" title="${m.isPublic ? 'Public' + r : 'Only you'}"><svg class="ic"><use href="#i-${m.isPublic ? 'globe' : 'lock'}"/></svg>${m.isPublic ? 'Public' : 'Private'}</span>
     </label>`;
   }).join('') + (list.length > cap ? `<div class="people-empty">Showing the first ${cap} of ${list.length.toLocaleString()}. "Select all" still selects every match.</div>` : '')
@@ -6911,8 +6964,27 @@ function beUpdateSelUI(list) {
   document.getElementById('be-clear').hidden = !_beSel.size;
   document.querySelectorAll('#be-bar button, #be-bar select').forEach(el => el.disabled = !_beSel.size);
 }
+function beSelected() { return [..._beSel].map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin); }
+function beMoreMenu(e) {
+  e.stopPropagation();
+  const a = e.currentTarget; a.setAttribute('data-menu-anchor', '');
+  openMenu(a, [
+    { label: 'Hide start / end of tracks…', icon: 'lock', fn: beRadius },
+    { label: 'Add to a story…', icon: 'book', fn: beAddToStory },
+    { label: 'Change activity type…', icon: 'activity', fn: beChangeType },
+    { label: 'Set track colour…', icon: 'pen', fn: beSetColour },
+    { label: 'Rename…', icon: 'file', fn: beRename },
+    { label: 'Delete…', icon: 'trash', danger: true, fn: beDelete },
+  ]);
+}
+async function beRadius() {
+  const opts = [['0', "Don't hide"], ['200', '200 m'], ['500', '500 m'], ['1000', '1 km'], ['2000', '2 km'], ['5000', '5 km']];
+  const v = await uiForm({ title: 'Hide the start and end of tracks', sub: `For ${beSelected().length.toLocaleString()} selected activities. Other people see the track with this much removed from each end.`,
+    bodyHtml: `<select class="modal-select" name="r">${opts.map(([v, l]) => `<option value="${v}"${v === '500' ? ' selected' : ''}>${l}</option>`).join('')}</select>`, ok: 'Continue' });
+  if (v) beAction('radius', v.r);
+}
 async function beAction(kind, value) {
-  const mems = [..._beSel].map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin);
+  const mems = beSelected();
   if (!mems.length) return;
   if (kind === 'radius') {
     if (value === '' || value == null) return;
@@ -6945,6 +7017,156 @@ async function beAction(kind, value) {
   }
   renderBulkEditor();
   renderSharingState();
+}
+
+// Generic bulk save for field edits (type / colour / name): mutate locally,
+// write activities + refresh public snapshots in chunks, roll back unsaved
+// chunks on failure, then refresh the map/lists.
+async function applyBulkEdit(mems, mutate, doneMsg) {
+  const fields = ['type', 'customColor', 'name', '_nameEdited'];
+  const before = new Map(mems.map(m => [m.id, Object.fromEntries(fields.map(f => [f, m[f]]))]));
+  mems.forEach(mutate);
+  let saved = 0, ok = true;
+  if (!DEMO) {
+    const dismiss = toast(`Updating ${mems.length.toLocaleString()} activities…`, { duration: 120000 });
+    try {
+      for (let i = 0; i < mems.length; i += 150) {
+        const chunk = mems.slice(i, i + 150);
+        const { error } = await sb.from('activities').upsert(chunk.map(momentToRow));
+        if (error) throw error;
+        const pub = chunk.filter(m => m.isPublic);
+        if (pub.length) { const { error: e2 } = await sb.from('activity_public').upsert(pub.map(buildPublicSnapshotRow)); if (e2) throw e2; }
+        saved += chunk.length;
+      }
+    } catch (e) {
+      console.error('Bulk edit failed', e); ok = false;
+      mems.slice(saved).forEach(m => Object.assign(m, before.get(m.id)));
+    }
+    dismiss();
+  }
+  refreshAfterBulk();
+  if (ok) toast(doneMsg, { icon: 'check' });
+  else toast(saved ? `Saved ${saved.toLocaleString()} of ${mems.length.toLocaleString()} before an error. The rest were left unchanged.` : "Couldn't save — nothing was changed. Try again.", { error: true, duration: 7000 });
+  return ok;
+}
+function refreshAfterBulk() {
+  saveArchiveCache();
+  allMemories = getMoments().sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1));
+  allStories = getStories(); allStories.forEach(s => computeStoryStats(s));
+  initMapLayers(); computeFilterBounds(); buildFilterDrawer(); applyFilters();
+  updateEmptyState();
+  if (document.getElementById('bulk-modal')?.classList.contains('open')) renderBulkEditor();
+}
+
+async function beChangeType() {
+  const mems = beSelected(); if (!mems.length) return;
+  const v = await uiForm({ title: 'Change activity type', sub: `For ${mems.length.toLocaleString()} selected activities.`,
+    bodyHtml: `<select class="modal-select" name="t">${Object.entries(TYPE_CONFIG).map(([k, c]) => `<option value="${escapeHtml(c.types[0] || k)}">${escapeHtml(c.label)}</option>`).join('')}</select>`, ok: 'Change type' });
+  if (!v) return;
+  const label = TYPE_CONFIG[getGroup(v.t)]?.label || v.t;
+  await applyBulkEdit(mems, m => { m.type = v.t; }, `${mems.length.toLocaleString()} activities are now ${label}`);
+}
+async function beSetColour() {
+  const mems = beSelected(); if (!mems.length) return;
+  const start = mems.find(m => m.customColor)?.customColor || getColor(mems[0].type);
+  const v = await uiForm({ title: 'Set track colour', sub: `For ${mems.length.toLocaleString()} selected activities. To undo later, filter by "Custom colour" and reset.`,
+    bodyHtml: `<div class="be-colour-row"><input type="color" name="c" value="${escapeHtml(start)}" class="be-colour">
+      <label class="login-consent-row" style="color:var(--text-2);margin:0"><input type="checkbox" name="reset"> Reset to the default colour for each activity type</label></div>`,
+    ok: 'Apply colour' });
+  if (!v) return;
+  if (v.reset) await applyBulkEdit(mems, m => { m.customColor = null; }, `Reset colour on ${mems.length.toLocaleString()} activities`);
+  else await applyBulkEdit(mems, m => { m.customColor = v.c; }, `Coloured ${mems.length.toLocaleString()} activities`);
+}
+async function beRename() {
+  const mems = beSelected(); if (!mems.length) return;
+  const v = await uiForm({ title: 'Rename activities', sub: `For ${mems.length.toLocaleString()} selected activities.`,
+    bodyHtml: `<select class="modal-select" name="mode">
+        <option value="prefix">Add to the start of the name</option>
+        <option value="suffix">Add to the end of the name</option>
+        <option value="replace">Replace the whole name</option>
+      </select>
+      <input class="modal-input" name="text" maxlength="120" placeholder="e.g. Norway trip –" autocomplete="off">`,
+    ok: 'Rename', validate: x => x.text.trim().length > 0 });
+  if (!v) return;
+  const t = v.text.trim();
+  const fn = v.mode === 'prefix' ? m => { m.name = t + ' ' + (m.name || ''); }
+    : v.mode === 'suffix' ? m => { m.name = (m.name || '') + ' ' + t; }
+    : m => { m.name = t; };
+  // _nameEdited stops a later Strava sync from overwriting the new names.
+  await applyBulkEdit(mems, m => { fn(m); m.name = m.name.trim(); m._nameEdited = true; }, `Renamed ${mems.length.toLocaleString()} activities`);
+}
+async function beAddToStory() {
+  const mems = beSelected(); if (!mems.length) return;
+  const stories = getStories().sort((a, b) => ((b.lastModified || '') > (a.lastModified || '') ? 1 : -1));
+  const v = await uiForm({ title: 'Add to a story', sub: `${mems.length.toLocaleString()} selected activities.`,
+    bodyHtml: `<select class="modal-select" name="story" onchange="this.form.querySelector('[name=title]').hidden = this.value !== '__new'">
+        <option value="__new">+ New story</option>
+        ${stories.map(st => `<option value="${escapeHtml(st.id)}">${escapeHtml(st.title || 'Untitled')}</option>`).join('')}
+      </select>
+      <input class="modal-input" name="title" maxlength="120" placeholder="Story title, e.g. Norway 2024" autocomplete="off">`,
+    ok: 'Add to story', validate: x => x.story !== '__new' || x.title.trim().length > 0 });
+  if (!v) return;
+  const ids = mems.map(m => m.id);
+  let story, isNew = v.story === '__new', prevIds = null;
+  if (isNew) {
+    const now = new Date().toISOString();
+    story = { id: stableStoryId(v.title.trim()), type: 'story', title: v.title.trim(), narrative: '', mood: null, coverPhoto: null,
+      momentIds: ids, createdAt: now, lastModified: now };
+  } else {
+    story = db[v.story]; if (!story) return;
+    prevIds = [...(story.momentIds || [])];
+    story.momentIds = [...new Set(prevIds.concat(ids))];
+    story.lastModified = new Date().toISOString();
+  }
+  computeStoryStats(story);
+  db[story.id] = story;
+  if (!DEMO) {
+    const { error } = await sb.from('stories').upsert(storyToRow(story));
+    if (error) {
+      if (isNew) delete db[story.id]; else story.momentIds = prevIds;
+      toast("Couldn't save the story — try again", { error: true });
+      return;
+    }
+    if (story.isPublic && !_socialOff.stories) await sb.from('story_public').upsert(buildStorySnapshotRow(story));
+  }
+  refreshAfterBulk();
+  toast(isNew ? `Created "${story.title}" with ${ids.length} activities` : `Added ${ids.length} activities to "${story.title}"`,
+    { icon: 'check', duration: 5000, action: { label: 'View', fn: () => { closeBulkEditor(); viewStoryOnMap(story.id); } } });
+}
+async function beDelete() {
+  const mems = beSelected(); if (!mems.length) return;
+  const n = mems.length.toLocaleString();
+  const v = await uiForm({ title: `Delete ${n} activities?`, danger: true, ok: 'Delete permanently',
+    sub: 'This permanently deletes them, their photos, notes, kudos and comments. It cannot be undone. Strava activities may come back on a full re-sync.',
+    bodyHtml: `<label class="modal-sub" style="display:block;margin:0 0 6px">Type <b>DELETE</b> to confirm</label><input class="modal-input" name="confirm" autocomplete="off" placeholder="DELETE">`,
+    validate: x => x.confirm.trim() === 'DELETE' });
+  if (!v) return;
+  const ids = mems.map(m => m.id);
+  const photoPaths = mems.flatMap(m => (m.photos || []).map(p => p._path).filter(Boolean));
+  if (!DEMO) {
+    const dismiss = toast(`Deleting ${n} activities…`, { duration: 120000 });
+    try {
+      for (let i = 0; i < ids.length; i += 150) {
+        const chunk = ids.slice(i, i + 150);
+        const { error } = await sb.from('activities').delete().eq('user_id', currentUser.id).in('id', chunk);
+        if (error) throw error;
+        chunk.forEach(id => { delete db[id]; delete coordCache[id]; _beSel.delete(id); });
+        sb.from('activity_photos').delete().eq('user_id', currentUser.id).in('activity_id', chunk).then(({ error: e }) => { if (e) console.warn('Photo row cleanup failed', e); });
+      }
+      for (let i = 0; i < photoPaths.length; i += 500) sb.storage.from('photos').remove(photoPaths.slice(i, i + 500)).catch(e => console.warn('Photo cleanup failed', e));
+      dismiss();
+    } catch (e) {
+      console.error('Bulk delete failed', e);
+      dismiss();
+      refreshAfterBulk();
+      toast("Some activities couldn't be deleted — the ones still listed were kept. Try again.", { error: true, duration: 7000 });
+      return;
+    }
+  } else ids.forEach(id => { delete db[id]; _beSel.delete(id); });
+  if (selectedId && !db[selectedId]) closeDetail();
+  refreshAfterBulk();
+  renderSharingState();
+  toast(`Deleted ${n} activities`, { icon: 'check' });
 }
 
 // ════════════════════════════════════════
@@ -8422,7 +8644,7 @@ window.addEventListener('resize', () => { if (map) map.resize(); if (document.ge
 const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
-_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openBulkEditor',openBulkEditor);_r('closeBulkEditor',closeBulkEditor);_r('beSet',beSet);_r('beToggleType',beToggleType);_r('beToggle',beToggle);_r('beSelectAll',beSelectAll);_r('beClearSel',beClearSel);_r('beAction',beAction);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
+_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openBulkEditor',openBulkEditor);_r('closeBulkEditor',closeBulkEditor);_r('beSet',beSet);_r('beToggleType',beToggleType);_r('beToggle',beToggle);_r('beSelectAll',beSelectAll);_r('beClearSel',beClearSel);_r('beAction',beAction);_r('beMoreMenu',beMoreMenu);_r('uiForm',uiForm);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);

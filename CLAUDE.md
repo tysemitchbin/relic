@@ -60,6 +60,14 @@ to know:
   there (24px grid, stroke). No unicode glyphs as UI icons.
 - **Dialogs:** never `alert()`/`confirm()`. Use `toast(msg, {error, icon,
   action})` and `await uiConfirm({title, body, ok, danger})`.
+  For a small form use `await uiForm({title, sub, bodyHtml, ok, validate})`
+  (resolves to `{name: value}` of its `[name]` inputs, or `null`).
+- **Bulk edits:** Settings → Sharing → *Manage activities* (`openBulkEditor`)
+  has its own filter state (`_be`, deliberately separate from the map's
+  `filters`) and selection (`_beSel`). Privacy changes go through
+  `applyBulkPrivacy`, field edits (type/colour/name) through `applyBulkEdit`
+  — both chunk writes, refresh `activity_public` snapshots, and roll back only
+  unsaved chunks. Add new bulk actions to `beMoreMenu()` using those.
 - **Escaping:** anything user-authored that goes into an HTML string goes
   through `escapeHtml()`; ids/strings passed into inline `onclick` go through
   `jsAttr()`. Friends' content is rendered now, so a miss is cross-user XSS,
