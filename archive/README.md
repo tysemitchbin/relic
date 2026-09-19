@@ -21,9 +21,7 @@ Frozen snapshot of Relic **before** the multi-user / Supabase migration
 |---|---|
 | `index.html` | The main app. |
 | `relic-bulk-import.html` | KML → Apps Script bulk importer. |
-
-`strava-map.html` (an earlier Google-Maps prototype) is left in the repo root,
-not copied here.
+| `strava-map.html` | The very first Relic map (Google Maps prototype, 2026-03-24). Moved here from the repo root 2026-09-19. Its Strava secret + refresh token were stripped (they were publicly readable), so it no longer loads live Strava data — a keepsake, not a working page. |
 
 ## Running it
 

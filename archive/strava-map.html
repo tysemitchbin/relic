@@ -372,8 +372,12 @@
 
 <script>
 const CLIENT_ID = '148064';
-const CLIENT_SECRET = '96b45e4fc22e3ca79ec7fb9e25ab987e3d82a22d';
-const REFRESH_TOKEN = 'c656e51b2611302fd9df5f20476f931095694f8c';
+// The secret + refresh token that used to live here were removed (2026-09-19):
+// they were publicly readable on the deployed site. Without them this
+// prototype can't fetch live Strava data — it's kept as a keepsake of the
+// first Relic map, not as a working page.
+const CLIENT_SECRET = '';
+const REFRESH_TOKEN = '';
 
 const TYPE_COLORS = {
   Run: '#fc4c02', Ride: '#3b82f6', Hike: '#22c55e', Walk: '#a78bfa',

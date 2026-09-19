@@ -41,8 +41,9 @@ strings forever — rotation is the only fix):
 2. **Mapbox token** — <https://account.mapbox.com/access-tokens> → add a URL
    restriction (`https://*.pages.dev/*` + the custom domain) or rotate. A
    URL-restricted token is safe to keep client-side.
-3. **`strava-map.html`** — has a separate leaked secret for Strava app 148064.
-   Decide: delete the prototype, or keep it and rotate that secret too.
+3. **`strava-map.html`** — had a separate leaked secret for Strava app 148064.
+   Done 2026-09-19: moved to `archive/`, secret + refresh token stripped. The
+   secret is still in git history, so it must be regenerated in Strava.
 
 ---
 
