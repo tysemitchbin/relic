@@ -239,7 +239,9 @@ function stravaRow(a: any, userId: string) {
     id: `strava_${a.id}`,
     user_id: userId,
     name: a.name ?? "Untitled",
-    type: a.type ?? "Other",
+    // sport_type is the finer, current field (GravelRide, Kayaking, Padel…);
+    // `type` is Strava's deprecated coarse one. The client groups both.
+    type: a.sport_type ?? a.type ?? "Other",
     date: a.start_date_local || a.start_date || null,
     strava_id: a.id,
     polyline: a.map?.summary_polyline || null,

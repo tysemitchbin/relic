@@ -34,9 +34,34 @@ future sessions would need.
   `applyFilters()` (+`buildStats()` if the Archive view might be visible),
   then `await persistMoments(entries)` (or `sb.from('stories').upsert(...)`
   for a Story) — and roll back the local `db` entry if the persist fails.
-- `TYPE_CONFIG` (tracked activity types: Run/Ride/Hike/.../Flight/Drive/Other)
-  and colors in `relic_colors_v1` (localStorage) are for GPS-shaped Moments.
-  Do not add pin categories into `TYPE_CONFIG` — see below.
+- `TYPE_CONFIG` (tracked activity *groups*) lives in **`activity-types.js`**,
+  the one exception to "everything is in `index.html`": a plain `<script src>`
+  shared with `relic-bulk-import.html` so the two can't drift (they used to
+  keep separate hardcoded lists). It also holds `getGroup`/`getColor`/
+  `usesSpeed`/`isCycling`/`typeOptionsHtml`. Colours persist in
+  `relic_colors_v1` (localStorage). These are for GPS-shaped Moments — do not
+  add pin categories into `TYPE_CONFIG` (see below). Since `travel-modes`
+  (2026-09-19) every GPS-shaped Strava SportType maps into a group; non-GPS
+  sports (gym, yoga, court/ball sports, climbing, virtual rowing) are
+  deliberately left out and fall to Other (user's call). Cycling is split
+  Road Bike (key still `Ride`) / `MountainBike` / `Gravel`, and `Alpine` /
+  `Snowboard` are separate — the user was explicit that people are picky
+  about these. Group keys are persisted, so never rename one.
+  Per-group flags: `kind:'travel'` (Flight/Drive/Rail/Boat/Motorbike — Relic's
+  own modes), `speed:true` (km/h, not pace — ask `usesSpeed(type)`, never
+  hardcode group names), `cycling:true` (cadence in rpm). `types[0]` is the
+  value stored when a group is picked by hand; type `<select>`s are built by
+  `typeOptionsHtml()`, not hardcoded. Strava sync stores `sport_type` (falls
+  back to legacy `type`).
+- **Users can change a track's type** (picker in the detail header,
+  `onTypeChange`). That sets `_typeEdited` / the `type_edited` column, which
+  `strava_upsert_activities()` respects so a resync never overwrites it —
+  same pattern as `_nameEdited`/`name_edited`. Needs
+  `docs/supabase-type-edit.sql` live before the client ships.
+  NL parser routing goes through `ROUTE_PROFILE`; modes absent from it
+  (Rail/Boat/Paddling) get straight lines, not road-snapped routes. The
+  filter drawer's type toggles and "Track colours" only list groups the user
+  has at least one track in (user's request).
 
 ## Design system + social layer (`ux-social-overhaul`, 2026-09-18)
 

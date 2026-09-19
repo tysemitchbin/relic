@@ -6,6 +6,7 @@
 <title>Relic — Bulk Import</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="activity-types.js"></script>
 <style>
 :root {
   --ink: #1a1814;
@@ -419,18 +420,7 @@ body {
     <div class="config-row">
       <div>
         <div class="config-label">Activity Type</div>
-        <select class="config-select" id="import-type">
-          <option value="Flight">Flight</option>
-          <option value="Drive">Drive</option>
-          <option value="Run">Run</option>
-          <option value="Ride">Ride</option>
-          <option value="Hike">Hike</option>
-          <option value="Walk">Walk</option>
-          <option value="AlpineSki">Alpine Ski</option>
-          <option value="NordicSki">Nordic Ski</option>
-          <option value="BackcountrySki">Backcountry Ski</option>
-          <option value="Other">Other</option>
-        </select>
+        <select class="config-select" id="import-type"></select><!-- options: typeOptionsHtml() from activity-types.js -->
       </div>
     </div>
   </div>
@@ -499,11 +489,8 @@ const SUPABASE_KEY = 'sb_publishable_P24sdAdsfNOKzJa5L9S-UQ_8SoI9koU';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 
-const TYPE_COLORS = {
-  Flight: '#d97706', Drive: '#374151', Run: '#c0392b', Ride: '#2563eb',
-  Hike: '#16a34a', Walk: '#7c3aed', AlpineSki: '#e11d48', NordicSki: '#0891b2',
-  BackcountrySki: '#6d28d9', Other: '#92400e'
-};
+// Activity types come from activity-types.js (shared with index.html).
+document.getElementById('import-type').innerHTML = typeOptionsHtml('Flight');
 
 // polyline encoder (matches index.html)
 function encodePolyline(coords) {
@@ -757,7 +744,7 @@ function escHtml(s) {
 
 function renderPreview() {
   const type = document.getElementById('import-type').value;
-  const color = TYPE_COLORS[type] || '#92400e';
+  const color = getColor(type);
   const body = document.getElementById('preview-body');
   body.innerHTML = '';
 

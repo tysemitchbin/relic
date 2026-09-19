@@ -27,6 +27,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="activity-types.js"></script>
 <style>
     /* Map touch handling */
     #map { touch-action: none; }
@@ -402,6 +403,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .detail-type-row { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px; padding: 3px 10px 3px 8px; border-radius: var(--r-pill); background: var(--paper2); }
 .detail-type-dot { width: 8px; height: 8px; border-radius: 50%; }
 .detail-type-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
+/* Looks like the label until hovered — the type is editable in place. */
+.detail-type-select { font: 600 12px var(--font-ui); color: var(--text-2); background: transparent; border: 1px solid transparent; border-radius: var(--r-sm); padding: 2px 4px; margin-left: -5px; cursor: pointer; max-width: 100%; }
+.detail-type-select:hover, .detail-type-select:focus { border-color: var(--border); color: var(--text); background: var(--surface); }
 .detail-name-input {
   font-family: var(--font-display); font-size: 24px; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em;
   color: var(--ink); background: transparent; border: none; outline: none; width: 100%;
@@ -1742,6 +1746,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           <div class="detail-type-row">
             <div class="detail-type-dot" id="d-type-dot"></div>
             <div class="detail-type-label" id="d-type-label"></div>
+            <select class="detail-type-select" id="d-type-select" onchange="onTypeChange(this.value)" aria-label="Activity type" hidden></select>
           </div>
           <input class="detail-name-input" id="d-name-input" placeholder="Give it a name" oninput="onNameEdit()" aria-label="Name">
           <div class="detail-date" id="d-date"></div>
@@ -2189,12 +2194,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <div class="drop-file-list" id="drop-file-list"></div>
       <input type="file" id="gpx-input" accept=".gpx,.kml" multiple style="display:none" onchange="handleGPXSelect(this)">
     </div>
-    <select class="modal-select" id="import-type">
-      <option value="Run">Run</option><option value="Ride">Ride</option><option value="Hike">Hike</option>
-      <option value="Walk">Walk</option><option value="AlpineSki">Alpine Ski</option><option value="NordicSki">Nordic Ski</option>
-      <option value="BackcountrySki">Backcountry Ski</option><option value="Flight">Flight</option>
-      <option value="Drive">Drive</option><option value="Other">Other</option>
-    </select>
+    <select class="modal-select" id="import-type"></select><!-- options: typeOptionsHtml() -->
     <div class="import-progress" id="import-progress"></div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeImport()">Cancel</button>
@@ -2341,12 +2341,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   <div class="modal">
     <div class="modal-title">Manual entry</div>
     <div class="modal-sub">For memories with no GPS — add locations, a date, and notes</div>
-    <select class="modal-select" id="me-type">
-      <option value="Run">Run</option><option value="Ride">Ride</option><option value="Hike">Hike</option>
-      <option value="Walk">Walk</option><option value="AlpineSki">Alpine Ski</option><option value="NordicSki">Nordic Ski</option>
-      <option value="BackcountrySki">Backcountry Ski</option><option value="Flight">Flight</option>
-      <option value="Drive">Drive</option><option value="Other">Other</option>
-    </select>
+    <select class="modal-select" id="me-type"></select><!-- options: typeOptionsHtml() -->
     <input class="modal-input" type="text" id="me-start" placeholder="Start location (e.g. Denver, CO)">
     <input class="modal-input" type="text" id="me-end" placeholder="End location (optional)">
     <div style="display:flex;gap:8px">
@@ -2441,24 +2436,10 @@ const MOODS = [
   { id:'peaceful', emoji:'🌿', label:'Calm' },
 ];
 
-const TYPE_CONFIG = {
-  Run: { label:'Run', color:'#c0392b', types:['Run','TrailRun','VirtualRun'] },
-  Ride: { label:'Ride', color:'#2563eb', types:['Ride','VirtualRide','MountainBikeRide'] },
-  Hike: { label:'Hike', color:'#16a34a', types:['Hike'] },
-  Walk: { label:'Walk', color:'#7c3aed', types:['Walk'] },
-  Alpine: { label:'Alpine Ski', color:'#e11d48', types:['AlpineSki'] },
-  Nordic: { label:'Nordic Ski', color:'#0891b2', types:['NordicSki'] },
-  Backcountry: { label:'Backcountry', color:'#6d28d9', types:['BackcountrySki'] },
-  Flight: { label:'Flight', color:'#d97706', types:['Flight'] },
-  Drive: { label:'Drive', color:'#374151', types:['Drive'] },
-  Other: { label:'Other', color:'#92400e', types:[] },
-};
-
-// Reverse lookup: Strava type string → TYPE_CONFIG key, built once at startup
-const TYPE_GROUP_MAP = {};
-Object.entries(TYPE_CONFIG).forEach(([k,cfg]) => cfg.types.forEach(t => { TYPE_GROUP_MAP[t] = k; }));
-function getGroup(type) { return TYPE_GROUP_MAP[type] || 'Other'; }
-function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#92400e'; }
+// TYPE_CONFIG, getGroup/getColor/usesSpeed/isCycling and typeOptionsHtml live in
+// activity-types.js (shared with relic-bulk-import.html), loaded before this script.
+// The type pickers are static markup above this <script>, so fill them now.
+['import-type', 'me-type'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = typeOptionsHtml('Run'); });
 
 // Pins (point Moments — no polyline). Kept separate from TYPE_CONFIG so pin
 // categories never enter TYPE_GROUP_MAP's reverse lookup, which assumes
@@ -2703,7 +2684,7 @@ function rowToMoment(r) {
     startLat: r.start_lat, startLng: r.start_lng,
     note: r.note || '', mood: r.mood || null, photos: [],
     isPublic: !!r.is_public, privacyRadiusM: r.privacy_radius_m || 0, privateNote: '',
-    customColor: r.custom_color || null, _nameEdited: !!r.name_edited,
+    customColor: r.custom_color || null, _nameEdited: !!r.name_edited, _typeEdited: !!r.type_edited,
     avgHR: r.avg_hr, maxHR: r.max_hr, calories: r.calories, avgSpeed: r.avg_speed,
     maxSpeed: r.max_speed, avgCadence: r.avg_cadence, avgWatts: r.avg_watts,
     weightedWatts: r.weighted_watts, sufferScore: r.suffer_score,
@@ -2723,9 +2704,13 @@ function momentToRow(m) {
     distance: m.distance || 0, duration: m.duration || 0, elevation: m.elevation || 0,
     polyline: m._polyline || (Array.isArray(m.coords) && m.coords.length >= 2 ? encodePolyline(m.coords) : null),
     start_lat: m.startLat ?? null, start_lng: m.startLng ?? null,
-    end_lat: getCoords(m)?.at(-1)?.[1] ?? null, end_lng: getCoords(m)?.at(-1)?.[0] ?? null,
+    // An explicit endpoint (manual entry / NL parser / draw-route) wins; any
+    // other track falls back to its last coordinate. (These keys used to be
+    // listed twice, and the second pair — endLat only — silently nulled the
+    // fallback for every Strava/GPX track.)
+    end_lat: m.endLat ?? getCoords(m)?.at(-1)?.[1] ?? null, end_lng: m.endLng ?? getCoords(m)?.at(-1)?.[0] ?? null,
     note: m.note || '', mood: m.mood || null, is_public: !!m.isPublic, privacy_radius_m: m.privacyRadiusM || 0,
-    custom_color: m.customColor || null, name_edited: !!m._nameEdited,
+    custom_color: m.customColor || null, name_edited: !!m._nameEdited, type_edited: !!m._typeEdited,
     avg_hr: m.avgHR ?? null, max_hr: m.maxHR ?? null, calories: m.calories ?? null,
     avg_speed: m.avgSpeed ?? null, max_speed: m.maxSpeed ?? null, avg_cadence: m.avgCadence ?? null,
     avg_watts: m.avgWatts ?? null, weighted_watts: m.weightedWatts ?? null, suffer_score: m.sufferScore ?? null,
@@ -2733,7 +2718,6 @@ function momentToRow(m) {
     elev_high: m.elevHigh ?? null, elev_low: m.elevLow ?? null, gear_id: m.gearId || null,
     workout_type: m.workoutType ?? null, commute: !!m.commute, elapsed_time: m.elapsedTime ?? null,
     is_pin: !!m.isPin, pin_category: m.pinCategory || null,
-    end_lat: m.endLat ?? null, end_lng: m.endLng ?? null,
     start_place: m.startPlace || null, end_place: m.endPlace || null,
   };
 }
@@ -2929,7 +2913,7 @@ function loadColors() { try { const r = localStorage.getItem(COLORS_KEY); if(r) 
 function stravaToMemory(a) {
   const existing = db[`strava_${a.id}`] || {};
   return {
-    id: `strava_${a.id}`, name: existing.name || a.name, type: a.type,
+    id: `strava_${a.id}`, name: existing.name || a.name, type: a.sport_type || a.type,
     date: a.start_date_local || a.start_date, source: 'strava', stravaId: a.id,
     coords: a._gpxCoords || null, _polyline: a.map?.summary_polyline || null,
     distance: a.distance || 0, duration: a.moving_time || 0, elevation: a.total_elevation_gain || 0,
@@ -3012,7 +2996,7 @@ function makeStubMap() {
 
 // Synthetic archive for local ?demo mode — enough variety to exercise every filter.
 function seedDemoData() {
-  const TYPES = ['Run','TrailRun','Ride','MountainBikeRide','Hike','Walk','AlpineSki','NordicSki','Flight','Drive'];
+  const TYPES = ['Run','TrailRun','Ride','MountainBikeRide','GravelRide','Hike','Walk','AlpineSki','Snowboard','NordicSki','Flight','Drive','Rail','Ferry','Kayaking','Motorbike'];
   const MOOD_IDS = ['epic','good','tough','meh','peaceful',null];
   const SRC = ['strava','import','manual'];
   const [blng, blat] = [10.4, 63.4];
@@ -3519,7 +3503,12 @@ function buildFilterDrawer() {
       <div class="fd-sec-body">${html}</div>
     </div>`;
 
-  const typesHtml = '<div class="tp-type-grid">' + Object.entries(TYPE_CONFIG).map(([k,c]) => {
+  // Only the groups this user actually has tracks in — ~18 groups exist, and
+  // toggles/colours for sports you never do are just noise.
+  const usedGroups = new Set(getMoments().map(m => getGroup(m.type)));
+  const typeEntries = Object.entries(TYPE_CONFIG).filter(([k]) => usedGroups.has(k));
+  const typesHtml = !typeEntries.length ? '<div class="fd-hint">No activities yet.</div>'
+    : '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
     const on = !filters.types || filters.types.includes(k);
     return `<div class="tp-type-row" onclick="toggleFilterType('${k}')">
       <div class="tp-type-dot" style="background:${c.color}"></div>
@@ -3561,7 +3550,7 @@ function buildFilterDrawer() {
   };
   const attrHtml = tri('hasPhotos','Has photos') + tri('hasNote','Has story note') + tri('commute','Commute');
 
-  const colorHtml = Object.entries(TYPE_CONFIG).map(([k,c]) => `
+  const colorHtml = typeEntries.map(([k,c]) => `
     <div class="tp-color-row">
       <div class="tp-color-swatch" id="swatch-${k}" style="background:${c.color}">
         <input type="color" value="${c.color}" oninput="updateTypeColor('${k}',this.value)"></div>
@@ -3591,7 +3580,7 @@ function buildFilterDrawer() {
   html += sec('fd-sec-mood', 'Mood', moodHtml, !!filters.moods);
   html += sec('fd-sec-attr', 'Attributes', attrHtml, filters.hasPhotos != null || filters.hasNote != null || filters.commute != null);
   html += sec('fd-sec-pins', 'Pins', pinsHtml, activePinCategories.size < Object.keys(PIN_CATEGORIES).length);
-  html += sec('fd-sec-color', 'Track colours', colorHtml, false);
+  if (typeEntries.length) html += sec('fd-sec-color', 'Track colours', colorHtml, false);
   body.innerHTML = html;
 }
 
@@ -3916,6 +3905,10 @@ function showDetail(memId) {
   const group=getGroup(mem.type), color=mem.customColor||(pinCat?pinCat.color:TYPE_CONFIG[group]?.color)||'#92400e';
   document.getElementById('d-type-dot').style.background=color;
   document.getElementById('d-type-label').textContent=pinCat?`${pinCat.icon} ${pinCat.label}`:(TYPE_CONFIG[group]?.label||mem.type);
+  // Tracks get an editable type picker in place of the label; pins keep the label.
+  const typeSel = document.getElementById('d-type-select');
+  typeSel.hidden = !!pinCat; document.getElementById('d-type-label').hidden = !pinCat;
+  if (!pinCat) typeSel.innerHTML = typeOptionsHtml(mem.type);
   document.getElementById('d-name-input').value=mem.name;
   document.getElementById('d-name-input').oninput=onNameEdit;
   document.getElementById('d-date').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
@@ -3925,7 +3918,7 @@ function showDetail(memId) {
     {val:mem.duration?formatDur(mem.duration):'—',label:'Moving Time'},
     {val:mem.elevation?fmtElev(mem.elevation):'—',label:'Elevation'},
     {val:mem.avgSpeed?formatPace(mem.avgSpeed,mem.type):'—',label:'Pace / Speed'},
-    {val:mem.maxSpeed?(getGroup(mem.type)==='Ride'||getGroup(mem.type)==='Drive'||getGroup(mem.type)==='Flight'?fmtSpeed(mem.maxSpeed):formatPace(mem.maxSpeed,mem.type)):'—',label:'Max Speed'},
+    {val:mem.maxSpeed?(usesSpeed(mem.type)?fmtSpeed(mem.maxSpeed):formatPace(mem.maxSpeed,mem.type)):'—',label:'Max Speed'},
     {val:mem.avgHR?mem.avgHR+' bpm':'—',label:'Avg Heart Rate'},
   ].filter(s=>hasTrack||!['Distance','Pace / Speed','Max Speed'].includes(s.label))
    .filter(s=>s.val!=='—')
@@ -3984,7 +3977,7 @@ function showDetail(memId) {
   }
   const rows=[
     ['Max Heart Rate',mem.maxHR?mem.maxHR+' bpm':'—'],
-    ['Cadence',mem.avgCadence?Math.round(mem.avgCadence)+(getGroup(mem.type)==='Ride'?' rpm':' spm'):'—'],
+    ['Cadence',mem.avgCadence?Math.round(mem.avgCadence)+(isCycling(mem.type)?' rpm':' spm'):'—'],
     ['Power',mem.avgWatts?mem.avgWatts+' W'+(mem.weightedWatts?' ('+mem.weightedWatts+' NP)':''):'—'],
     ['Relative Effort',mem.sufferScore||'—'],
     ['Calories',mem.calories||'—'],
@@ -4018,6 +4011,7 @@ function showStoryDetail(storyId) {
   // Header
   document.getElementById('d-type-dot').style.background = 'var(--accent)';
   document.getElementById('d-type-label').textContent = 'Story';
+  document.getElementById('d-type-label').hidden = false; document.getElementById('d-type-select').hidden = true;
   document.getElementById('d-name-input').value = story.title || '';
   document.getElementById('d-name-input').oninput = function() {
     story.title = document.getElementById('d-name-input').value;
@@ -4154,6 +4148,16 @@ function closeDetail() {
   document.getElementById('d-delete-row').style.display = '';
 }
 function onNameEdit() { if(!selectedId) return; db[selectedId].name=document.getElementById('d-name-input').value; db[selectedId]._nameEdited=true; markDirty(selectedId); }
+// User re-typed a track. _typeEdited (type_edited column) stops a later Strava
+// sync from overwriting it — same idea as _nameEdited.
+async function onTypeChange(val) {
+  const m = selectedId && db[selectedId];
+  if (!m || m.isPin || isStory(m) || getGroup(val) === getGroup(m.type)) return;
+  m.type = val; m._typeEdited = true; markDirty(m.id);
+  applyFilters(); buildFilterDrawer();   // colour, list, and the "types you have" drawer
+  showDetail(m.id);                      // pace ↔ speed, cadence units, colour dot
+  if (getGroup(val) === 'Flight') await syncAirportPins();
+}
 function onNoteEdit() { if(!selectedId) return; db[selectedId].note=document.getElementById('d-note').value; markDirty(selectedId); }
 function onPrivateNoteEdit() { if(!selectedId) return; db[selectedId].privateNote=document.getElementById('d-private-note').value; markDirty(selectedId); }
 function setVisibility(memId, isPublic, btn) {
@@ -4477,8 +4481,20 @@ async function saveManualEntry() {
 
 // ── Natural-language route parser (incl. multi-stop chains + flight legs) ──
 const FLIGHT_VERBS_RE = /\b(flew|fly|flying|flight)\b/i;
-const MODE_VERB_MAP = { drove:'Drive', driving:'Drive', drive:'Drive', rode:'Ride', ride:'Ride', riding:'Ride', biked:'Ride', biking:'Ride', cycled:'Ride', cycling:'Ride', walked:'Walk', walking:'Walk', walk:'Walk', hiked:'Hike', hiking:'Hike', hike:'Hike' };
-const LEADING_VERB_RE = /^(flew|fly|flying|flight|drove|driving|drive|rode|ride|riding|biked|biking|cycled|cycling|walked|walking|walk|hiked|hiking|hike)\s+/i;
+// First match wins (object order), so the specific vehicles (train, ferry,
+// motorbike…) come before the generic verbs they're often used with — "rode
+// the train" is Rail, "rode my motorbike" is Motorbike, not Ride.
+const MODE_VERB_MAP = {
+  train:'Rail', trains:'Rail', rail:'Rail', railway:'Rail',
+  ferry:'Boat', boat:'Boat', ship:'Boat', cruise:'Boat', cruised:'Boat', sailed:'Boat', sailing:'Boat',
+  motorbike:'Motorbike', motorcycle:'Motorbike', motorbiked:'Motorbike',
+  paddled:'Paddling', paddling:'Paddling', kayaked:'Paddling', kayaking:'Paddling', canoed:'Paddling', canoeing:'Paddling', rowed:'Paddling', rowing:'Paddling',
+  drove:'Drive', driving:'Drive', drive:'Drive', rode:'Ride', ride:'Ride', riding:'Ride', biked:'Ride', biking:'Ride', cycled:'Ride', cycling:'Ride', walked:'Walk', walking:'Walk', walk:'Walk', hiked:'Hike', hiking:'Hike', hike:'Hike',
+};
+const LEADING_VERB_RE = /^(flew|fly|flying|flight|drove|driving|drive|rode|ride|riding|biked|biking|cycled|cycling|walked|walking|walk|hiked|hiking|hike|took|take|taking|caught|sailed|sailing|paddled|paddling|kayaked|kayaking|canoed|canoeing|rowed|rowing|motorbiked)\s+((the|a|my|an)\s+)?((night|overnight|sleeper|high-speed)\s+)?(train|ferry|boat|ship|motorbike|motorcycle|bike|car|kayak|canoe)?\s*/i;
+// Mapbox Directions profile per mode. Modes with no road/path network to snap
+// to (Rail, Boat, Paddling) are absent on purpose: they get straight lines.
+const ROUTE_PROFILE = { Drive:'driving', Motorbike:'driving', Ride:'cycling', Walk:'walking', Hike:'walking' };
 let _pendingParsedRoute = null; // { key, parsed, geocoded, legs } — set by previewParsedRoute, consumed by saveParsedRoute
 
 // Pure — no DOM, no network. Splits "X to Y [to Z ...]" into ordered waypoints
@@ -4494,7 +4510,8 @@ function parseRouteText(text) {
     if (new RegExp('\\b' + verb + '\\b').test(lower)) { mode = MODE_VERB_MAP[verb]; break; }
   }
   if (isFlight) mode = 'Flight';
-  const body = raw.replace(/^i\s+/i,'').replace(LEADING_VERB_RE,'').replace(/^from\s+/i,'');
+  const body = raw.replace(/^i\s+/i,'').replace(LEADING_VERB_RE,'')
+    .replace(/^(train|ferry|boat|motorbike|motorcycle|kayak|canoe)\s+/i,'').replace(/^from\s+/i,'');
   const waypoints = body.split(/\s+to\s+/i).map(s => s.trim()).filter(Boolean);
   if (waypoints.length < 2) return null;
   return { mode, isFlight, waypoints };
@@ -4569,8 +4586,8 @@ async function buildParsedRoute(text, dateVal) {
     geocoded.push(Object.assign({ name: wp }, g));
   }
   let directionsLegs = null;
-  if (!parsed.isFlight) {
-    const profile = { Drive:'driving', Ride:'cycling', Walk:'walking', Hike:'walking' }[parsed.mode] || 'driving';
+  const profile = ROUTE_PROFILE[parsed.mode];
+  if (!parsed.isFlight && profile) {
     directionsLegs = await fetchDirectionsMultiLeg(geocoded.map(g => [g.lng, g.lat]), profile);
   }
   const legs = [];
@@ -4593,13 +4610,13 @@ async function buildParsedRoute(text, dateVal) {
 // Recomputes one leg's geometry in place (shared by drag-adjust and insert).
 async function recomputePreviewLeg(leg) {
   const { parsed } = _pendingParsedRoute;
-  const profile = { Drive:'driving', Ride:'cycling', Walk:'walking', Hike:'walking' }[parsed.mode] || 'driving';
+  const profile = ROUTE_PROFILE[parsed.mode];
   const { a, b } = leg;
   if (parsed.isFlight) {
     leg.coords = greatCircleCoords(a.lat, a.lng, b.lat, b.lng, 32);
     leg.distance = haversine(a.lat, a.lng, b.lat, b.lng);
   } else {
-    const seg = await fetchDirectionsSegment([a.lng, a.lat], [b.lng, b.lat], profile);
+    const seg = profile ? await fetchDirectionsSegment([a.lng, a.lat], [b.lng, b.lat], profile) : null;
     if (seg && seg.coords.length > 1) { leg.coords = seg.coords; leg.distance = seg.distance; }
     else { leg.coords = [[a.lng,a.lat],[b.lng,b.lat]]; leg.distance = haversine(a.lat, a.lng, b.lat, b.lng); }
   }
@@ -4669,7 +4686,7 @@ async function previewParsedRoute() {
   btn.disabled = false;
   if (result.error) { el.textContent = result.error; _pendingParsedRoute = null; return; }
   _pendingParsedRoute = Object.assign({ key: text + '|' + dateVal }, result);
-  el.textContent = (result.parsed.isFlight ? '✈️ Flight' : result.parsed.mode) + ' — ' + result.parsed.waypoints.join(' → ');
+  el.textContent = (result.parsed.isFlight ? '✈️ Flight' : (TYPE_CONFIG[result.parsed.mode]?.label || result.parsed.mode)) + ' — ' + result.parsed.waypoints.join(' → ');
   document.getElementById('nl-parser-modal').classList.remove('open');
   openRoutePreviewMap();
 }
@@ -5801,7 +5818,7 @@ function renderActivityCard(it) {
   if (it.distance) stats.push(['Distance', fmtKm(it.distance)]);
   if (it.duration) stats.push(['Time', formatDur(it.duration)]);
   if (it.elevation) stats.push(['Elevation', fmtElev(it.elevation)]);
-  if (it.avgSpeed) stats.push([['Ride', 'Drive', 'Flight'].includes(group) ? 'Speed' : 'Pace', formatPace(it.avgSpeed, it.type)]);
+  if (it.avgSpeed) stats.push([usesSpeed(it.type) ? 'Speed' : 'Pace', formatPace(it.avgSpeed, it.type)]);
   if (stats.length) h += `<div class="fc-stats">${stats.map(([l, v]) => `<div class="fc-stat"><div class="fc-stat-val">${escapeHtml(v)}</div><div class="fc-stat-label">${l}</div></div>`).join('')}</div>`;
   else h += `<div style="height:12px"></div>`;
   if (it.polylines && it.polylines.length) {
@@ -7796,8 +7813,7 @@ async function loadAndRenderCharts(memId) {
 
   if (streams.velocity_smooth && streams.velocity_smooth.data) {
     var velData = streams.velocity_smooth.data;
-    var group = getGroup(mem.type);
-    var isSpeed = group === 'Ride' || group === 'Flight' || group === 'Drive';
+    var isSpeed = usesSpeed(mem.type);
     var displayData, avgVal, unit;
     if (isSpeed) {
       displayData = velData.map(function(v) { return v * 3.6; });
@@ -7926,7 +7942,7 @@ function drawStreamChart(canvasId, chart) {
 function haversine(lat1,lon1,lat2,lon2){const R=6371000,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function formatDur(s){const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?`${h}h ${m}m`:`${m}m`;}
-function formatPace(mps,type){if(!mps)return'—';const g=getGroup(type);if(g==='Ride'||g==='Flight'||g==='Drive')return fmtSpeed(mps);if(units==='imperial'){const spm=MI/mps,mm=Math.floor(spm/60),ss=Math.floor(spm%60);return`${mm}:${ss.toString().padStart(2,'0')} /mi`;}const spk=1000/mps,mi=Math.floor(spk/60),si=Math.floor(spk%60);return`${mi}:${si.toString().padStart(2,'0')} /km`;}
+function formatPace(mps,type){if(!mps)return'—';if(usesSpeed(type))return fmtSpeed(mps);if(units==='imperial'){const spm=MI/mps,mm=Math.floor(spm/60),ss=Math.floor(spm%60);return`${mm}:${ss.toString().padStart(2,'0')} /mi`;}const spk=1000/mps,mi=Math.floor(spk/60),si=Math.floor(spk%60);return`${mi}:${si.toString().padStart(2,'0')} /km`;}
 function decodePolyline(encoded){const pts=[];let i=0,lat=0,lng=0;while(i<encoded.length){let b,shift=0,result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lat+=(result&1)?~(result>>1):(result>>1);shift=0;result=0;do{b=encoded.charCodeAt(i++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);lng+=(result&1)?~(result>>1):(result>>1);pts.push([lng/1e5,lat/1e5]);}return pts;}
 function encodePolyline(coords){let out='',lat=0,lng=0;const enc=v=>{v=v<0?~(v<<1):(v<<1);while(v>=0x20){out+=String.fromCharCode((0x20|(v&0x1f))+63);v>>=5;}out+=String.fromCharCode(v+63);};coords.forEach(([lo,la])=>{const ila=Math.round(la*1e5),ilo=Math.round(lo*1e5);enc(ila-lat);lat=ila;enc(ilo-lng);lng=ilo;});return out;}
 // Drops any point within radiusM of the track's own start or end, splitting
@@ -8191,7 +8207,7 @@ _r('setAnalyticsConsent',setAnalyticsConsent);
 _r('exportMyData',exportMyData);_r('openDeleteAccountModal',openDeleteAccountModal);_r('closeDeleteAccountModal',closeDeleteAccountModal);
 _r('onDeleteAccountConfirmInput',onDeleteAccountConfirmInput);_r('deleteMyAccount',deleteMyAccount);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
-_r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
+_r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onTypeChange',onTypeChange);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
 _r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
 _r('setPrivacyUnit',setPrivacyUnit);_r('onPrivacyRadiusEdit',onPrivacyRadiusEdit);
 _r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);

@@ -1,42 +1,21 @@
--- Relic — Strava connector (Phase 6)
--- Run in the Supabase SQL Editor. Idempotent — safe to re-run.
+-- Relic — user-editable activity type (travel-modes branch, 2026-09-19)
+--
+-- Users can now change a track's type from the detail panel. A Strava resync
+-- used to overwrite `type` unconditionally; `type_edited` makes a manual
+-- choice stick, exactly like `name_edited` does for titles.
+--
+-- MUST run before the matching index.html is deployed: momentToRow() now
+-- sends `type_edited`, and an upsert naming a column that doesn't exist fails
+-- — which would make every save fail. Idempotent; safe to re-run.
 
--- ── connection + sync state ───────────────────────────────
-create table if not exists public.strava_connections (
-  user_id        uuid primary key references auth.users on delete cascade,
-  athlete_id     bigint,
-  access_token   text not null,
-  refresh_token  text not null,
-  expires_at     bigint not null,          -- unix seconds
-  scope          text,
-  athlete        jsonb,                    -- cached Strava athlete summary
-  synced_at      timestamptz,              -- last completed sync
-  first_sync_done boolean not null default false,
-  sync_page      integer not null default 1, -- resume cursor for the first sync
-  connected_at   timestamptz not null default now(),
-  updated_at     timestamptz not null default now()
-);
+alter table public.activities
+  add column if not exists type_edited boolean not null default false;
 
-alter table public.strava_connections add column if not exists synced_at timestamptz;
-alter table public.strava_connections add column if not exists first_sync_done boolean not null default false;
-alter table public.strava_connections add column if not exists sync_page integer not null default 1;
-
--- RLS on, NO policy: holds Strava tokens; only the `strava` Edge Function
--- (service role) touches it. The browser gets state via the function's `status`.
-alter table public.strava_connections enable row level security;
-
--- ── merge helper ──────────────────────────────────────────
--- Upserts Strava activities without clobbering the user's own edits:
--- note / mood / custom_color / is_public are never touched after the first
--- insert (is_public defaults to Strava's own privacy setting on import, then
--- a user's manual toggle always sticks); a user-renamed title
--- (name_edited = true) is kept; a missing polyline / calories / suffer_score /
--- elev_high|low keeps whatever was there. Runs as the caller — RLS on
--- public.activities still applies (with check user_id = auth.uid()).
+-- Same as the live function (docs/supabase-strava.sql) except the `type` line.
 create or replace function public.strava_upsert_activities(p_rows jsonb)
 returns integer
 language plpgsql
-as $$
+as $function$
 declare n integer;
 begin
   insert into public.activities (
@@ -69,7 +48,8 @@ begin
   on conflict (user_id, id) do update set
     name           = case when public.activities.name_edited
                           then public.activities.name else excluded.name end,
-    type           = excluded.type,  -- superseded: see supabase-type-edit.sql (respects type_edited)
+    type           = case when public.activities.type_edited
+                          then public.activities.type else excluded.type end,
     date           = excluded.date,
     strava_id      = excluded.strava_id,
     polyline       = coalesce(excluded.polyline, public.activities.polyline),
@@ -99,4 +79,4 @@ begin
     -- note / mood / custom_color -- a user's manual privacy toggle always sticks.
   get diagnostics n = row_count;
   return n;
-end $$;
+end $function$;
