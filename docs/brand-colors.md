@@ -66,45 +66,48 @@ spec's dark-mode "ink" is `--ink-on-dark`.
 ## Map: activity tracks
 
 Tracks deliberately **don't** use the brand palette. Each activity type has
-its own bright, distinct colour (Material 600 shades), because telling types
-apart at a glance matters more on a map than matching the brand. Users can
-recolour any type in Filters → Track colours, and saved colours win.
+its own bright colour, because telling types apart at a glance matters
+more on a map than matching the brand. Users can recolour any type in Filters → Track colours, and saved colours win.
 
 Defined in `activity-types.js` (shared by the app and the bulk importer).
 Types only show in the filters if the user has at least one track of them.
-★ = one of the original ten, tested on the outdoors + satellite tiles. The
-others were added with the travel modes / Strava sport split (2026-09-19)
-and haven't had that tile test yet.
 
-| Type | Colour | Hex |
-|---|---|---|
-| Run ★ | Red | `#E53935` |
-| Road bike ★ (was "Ride") | Blue | `#1E88E5` |
-| Mountain bike | Light green | `#7CB342` |
-| Gravel | Lime | `#C0CA33` |
-| Hike ★ | Green | `#43A047` |
-| Walk ★ | Purple | `#8E24AA` |
-| Wheelchair | Deep purple | `#5E35B1` |
-| Alpine ski ★ | Pink | `#D81B60` |
-| Snowboard | Light pink | `#EC407A` |
-| Nordic ski ★ | Cyan | `#00ACC1` |
-| Backcountry ★ | Indigo | `#3949AB` |
-| Swim | Light blue | `#039BE5` |
-| Paddling | Teal | `#00897B` |
-| Surf & sail | Pale cyan | `#4DD0E1` |
-| Skate | Yellow | `#FDD835` |
-| Flight ★ | Orange | `#FB8C00` |
-| Drive ★ | Blue-grey | `#546E7A` |
-| Rail | Brown | `#6D4C41` |
-| Boat | Dark indigo | `#283593` |
-| Motorbike | Deep orange | `#F4511E` |
-| Other ★ | Light brown | `#8D6E63` |
+A hue is **deliberately reused** by two activities that never sit side by
+side, in a clearly different shade (user's call, 2026-09-20: bright colours,
+reuse is fine when confusion isn't). Add a new type by taking another shade
+in an existing family rather than inventing a 22nd hue.
+
+| Type | Colour | Hex | Family |
+|---|---|---|---|
+| Run | Bright red | `#FF3D3D` | red |
+| Motorbike | Dark red | `#D50000` | red |
+| Road bike | Blue | `#2196F3` | blue |
+| Swim | Azure | `#00A3FF` | blue |
+| Boat | Navy | `#0D47A1` | blue |
+| Mountain bike | Bright green | `#00C853` | green |
+| Hike | Forest green | `#1B8A3F` | green |
+| Alpine ski | Bright pink | `#FF2D87` | pink |
+| Snowboard | Soft pink | `#FF80AB` | pink |
+| Walk | Purple | `#AA47BC` | purple |
+| Wheelchair | Violet | `#6A3FD1` | purple |
+| Paddling | Teal | `#00BFA5` | teal/cyan |
+| Surf & sail | Aqua | `#26E0D6` | teal/cyan |
+| Nordic ski | Cyan | `#00BCD4` | teal/cyan |
+| Gravel | Lime | `#C6D22E` | — |
+| Backcountry | Indigo | `#3F51B5` | — |
+| Skate | Yellow | `#FFD600` | — |
+| Flight | Orange | `#FF9100` | — |
+| Rail | Magenta | `#E040FB` | — |
+| Drive | Blue-grey | `#546E7A` | — |
+| Other | Grey | `#9E9E9E` | — |
 
 - Tracks are plain lines with no outline. A selected track is drawn thicker,
   with everything else dimmed.
-- The original ten (★) stay distinct on the outdoors and satellite map styles (renders in
-  `brand/track-colours-bright-*.png`). Hike, green on green terrain, is the
-  weakest on outdoors.
+- The ten colours that predate the 2026-09-20 palette were checked on the
+  outdoors and satellite map styles (renders in
+  `brand/track-colours-bright-*.png`, now one palette out of date). Green on
+  green terrain is the weakest case, which is why Hike went darker and
+  Mountain Bike brighter.
 
 ## Map: pins
 

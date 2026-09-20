@@ -13,38 +13,40 @@
 // speed:true = show km/h, not pace. cycling:true = cadence in rpm.
 // Keys are persisted (colours, filters, story type pills) — don't rename them
 // (which is why road cycling is still keyed 'Ride').
-// Default colours: bright Material 600-ish shades, see docs/brand-colors.md —
-// the original ten were tested on real outdoors + satellite tiles; users can
-// recolour any type (relic_colors_v1 overrides these).
+// Default colours: bright, see docs/brand-colors.md. A hue is deliberately
+// REUSED (different shade) by two activities that never sit side by side —
+// e.g. Road Bike / Swim / Boat all blue, Run / Motorbike both red. Keep that
+// rule if you add a type: pick a new shade in an existing family rather than
+// squeezing in a 22nd hue. Users can recolour any type (relic_colors_v1 wins).
 const TYPE_CONFIG = {
-  Run: { label:'Run', color:'#E53935', types:['Run','TrailRun','VirtualRun'] },
-  Ride: { label:'Road Bike', color:'#1E88E5', speed:true, cycling:true, types:['Ride','EBikeRide','VirtualRide','Velomobile','Handcycle'] },
-  MountainBike: { label:'Mountain Bike', color:'#7CB342', speed:true, cycling:true, types:['MountainBikeRide','EMountainBikeRide'] },
-  Gravel: { label:'Gravel', color:'#C0CA33', speed:true, cycling:true, types:['GravelRide'] },
-  Hike: { label:'Hike', color:'#43A047', types:['Hike','Snowshoe'] },
-  Walk: { label:'Walk', color:'#8E24AA', types:['Walk'] },
-  Wheelchair: { label:'Wheelchair', color:'#5E35B1', types:['Wheelchair'] },
-  Alpine: { label:'Alpine Ski', color:'#D81B60', types:['AlpineSki'] },
-  Snowboard: { label:'Snowboard', color:'#EC407A', types:['Snowboard'] },
-  Nordic: { label:'Nordic Ski', color:'#00ACC1', types:['NordicSki','RollerSki'] },
-  Backcountry: { label:'Backcountry', color:'#3949AB', types:['BackcountrySki'] },
-  Swim: { label:'Swim', color:'#039BE5', types:['Swim'] },
-  Paddling: { label:'Paddling', color:'#00897B', speed:true, types:['Paddling','Canoeing','Kayaking','StandUpPaddling','Rowing'] },
-  Watersport: { label:'Surf & Sail', color:'#4DD0E1', speed:true, types:['Watersport','Surfing','Kitesurf','Windsurf','Sail'] },
-  Skate: { label:'Skate', color:'#FDD835', speed:true, types:['Skate','IceSkate','InlineSkate','Skateboard'] },
-  Flight: { label:'Flight', color:'#FB8C00', kind:'travel', speed:true, types:['Flight'] },
+  Run: { label:'Run', color:'#FF3D3D', types:['Run','TrailRun','VirtualRun'] },
+  Ride: { label:'Road Bike', color:'#2196F3', speed:true, cycling:true, types:['Ride','EBikeRide','VirtualRide','Velomobile','Handcycle'] },
+  MountainBike: { label:'Mountain Bike', color:'#00C853', speed:true, cycling:true, types:['MountainBikeRide','EMountainBikeRide'] },
+  Gravel: { label:'Gravel', color:'#C6D22E', speed:true, cycling:true, types:['GravelRide'] },
+  Hike: { label:'Hike', color:'#1B8A3F', types:['Hike','Snowshoe'] },
+  Walk: { label:'Walk', color:'#AA47BC', types:['Walk'] },
+  Wheelchair: { label:'Wheelchair', color:'#6A3FD1', types:['Wheelchair'] },
+  Alpine: { label:'Alpine Ski', color:'#FF2D87', types:['AlpineSki'] },
+  Snowboard: { label:'Snowboard', color:'#FF80AB', types:['Snowboard'] },
+  Nordic: { label:'Nordic Ski', color:'#00BCD4', types:['NordicSki','RollerSki'] },
+  Backcountry: { label:'Backcountry', color:'#3F51B5', types:['BackcountrySki'] },
+  Swim: { label:'Swim', color:'#00A3FF', types:['Swim'] },
+  Paddling: { label:'Paddling', color:'#00BFA5', speed:true, types:['Paddling','Canoeing','Kayaking','StandUpPaddling','Rowing'] },
+  Watersport: { label:'Surf & Sail', color:'#26E0D6', speed:true, types:['Watersport','Surfing','Kitesurf','Windsurf','Sail'] },
+  Skate: { label:'Skate', color:'#FFD600', speed:true, types:['Skate','IceSkate','InlineSkate','Skateboard'] },
+  Flight: { label:'Flight', color:'#FF9100', kind:'travel', speed:true, types:['Flight'] },
   Drive: { label:'Drive', color:'#546E7A', kind:'travel', speed:true, types:['Drive','Car'] },
-  Rail: { label:'Rail', color:'#6D4C41', kind:'travel', speed:true, types:['Rail','Train'] },
-  Boat: { label:'Boat', color:'#283593', kind:'travel', speed:true, types:['Boat','Ferry'] },
-  Motorbike: { label:'Motorbike', color:'#F4511E', kind:'travel', speed:true, types:['Motorbike','Motorcycle'] },
-  Other: { label:'Other', color:'#8D6E63', types:['Other'] },
+  Rail: { label:'Rail', color:'#E040FB', kind:'travel', speed:true, types:['Rail','Train'] },
+  Boat: { label:'Boat', color:'#0D47A1', kind:'travel', speed:true, types:['Boat','Ferry'] },
+  Motorbike: { label:'Motorbike', color:'#D50000', kind:'travel', speed:true, types:['Motorbike','Motorcycle'] },
+  Other: { label:'Other', color:'#9E9E9E', types:['Other'] },
 };
 
 // Reverse lookup: Strava type string → TYPE_CONFIG key, built once at startup
 const TYPE_GROUP_MAP = {};
 Object.entries(TYPE_CONFIG).forEach(([k,cfg]) => cfg.types.forEach(t => { TYPE_GROUP_MAP[t] = k; }));
 function getGroup(type) { return TYPE_GROUP_MAP[type] || 'Other'; }
-function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#8D6E63'; }
+function getColor(type) { return TYPE_CONFIG[getGroup(type)]?.color || '#9E9E9E'; }
 function usesSpeed(type) { return !!TYPE_CONFIG[getGroup(type)]?.speed; }
 function isCycling(type) { return !!TYPE_CONFIG[getGroup(type)]?.cycling; }
 // <option>s for a type <select>: sports, travel, then Other. Value = the
