@@ -126,12 +126,20 @@ in an existing family rather than inventing a 22nd hue.
   manifest), `og-image.jpg` (link previews)
 - `brand/`: app icons (512, 1024, 1024 rounded) and Discord banners (server
   960×540, profile 680×240)
+- `brand/track-colours-*.png` are map renders used to compare track palettes.
+  **They show the pre-2026-09-20 colours** — regenerate them next time the
+  map is open on both map styles.
 
-## Tried and rejected (2026-09-19)
+## Tried and rejected
 
 So these don't come back by accident:
 
-- **Tracks in rust/sage/tan families.** On the outdoors map, sage nearly
+- **One unique hue per activity type** (the Material 600 set, 2026-09-19).
+  It worked for ten types, but the travel modes and the Strava sport split
+  took it to 21, and the extra hues landed too close together — Rail's brown
+  sat right next to Other's. Replaced 2026-09-20 by reusing hues across
+  activities that never appear side by side.
+- **Tracks in rust/sage/tan families** (2026-09-19). On the outdoors map, sage nearly
   vanished into the forest green and tan washed out, and ten types in three
   families were too hard to tell apart.
 - **A dark outline under tracks.** It fixed the contrast but didn't look

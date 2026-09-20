@@ -70,9 +70,13 @@ to know:
 
 - **Brand palette:** see `docs/brand-colors.md` (rust `--brand-rust` #C1502E is
   the one constant; light mode is the app, forest-dark only for hero screens).
-  Map tracks do NOT use the brand palette: one bright distinct colour per
-  activity type, no dark casing (tried and rejected). Pins default to white
-  for every category; users set colours in Filters → Pins.
+  Map tracks do NOT use the brand palette and are defined in
+  `activity-types.js`: bright colours, no dark casing (tried and rejected),
+  and since 2026-09-20 a hue is deliberately **reused** in a different shade
+  by activities that never sit side by side (red = Run/Motorbike, blue =
+  Road Bike/Swim/Boat…). A new type takes another shade in an existing
+  family rather than a new hue. Pins default to white for every category;
+  users set colours in Filters → Pins.
 - **Tokens, not literals.** Colours/radii/shadows/fonts are CSS variables on
   `:root` (`--bg`, `--surface`, `--text`, `--text-2`, `--text-3`, `--accent`,
   `--r-*`, `--sh-*`, `--font-ui` = Inter, `--font-display` = Fraunces,
@@ -90,6 +94,7 @@ to know:
   there (24px grid, stroke). No unicode glyphs as UI icons.
 - **Dialogs:** never `alert()`/`confirm()`. Use `toast(msg, {error, icon,
   action})` and `await uiConfirm({title, body, ok, danger})`.
+<<<<<<< HEAD
   For a small form use `await uiForm({title, sub, bodyHtml, ok, validate})`
   (resolves to `{name: value}` of its `[name]` inputs, or `null`).
 - **Bulk edits:** Settings → Sharing → *Manage activities* (`openBulkEditor`)
@@ -98,6 +103,23 @@ to know:
   `applyBulkPrivacy`, field edits (type/colour/name) through `applyBulkEdit`
   — both chunk writes, refresh `activity_public` snapshots, and roll back only
   unsaved chunks. Add new bulk actions to `beMoreMenu()` using those.
+=======
+- **Modals on mobile** (<=768px) become bottom sheets. Two rules learned the
+  hard way (2026-09-20, from a user report about the "+ Add" sheet):
+  1. Every modal needs a *visible* dismiss control — a `.modal-actions`
+     Cancel (sticky at the bottom of the sheet on mobile) and/or backdrop
+     tap-to-close (`onclick="if(event.target===this)closeX()"`, the
+     `#lightbox` pattern). The global Escape handler is desktop-only, so a
+     modal without one is a dead end on a phone. `#add-modal` shipped with
+     neither and was unexitable.
+  2. Never size anything inside `.modal-overlay` with `100dvh`. The overlay
+     is `position: fixed`, so iOS Safari lays it out against the *small*
+     viewport while `100dvh` is the *large* one; with
+     `align-items: flex-end` the sheet then overflows off the **top** of the
+     screen, and the overlay isn't scrollable, so the title and first rows
+     are unreachable. Use `calc(100% - ...)` — a percentage of the overlay.
+     Same trap as `#app`'s layout notes in the mobile media query.
+>>>>>>> 3f60369e6308f902a3c32adba6d05d68e56498d5
 - **Escaping:** anything user-authored that goes into an HTML string goes
   through `escapeHtml()`; ids/strings passed into inline `onclick` go through
   `jsAttr()`. Friends' content is rendered now, so a miss is cross-user XSS,
