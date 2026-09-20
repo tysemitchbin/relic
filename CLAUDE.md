@@ -233,11 +233,12 @@ sidebar list both mean "this individual Moment has a written note"
   `#profile-view`'s `.profile-wrap` happens to come first in the DOM
   regardless of which view is actually active, so a global lookup could
   silently measure a hidden, zero-width element.
-- **Stories now require 2+ moments to save** (`saveStory()`) — a Story is a
-  curated group, not a single-activity wrapper; a 1-moment "story" isn't
-  what this feature is for. Grouping is free-form (search/type/date filters
-  in the story modal already support both "this trip" and "Walks in May"
-  style themes) — no change needed there, just the minimum-size rule.
+- **A Story can be just one moment** (`saveStory()` only requires 1+, back
+  to the original rule — a same-session 2+ minimum was tried and reverted:
+  the user, on reflection, was fine with a single-activity Relic). Grouping
+  is otherwise free-form (search/type/date filters in the story modal
+  already support both "this trip" and "Walks in May" style themes) — no
+  code change needed there.
 - **Deferred, not built:** auto-suggesting a Story by grouping a user's
   Moments that share an area and a time window ("relic suggestions"). The
   user raised it as a future idea, not a request for this pass — flagging it

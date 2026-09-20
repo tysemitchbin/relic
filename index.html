@@ -2427,7 +2427,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   <div class="modal story-modal">
     <div class="story-modal-header">
       <div class="modal-title" id="story-modal-title">New Relic</div>
-      <div class="modal-sub">Select 2 or more moments, then build your relic</div>
+      <div class="modal-sub">Select moments, then build your relic</div>
     </div>
     <div class="story-modal-body">
       <div class="story-modal-left">
@@ -7459,7 +7459,7 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   document.getElementById('pp-body').innerHTML = stories.length
     ? stories.map(st => renderPublicStoryCard(st, profile)).join('')
     : emptyBlock('book', own ? 'No relics yet' : `${(profile.name || 'They').split(' ')[0]} hasn't posted a relic yet`,
-        own ? 'This is how other people see your profile. Group 2 or more moments into a Relic to post it here.' : 'Relics are how people here share whole trips and chapters, not single activities.',
+        own ? 'This is how other people see your profile. Turn a moment — or a few — into a Relic to post it here.' : 'Relics are how people here share their trips and chapters.',
         own ? `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>` : '');
   flushCanvasJobs();
   if (focusStoryId) {
@@ -7774,7 +7774,7 @@ function renderProfileStories() {
   // individual Moments live now (tap it to browse them).
   if (stories.length === 0) {
     section.insertAdjacentHTML('beforeend', `<div class="profile-stories-empty">${emptyBlock('book', 'No relics yet',
-      'Group 2 or more moments — a trip, "Walks in May", anything — into a Relic to post it here. Individual moments live on your map, not your profile.',
+      'Turn a moment — or a few — into a Relic to post it here: a trip, "Walks in May", anything. Individual moments live on your map, not your profile.',
       `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>`)}</div>`);
     grid.innerHTML = '';
     return;
@@ -8331,7 +8331,7 @@ function updateStoryPreview() {
 async function saveStory() {
   const title = document.getElementById('sm-title').value.trim();
   if (!title) { document.getElementById('sm-status').textContent = 'Please enter a title.'; return; }
-  if (storySelectedIds.size < 2) { document.getElementById('sm-status').textContent = 'Select at least 2 moments to make a relic.'; return; }
+  if (storySelectedIds.size === 0) { document.getElementById('sm-status').textContent = 'Select at least one moment.'; return; }
 
   const btn = document.getElementById('sm-save-btn');
   btn.disabled = true;
