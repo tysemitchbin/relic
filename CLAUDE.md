@@ -159,6 +159,22 @@ The user was explicit: Profile (yours or someone else's) is not another
 activity list — Strava already does that. It's Stories, curated. Individual
 Moments/activities live behind a click, not on the page.
 
+**UI label vs. code (2026-09-20):** everything a person sees now calls this
+"Relic" ("New Relic", "Relics", "Delete this relic?", etc.) — the user asked
+for the rename explicitly, scoped to visible text only. Every internal name
+stays "Story"/`story` on purpose: `isStory()`, `getStories()`, `openStoryModal`,
+`saveStory()`, `.story-card`/`.story-modal`/`#sm-*` CSS and ids, the
+`stories`/`story_public` Supabase tables and columns (`story_id`, …), the
+`type:'story'` value stored on the object itself. Don't "helpfully" rename
+any of that to match the UI — it's unrelated code, and renaming the table
+needs a migration nobody has asked for. If a future ask does want the code
+renamed too (or the database), treat it as new scope, not a continuation of
+this one. One unrelated concept that intentionally did **not** get renamed:
+"Has story note" (the filter drawer) and the `'story'` badge in the map
+sidebar list both mean "this individual Moment has a written note"
+(`m.note`) — nothing to do with the Story/Relic entity, so they keep saying
+"story" in that different sense.
+
 - **Profile page itself** (`#profile-view` / `#public-profile-view`) now
   shows only: header (photo/name/bio/stats, or avatar/name/bio/stats for a
   public profile), a **map hero** (`.profile-cover-wrap` wrapping
