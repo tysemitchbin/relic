@@ -94,7 +94,6 @@ to know:
   there (24px grid, stroke). No unicode glyphs as UI icons.
 - **Dialogs:** never `alert()`/`confirm()`. Use `toast(msg, {error, icon,
   action})` and `await uiConfirm({title, body, ok, danger})`.
-<<<<<<< HEAD
   For a small form use `await uiForm({title, sub, bodyHtml, ok, validate})`
   (resolves to `{name: value}` of its `[name]` inputs, or `null`).
 - **Bulk edits:** Settings → Sharing → *Manage activities* (`openBulkEditor`)
@@ -103,7 +102,6 @@ to know:
   `applyBulkPrivacy`, field edits (type/colour/name) through `applyBulkEdit`
   — both chunk writes, refresh `activity_public` snapshots, and roll back only
   unsaved chunks. Add new bulk actions to `beMoreMenu()` using those.
-=======
 - **Modals on mobile** (<=768px) become bottom sheets. Two rules learned the
   hard way (2026-09-20, from a user report about the "+ Add" sheet):
   1. Every modal needs a *visible* dismiss control — a `.modal-actions`
@@ -119,7 +117,6 @@ to know:
      screen, and the overlay isn't scrollable, so the title and first rows
      are unreachable. Use `calc(100% - ...)` — a percentage of the overlay.
      Same trap as `#app`'s layout notes in the mobile media query.
->>>>>>> 3f60369e6308f902a3c32adba6d05d68e56498d5
 - **Escaping:** anything user-authored that goes into an HTML string goes
   through `escapeHtml()`; ids/strings passed into inline `onclick` go through
   `jsAttr()`. Friends' content is rendered now, so a miss is cross-user XSS,
