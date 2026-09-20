@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#f4efe6">
+<meta name="theme-color" content="#F4F0E8">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Relic">
@@ -44,31 +44,43 @@
    semantic names (--bg/--surface/--text/--text-2/…). --text-2 and --text-3 are
    both ≥4.5:1 on --bg and --surface (WCAG AA for small text). */
 :root {
-  --ink: #1c1a17;
-  --paper: #fffdf9;
-  --paper2: #f3eee5;
-  --paper3: #e9e2d6;
-  --warm: #d9b98f;
-  --accent: #c0562b;
-  --accent-strong: #9c3f1b;
-  --accent-soft: #f7e6dc;
-  --muted: #6f675b;
-  --border: #e4dccf;
-  --bg: #f4efe6;
-  --surface: #fffdf9;
-  --surface-2: #f3eee5;
-  --text: #1c1a17;
-  --text-2: #5c554b;
-  --text-3: #6f675b;
-  --danger: #b3261e;
-  --success: #2f7d4f;
+  /* Brand palette (docs/brand-colors.md). Rust is the one constant across
+     light and dark; light mode is the app, dark (forest) is hero screens. */
+  --brand-rust: #C1502E;
+  --route-sage: #8FA888;
+  --route-tan: #C9B896;
+  --accent-gold: #B8934A;        /* decorative markers on hero art (map pins use per-category colours) */
+  --forest: #1A2318;             /* dark-mode surface (login, loading, hero) */
+  --forest-deep: #0F140D;
+  --ink-on-dark: #F5F1E8;
+  --ink-on-dark-2: #B8C4B0;
+  --line-faint: #DCD3BF;
+
+  --ink: #2A3324;
+  --paper: #FBF9F4;
+  --paper2: #EDE6D5;
+  --paper3: #E3DAC5;
+  --warm: #C9B896;
+  --accent: var(--brand-rust);
+  --accent-strong: #9A3B22;
+  --accent-soft: #F6E3D9;
+  --muted: #5C6B54;
+  --border: var(--line-faint);
+  --bg: #F4F0E8;
+  --surface: #FBF9F4;
+  --surface-2: #EDE6D5;
+  --text: #2A3324;
+  --text-2: #4B5944;
+  --text-3: #5C6B54;
+  --danger: #B3261E;
+  --success: #3F6B3A;
   --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px; --r-pill: 999px;
-  --sh-1: 0 1px 2px rgba(28,26,23,.06), 0 1px 1px rgba(28,26,23,.03);
-  --sh-2: 0 6px 18px rgba(28,26,23,.08), 0 1px 3px rgba(28,26,23,.06);
-  --sh-3: 0 24px 60px rgba(28,26,23,.22), 0 4px 12px rgba(28,26,23,.08);
+  --sh-1: 0 1px 2px rgba(26,35,24,.06), 0 1px 1px rgba(26,35,24,.03);
+  --sh-2: 0 6px 18px rgba(26,35,24,.08), 0 1px 3px rgba(26,35,24,.06);
+  --sh-3: 0 24px 60px rgba(26,35,24,.22), 0 4px 12px rgba(26,35,24,.08);
   --ease: cubic-bezier(.2,.8,.2,1);
   --header-h: 60px;
   --panel-w: 340px;
@@ -89,19 +101,19 @@ body { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -w
 
 /* ── LOADING ── */
 #loading {
-  position: fixed; inset: 0; background: var(--bg); z-index: 9999;
+  position: fixed; inset: 0; background: radial-gradient(120% 90% at 25% 15%, #2A3A26 0%, var(--forest) 55%, var(--forest-deep) 100%); z-index: 9999;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
   transition: opacity 0.8s ease;
 }
-.loading-mark { width: 64px; height: 64px; animation: fadeUp .8s ease both; filter: drop-shadow(0 8px 20px rgba(192,86,43,.3)); }
+.loading-mark { width: 64px; height: 64px; animation: fadeUp .8s ease both; filter: drop-shadow(0 8px 20px rgba(0,0,0,.35)); }
 .loading-wordmark {
   font-family: var(--font-display); font-size: 44px; font-weight: 600; margin-top: -8px;
-  letter-spacing: -0.02em; color: var(--ink);
+  letter-spacing: -0.02em; color: var(--ink-on-dark);
   animation: fadeUp 1s ease 0.15s both;
 }
-.loading-tagline { font-size: 15px; margin-top: -12px; color: var(--text-2); animation: fadeUp 1s ease 0.5s both; }
-.loading-status { font-size: 13px; color: var(--text-3); animation: fadeUp 1s ease 0.7s both; min-height: 14px; }
-.loading-bar { width: 200px; height: 4px; border-radius: 4px; overflow: hidden; background: var(--paper3); animation: fadeUp 1s ease 0.7s both; }
+.loading-tagline { font-size: 15px; margin-top: -12px; color: var(--ink-on-dark-2); animation: fadeUp 1s ease 0.5s both; }
+.loading-status { font-size: 13px; color: var(--ink-on-dark-2); animation: fadeUp 1s ease 0.7s both; min-height: 14px; }
+.loading-bar { width: 200px; height: 4px; border-radius: 4px; overflow: hidden; background: rgba(245,241,232,.14); animation: fadeUp 1s ease 0.7s both; }
 .loading-fill { height: 100%; border-radius: 4px; background: var(--accent); width: 0%; transition: width 0.5s ease; }
 #loading-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 #loading-actions[hidden] { display: none; }
@@ -111,7 +123,7 @@ body { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -w
   cursor: pointer; -webkit-tap-highlight-color: transparent; transition: opacity 0.15s;
 }
 #loading-actions button:hover { opacity: 0.85; }
-#loading-actions button.ghost { background: var(--surface); color: var(--ink); border-color: var(--border); }
+#loading-actions button.ghost { background: transparent; color: var(--ink-on-dark); border-color: rgba(245,241,232,.3); }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ── LAYOUT ── */
@@ -119,7 +131,7 @@ body { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -w
 
 /* ── HEADER ── */
 #header {
-  height: var(--header-h); background: rgba(255,253,249,0.92); border-bottom: 1px solid var(--border);
+  height: var(--header-h); background: rgba(251,249,244,0.92); border-bottom: 1px solid var(--border);
   -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px);
   display: flex; align-items: center; gap: 20px; padding: 0 20px 0 18px;
   flex-shrink: 0; z-index: 200; position: relative;
@@ -337,7 +349,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .pin-wrap { cursor: pointer; }
 .pin-mk {
   position: relative; width: 34px; height: 34px; border-radius: 50%; background: var(--c, #6b7280);
-  border: 2.5px solid #fff; box-shadow: 0 3px 10px rgba(28,26,23,.35);
+  border: 2.5px solid #fff; box-shadow: 0 0 0 1px rgba(26,35,24,.28), 0 3px 10px rgba(26,35,24,.35);
   display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;
   margin-bottom: 7px; transform: scale(var(--pin-scale, 1)); transform-origin: 50% calc(100% + 7px);
   transition: transform .18s var(--ease);
@@ -380,7 +392,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .coord-bar {
   position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); border-radius: var(--r-pill);
   font: 500 11px var(--font-mono); color: #fff; font-variant-numeric: tabular-nums;
-  background: rgba(28,26,23,0.55); padding: 3px 10px; z-index: 50; pointer-events: none; white-space: nowrap;
+  background: rgba(26,35,24,0.55); padding: 3px 10px; z-index: 50; pointer-events: none; white-space: nowrap;
 }
 .coord-bar:empty { display: none; }
 
@@ -401,7 +413,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .detail-close:hover { background: var(--paper3); color: var(--ink); }
 .detail-type-row { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px; padding: 3px 10px 3px 8px; border-radius: var(--r-pill); background: var(--paper2); }
-.detail-type-dot { width: 8px; height: 8px; border-radius: 50%; }
+.detail-type-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(26,35,24,.25); }
 .detail-type-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
 /* Looks like the label until hovered — the type is editable in place. */
 .detail-type-select { font: 600 12px var(--font-ui); color: var(--text-2); background: transparent; border: 1px solid transparent; border-radius: var(--r-sm); padding: 2px 4px; margin-left: -5px; cursor: pointer; max-width: 100%; }
@@ -453,7 +465,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .photo-thumb-wrap { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: var(--r-sm); }
 .photo-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; cursor: zoom-in; }
 .photo-thumb-wrap .photo-remove {
-  position: absolute; top: 4px; right: 4px; background: rgba(28,26,23,0.72); color: #fff;
+  position: absolute; top: 4px; right: 4px; background: rgba(26,35,24,0.72); color: #fff;
   border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 14px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s;
 }
@@ -663,10 +675,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .profile-wrap { max-width: 880px; width: 100%; margin: 0 auto; padding: 28px 24px 60px; position: relative; }
 .profile-cover {
   height: 180px; border-radius: var(--r-xl); overflow: hidden; position: relative;
-  background: linear-gradient(135deg, #2b3a2e 0%, #4b5f3f 45%, #c0562b 130%);
+  background: linear-gradient(135deg, var(--forest) 0%, #2F3D2A 50%, var(--brand-rust) 140%);
 }
 .profile-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
-.profile-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(28,26,23,.35), transparent 60%); }
+.profile-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(26,35,24,.35), transparent 60%); }
 .profile-hero { display: flex; gap: 22px; align-items: flex-end; margin: -56px 0 0; padding: 0 24px 22px; position: relative; z-index: 1; border-bottom: none; }
 .profile-photo-wrap { cursor: pointer; flex-shrink: 0; position: relative; }
 .profile-photo {
@@ -747,7 +759,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
    display rule below (a plain #empty-state{display:flex} would keep the card on screen
    forever). No pointer-events:none here — a pointer-events:auto child inside a
    pointer-events:none parent loses taps in iOS Safari, which broke the ✕ / buttons. */
-#empty-state { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(244,239,230,.55); }
+#empty-state { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(244,240,232,.55); }
 #empty-state[hidden] { display: none; }
 /* Retrospective entry — same [hidden] pattern as #empty-state above: these
    two also need `display:flex` when shown, so that has to live here (not as
@@ -777,7 +789,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #reveal {
   position: absolute; inset: 0; z-index: 400;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(28,26,23,0.93); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  background: rgba(26,35,24,0.93); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
   opacity: 0; transition: opacity 0.6s ease; pointer-events: none;
 }
 #reveal.show { opacity: 1; }
@@ -875,7 +887,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .hex-img { width: 100%; height: 100%; object-fit: cover; }
 .hex-overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(28,26,23,0.85) 0%, rgba(28,26,23,0.1) 60%);
+  background: linear-gradient(to top, rgba(26,35,24,0.85) 0%, rgba(26,35,24,0.1) 60%);
   display: flex; flex-direction: column; justify-content: flex-end; padding: 16px 14px 26px; text-align: center;
 }
 .hex-map { position: absolute; inset: 0; }
@@ -884,7 +896,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .hex-mood { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 15px; }
 
 /* ── NOTIFICATIONS DRAWER ── */
-#notif-backdrop { position: fixed; inset: 0; background: rgba(28,26,23,0.3); z-index: 840; opacity: 0; pointer-events: none; transition: opacity .25s; }
+#notif-backdrop { position: fixed; inset: 0; background: rgba(26,35,24,0.3); z-index: 840; opacity: 0; pointer-events: none; transition: opacity .25s; }
 #notif-backdrop.open { opacity: 1; pointer-events: auto; }
 #notif-drawer {
   position: fixed; top: 0; right: 0; bottom: 0; width: 400px; max-width: 100vw; z-index: 850;
@@ -899,7 +911,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .notif { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-md); cursor: pointer; position: relative; }
 .notif:hover { background: var(--paper2); }
 .notif.unread { background: var(--accent-soft); }
-.notif.unread:hover { background: #f3dccf; }
+.notif.unread:hover { background: #F1D8CB; }
 .notif .av { margin-top: 2px; }
 .notif-badge { position: absolute; left: 44px; top: 38px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; border: 2px solid var(--surface); }
 .notif-badge .ic { width: 11px; height: 11px; stroke-width: 2.6; }
@@ -930,7 +942,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 /* ── MODALS + BUTTONS + FORM CONTROLS ── */
 .modal-overlay {
-  display: none; position: fixed; inset: 0; background: rgba(28,26,23,0.5); z-index: 500;
+  display: none; position: fixed; inset: 0; background: rgba(26,35,24,0.5); z-index: 500;
   align-items: center; justify-content: center; padding: 16px;
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
@@ -1001,6 +1013,71 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .choice b { display: block; font: 600 15px var(--font-ui); color: var(--ink); }
 .choice span { display: block; font-size: 13px; color: var(--text-3); margin-top: 2px; }
 .choice .chev { margin-left: auto; color: var(--text-3); }
+
+/* Bulk editor (Settings → Sharing → Manage activities) */
+.bulk-modal { width: 720px; padding: 0; display: flex; flex-direction: column; max-height: 90vh; overflow: hidden; }
+.bulk-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 16px 14px 24px; border-bottom: 1px solid var(--border); }
+.bulk-filters { padding: 14px 24px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.bulk-filter-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+.be-select { width: auto; padding: 7px 10px; }
+.be-colour-row { display: flex; flex-direction: column; gap: 14px; }
+.be-colour { width: 100%; height: 48px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); padding: 4px; cursor: pointer; }
+#form-modal .modal { width: 440px; }
+#form-modal .modal-select, #form-modal .modal-input { margin-bottom: 10px; }
+.bulk-dates { display: flex; align-items: center; gap: 6px; color: var(--text-3); }
+.bulk-dates .fd-input { width: 150px; padding: 7px 10px; }
+.bulk-filters .fd-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; }
+.bulk-filters .fd-chip .av-type-dot { margin: 0; }
+.bulk-filters .fd-chip:not(.on) .av-type-dot { opacity: .35; }
+.bulk-listhead { display: flex; align-items: center; justify-content: space-between; padding: 10px 24px; border-bottom: 1px solid var(--border); font: 600 14px var(--font-ui); }
+.bulk-listhead label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.bulk-listhead input, .be-row input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.bulk-listhead .link-btn { font: 600 13px var(--font-ui); color: var(--accent); background: none; border: none; cursor: pointer; }
+.bulk-list { flex: 1; min-height: 180px; overflow-y: auto; padding: 6px 12px; overscroll-behavior: contain; }
+.be-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: var(--r-md); cursor: pointer; }
+.be-row:hover { background: var(--paper2); }
+.be-row.selected { background: var(--accent-soft); }
+.be-row .av-type-dot { margin: 0; flex-shrink: 0; }
+.be-name { flex: 1; min-width: 0; font: 600 14px var(--font-ui); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.be-name small { display: block; font-weight: 400; font-size: 12px; color: var(--text-3); }
+.vis-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: var(--r-pill); background: var(--paper2); color: var(--text-2); flex-shrink: 0; }
+.vis-pill .ic { width: 13px; height: 13px; }
+.vis-pill.pub { background: #E2EADC; color: var(--success); }
+.bulk-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px 12px 24px; background: var(--ink); color: #fff; flex-shrink: 0;
+}
+.bb-count { font-size: 14px; }
+.bb-count b { font-size: 16px; }
+.bb-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bulk-bar .btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,.3); }
+.bulk-bar .btn-ghost:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.5); }
+.bulk-bar button:disabled, .bulk-bar select:disabled { opacity: .4; cursor: not-allowed; }
+.bb-radius { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: rgba(255,255,255,.8); }
+.bb-radius select { height: 34px; border-radius: var(--r-pill); border: 1px solid rgba(255,255,255,.3); background: transparent; color: #fff; padding: 0 10px; font: 500 13px var(--font-ui); }
+.bb-radius option { color: var(--ink); }
+@media (max-width: 768px) {
+  .bulk-modal { height: calc(100dvh - 12px - var(--safe-t)); max-height: none; }
+  .bulk-modal::before { margin: 8px auto 0; }
+  .bulk-head { padding: 10px 12px 12px 18px; }
+  .bulk-filters, .bulk-listhead { padding-left: 16px; padding-right: 16px; }
+  .bulk-dates { width: 100%; } .bulk-dates .fd-input { flex: 1; width: auto; }
+  #be-vis { width: 100%; } #be-vis button { flex: 1; }
+  /* Phone: the whole sheet scrolls (filters included) and the action bar
+     stays pinned, instead of the list squeezing the bar off-screen. */
+  .bulk-modal { overflow-y: auto; }
+  .bulk-list { flex: none; min-height: 0; overflow: visible; padding: 4px 6px; }
+  .bulk-filters .fd-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .bulk-filters .fd-chips::-webkit-scrollbar { display: none; }
+  .bulk-filters .fd-chip { flex-shrink: 0; }
+  .be-select { flex: 1; }
+  .bulk-bar { position: sticky; bottom: 0; padding: 10px 14px calc(10px + var(--safe-b)); }
+  .bulk-bar { gap: 8px; }
+  .bulk-bar .bb-actions { flex-wrap: nowrap; gap: 6px; }
+  .bulk-bar .btn-sm { padding: 0 8px; font-size: 13px; min-width: 0; }
+  .bulk-bar .btn-sm .ic { display: none; }
+  .bb-actions { width: 100%; } .bb-actions .btn-sm { flex: 1; }
+}
 
 /* Confirm sheet */
 #confirm-modal .modal { width: 420px; }
@@ -1109,7 +1186,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card-type-dot { width: 8px; height: 8px; border-radius: 50%; }
 .story-card-badge {
   position: absolute; top: 10px; left: 10px; font-size: 12px; font-weight: 600;
-  background: rgba(28,26,23,0.72); color: #fff; padding: 3px 10px; border-radius: var(--r-pill);
+  background: rgba(26,35,24,0.72); color: #fff; padding: 3px 10px; border-radius: var(--r-pill);
   -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
 }
 .story-card-actions { display: flex; gap: 6px; margin-top: 12px; }
@@ -1177,7 +1254,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .tab-add { flex: 0 0 72px; }
 .tab-add .tab-add-circle {
   width: 50px; height: 50px; border-radius: 17px; background: var(--accent); color: #fff;
-  display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(192,86,43,.35);
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(193,80,46,.35);
   transition: transform .15s;
 }
 .tab-add:active .tab-add-circle { transform: scale(.94); }
@@ -1214,7 +1291,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   /* Bottom tab bar — in flow at the bottom of the column */
   #mobile-tabbar {
     display: flex; align-items: center; flex-shrink: 0; z-index: 450;
-    background: rgba(255,253,249,.96); border-top: 1px solid var(--border);
+    background: rgba(251,249,244,.96); border-top: 1px solid var(--border);
     -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
     padding: 0 4px var(--safe-b);
   }
@@ -1321,8 +1398,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 }
 #login.show { display: flex; }
 .login-brand {
-  flex: 1.1; position: relative; overflow: hidden; color: #fff; padding: 48px;
-  background: radial-gradient(120% 90% at 20% 10%, #3b4a36 0%, #232a22 55%, #1c1a17 100%);
+  flex: 1.1; position: relative; overflow: hidden; color: var(--ink-on-dark); padding: 48px;
+  background: radial-gradient(120% 90% at 20% 10%, #2A3A26 0%, var(--forest) 55%, var(--forest-deep) 100%);
   display: flex; flex-direction: column; justify-content: space-between; gap: 24px;
 }
 .login-brand svg.lb-map { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55; }
@@ -1331,8 +1408,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .lb-top span { font: 600 28px var(--font-display); letter-spacing: -0.01em; }
 .lb-copy { position: relative; max-width: 460px; }
 .lb-copy h1 { font: 600 clamp(34px, 4vw, 52px)/1.05 var(--font-display); letter-spacing: -0.03em; margin-bottom: 16px; }
-.lb-copy p { font-size: 17px; line-height: 1.55; color: rgba(255,255,255,.78); }
-.lb-points { position: relative; display: flex; gap: 22px; flex-wrap: wrap; font-size: 14px; color: rgba(255,255,255,.8); }
+.lb-copy p { font-size: 17px; line-height: 1.55; color: var(--ink-on-dark-2); }
+.lb-points { position: relative; display: flex; gap: 22px; flex-wrap: wrap; font-size: 14px; color: var(--ink-on-dark-2); }
 .lb-points span { display: inline-flex; align-items: center; gap: 8px; }
 .lb-points .ic { width: 18px; height: 18px; color: var(--warm); }
 .login-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 24px; gap: 16px; }
@@ -1383,7 +1460,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 
 /* ── FILTER DRAWER ── */
 #filter-backdrop {
-  position: fixed; inset: 0; background: rgba(28,26,23,0.3); z-index: 840;
+  position: fixed; inset: 0; background: rgba(26,35,24,0.3); z-index: 840;
   opacity: 0; pointer-events: none; transition: opacity 0.28s ease;
 }
 #filter-backdrop.open { opacity: 1; pointer-events: auto; }
@@ -1516,7 +1593,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 <!-- ICON SPRITE — stroke icons on a 24px grid (Feather/Lucide-style paths).
      Use as <svg class="ic"><use href="#i-name"/></svg>. -->
 <svg id="icon-sprite" xmlns="http://www.w3.org/2000/svg" style="display:none">
-  <symbol id="logo-mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#c0562b"/><path d="M8.5 22.5c2.6-.6 3.6-4.6 6.6-5.6s4.4 1.6 7.2-1.1c1.9-1.9 1.7-5.3 1.7-5.3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="8.5" cy="22.5" r="2.5" fill="#fff"/><circle cx="24" cy="10.5" r="2.5" fill="#fff" stroke="#c0562b" stroke-width="0"/></symbol>
+  <symbol id="logo-mark" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#C1502E"/><path d="M8.5 22.5c2.6-.6 3.6-4.6 6.6-5.6s4.4 1.6 7.2-1.1c1.9-1.9 1.7-5.3 1.7-5.3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="8.5" cy="22.5" r="2.5" fill="#fff"/><circle cx="24" cy="10.5" r="2.5" fill="#fff" stroke="#C1502E" stroke-width="0"/></symbol>
   <symbol id="i-map" viewBox="0 0 24 24"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></symbol>
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 9.5 12 3l9 6.5V20a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 20z"/><polyline points="9 21.5 9 13 15 13 15 21.5"/></symbol>
   <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
@@ -1569,11 +1646,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           <path d="M-20 520c120-40 200 30 300 0s140-70 220-40 120 30 120 30"/><path d="M-20 570c120-40 210 35 310 5s140-65 210-35 120 30 120 30"/>
           <path d="M60 720c20-90 90-140 70-230s40-150 120-170 160 20 200-40"/><path d="M110 720c20-90 90-140 70-230s40-150 120-170 160 20 200-40"/>
         </g>
-        <path d="M70 610c40-40 60-110 120-130s90 30 140-10 40-120 100-150 90-10 120-60" stroke="#c0562b" stroke-width="3.5"/>
-        <path d="M40 300c50 10 90-40 150-20s60 90 130 90 90-70 160-60 70 40 120 30" stroke="#d9b98f" stroke-width="3"/>
-        <path d="M200 60c-10 60 40 100 20 160s-70 80-40 150 110 60 120 130" stroke="#8fb38a" stroke-width="3"/>
-        <circle cx="70" cy="610" r="6" fill="#c0562b"/><circle cx="550" cy="140" r="6" fill="#c0562b"/>
-        <circle cx="40" cy="300" r="5" fill="#d9b98f"/><circle cx="200" cy="60" r="5" fill="#8fb38a"/>
+        <path d="M70 610c40-40 60-110 120-130s90 30 140-10 40-120 100-150 90-10 120-60" stroke="#C1502E" stroke-width="3.5"/>
+        <path d="M40 300c50 10 90-40 150-20s60 90 130 90 90-70 160-60 70 40 120 30" stroke="#C9B896" stroke-width="3"/>
+        <path d="M200 60c-10 60 40 100 20 160s-70 80-40 150 110 60 120 130" stroke="#8FA888" stroke-width="3"/>
+        <circle cx="70" cy="610" r="6" fill="#B8934A"/><circle cx="550" cy="140" r="6" fill="#B8934A"/>
+        <circle cx="40" cy="300" r="5" fill="#B8934A"/><circle cx="200" cy="60" r="5" fill="#B8934A"/>
       </g>
     </svg>
     <div class="lb-top"><svg class="wordmark-mark" viewBox="0 0 32 32"><use href="#logo-mark"/></svg><span>Relic</span></div>
@@ -1992,6 +2069,15 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
               <button class="btn-ghost" onclick="bulkSetVisibility(false)"><svg class="ic"><use href="#i-lock"/></svg>Make all private</button>
             </div>
           </div>
+          <div class="strava-row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <div class="strava-info">
+              <div class="strava-title">Choose which activities to share</div>
+              <div class="strava-state">Filter by type, date or visibility, select as many as you like, and change them all at once.</div>
+            </div>
+            <div class="strava-actions">
+              <button class="btn-ghost" onclick="openBulkEditor()"><svg class="ic"><use href="#i-sliders"/></svg>Manage activities</button>
+            </div>
+          </div>
           <div class="detail-section-sub" style="margin:12px 0 0">Public activities show on your profile and in your followers' feeds. When you make everything public, Relic hides the first and last 500 m of each track, so your home stays private. You can change this for any single activity from its detail panel.</div>
         </div>
         <div class="strava-section">
@@ -2176,6 +2262,66 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="modal-actions">
       <button class="btn-ghost" id="confirm-cancel">Cancel</button>
       <button class="btn-primary" id="confirm-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORM SHEET (uiForm) — small one-off forms, e.g. bulk rename / change type -->
+<div class="modal-overlay" id="form-modal">
+  <div class="modal">
+    <div class="modal-title" id="form-title"></div>
+    <div class="modal-sub" id="form-sub"></div>
+    <form id="form-body" onsubmit="return false"></form>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="form-cancel">Cancel</button>
+      <button class="btn-primary" id="form-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK EDITOR (Settings → Sharing → Manage activities) -->
+<div class="modal-overlay" id="bulk-modal">
+  <div class="modal bulk-modal">
+    <div class="bulk-head">
+      <div>
+        <div class="modal-title">Manage activities</div>
+        <div class="modal-sub" style="margin:0">Filter, select, then change them all at once.</div>
+      </div>
+      <button class="fd-close" onclick="closeBulkEditor()" aria-label="Close">&times;</button>
+    </div>
+    <div class="bulk-filters">
+      <input class="sb-search" id="be-search" type="search" placeholder="Search by name" oninput="beSet('search', this.value)">
+      <div class="bulk-filter-row">
+        <div class="seg" id="be-vis">
+          <button data-v="all" class="active" onclick="beSet('vis','all')">All</button>
+          <button data-v="public" onclick="beSet('vis','public')">Public</button>
+          <button data-v="private" onclick="beSet('vis','private')">Private</button>
+        </div>
+        <select class="fd-input be-select" id="be-color" onchange="beSet('color', this.value)" aria-label="Filter by colour">
+          <option value="any">Any colour</option>
+          <option value="custom">Custom colour</option>
+          <option value="default">Default colour</option>
+        </select>
+        <div class="bulk-dates">
+          <input class="fd-input" type="date" id="be-from" onchange="beSet('from', this.value)" aria-label="From date">
+          <span>–</span>
+          <input class="fd-input" type="date" id="be-to" onchange="beSet('to', this.value)" aria-label="To date">
+        </div>
+      </div>
+      <div class="fd-chips" id="be-types"></div>
+    </div>
+    <div class="bulk-listhead">
+      <label><input type="checkbox" id="be-all" onchange="beSelectAll(this.checked)"> <span id="be-count"></span></label>
+      <button class="link-btn" id="be-clear" onclick="beClearSel()">Clear selection</button>
+    </div>
+    <div class="bulk-list" id="be-list"></div>
+    <div class="bulk-bar" id="be-bar">
+      <div class="bb-count"><b id="be-n">0</b> selected</div>
+      <div class="bb-actions">
+        <button class="btn-primary btn-sm" onclick="beAction('public')"><svg class="ic"><use href="#i-globe"/></svg>Make public</button>
+        <button class="btn-ghost btn-sm" onclick="beAction('private')"><svg class="ic"><use href="#i-lock"/></svg>Make private</button>
+        <button class="btn-ghost btn-sm" id="be-more" onclick="beMoreMenu(event)"><svg class="ic"><use href="#i-more"/></svg>More actions</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2445,22 +2591,23 @@ const MOODS = [
 // categories never enter TYPE_GROUP_MAP's reverse lookup, which assumes
 // GPS-shaped tracked activities.
 const PIN_CATEGORIES = {
-  restaurant: { label:'Restaurant', color:'#d97706', icon:'🍽️' },
-  cafe_bar: { label:'Cafe / Bar', color:'#92400e', icon:'☕' },
-  accommodation: { label:'Accommodation', color:'#0ea5e9', icon:'🏨' },
-  shop: { label:'Shop', color:'#7c3aed', icon:'🛍️' },
-  nature: { label:'Nature', color:'#16a34a', icon:'🌿' },
-  camping: { label:'Camping Spot', color:'#0d9488', icon:'⛺' },
-  mountain: { label:'Mountain', color:'#57534e', icon:'⛰️' },
-  home: { label:'Home (Past or Present)', color:'#c0392b', icon:'🏠' },
-  school: { label:'School', color:'#2563eb', icon:'🎓' },
-  job: { label:'Job', color:'#374151', icon:'💼' },
-  special: { label:'Special Place', color:'#e11d48', icon:'✨' },
-  other: { label:'Other', color:'#6b7280', icon:'📍' },
+  restaurant: { label:'Restaurant', color:'#FFFFFF', icon:'🍽️' },
+  cafe_bar: { label:'Cafe / Bar', color:'#FFFFFF', icon:'☕' },
+  accommodation: { label:'Accommodation', color:'#FFFFFF', icon:'🏨' },
+  shop: { label:'Shop', color:'#FFFFFF', icon:'🛍️' },
+  nature: { label:'Nature', color:'#FFFFFF', icon:'🌿' },
+  camping: { label:'Camping Spot', color:'#FFFFFF', icon:'⛺' },
+  mountain: { label:'Mountain', color:'#FFFFFF', icon:'⛰️' },
+  home: { label:'Home (Past or Present)', color:'#FFFFFF', icon:'🏠' },
+  school: { label:'School', color:'#FFFFFF', icon:'🎓' },
+  job: { label:'Job', color:'#FFFFFF', icon:'💼' },
+  special: { label:'Special Place', color:'#FFFFFF', icon:'✨' },
+  other: { label:'Other', color:'#FFFFFF', icon:'📍' },
   // Auto-managed — created/synced by syncAirportPins() from Flight moments,
   // not offered in the manual "add a pin" category picker. See below.
-  airport: { label:'Airport', color:'#0891b2', icon:'✈️' },
+  airport: { label:'Airport', color:'#FFFFFF', icon:'✈️' },
 };
+// Pins default to white; users pick category colours in Filters → Pins.
 let activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
 function getPinCategory(cat) { return PIN_CATEGORIES[cat] || PIN_CATEGORIES.other; }
 function getPinColor(cat) { return getPinCategory(cat).color; }
@@ -5328,10 +5475,36 @@ function openMenu(anchor, items) {
     m.appendChild(b);
   });
   const r = anchor.getBoundingClientRect();
-  m.style.top = (r.bottom + 6) + 'px';
   m.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
   m.style.left = 'auto';
-  m.hidden = false;
+  m.style.top = '0px'; m.hidden = false;
+  const h = m.offsetHeight;
+  m.style.top = (r.bottom + 6 + h > window.innerHeight - 8 ? Math.max(8, r.top - 6 - h) : r.bottom + 6) + 'px';
+}
+// Promise-based small form: resolves to { name: value } for the form's
+// [name] inputs, or null if cancelled. bodyHtml must already be escaped.
+function uiForm({ title, sub, bodyHtml, ok = 'Save', danger = false, validate }) {
+  return new Promise(resolve => {
+    const m = document.getElementById('form-modal'), body = document.getElementById('form-body');
+    document.getElementById('form-title').textContent = title || '';
+    document.getElementById('form-sub').textContent = sub || '';
+    document.getElementById('form-sub').hidden = !sub;
+    body.innerHTML = bodyHtml || '';
+    const okB = document.getElementById('form-ok'), noB = document.getElementById('form-cancel');
+    okB.textContent = ok; okB.classList.toggle('danger', !!danger);
+    const values = () => Object.fromEntries([...body.querySelectorAll('[name]')].map(el => [el.name, el.type === 'checkbox' ? el.checked : el.value]));
+    const refresh = () => { okB.disabled = validate ? !validate(values()) : false; };
+    body.oninput = body.onchange = refresh; refresh();
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+    function done(v) { m.classList.remove('open'); okB.onclick = noB.onclick = m.onclick = body.oninput = body.onchange = null; document.removeEventListener('keydown', onKey, true); resolve(v); }
+    okB.onclick = () => { if (!okB.disabled) done(values()); };
+    noB.onclick = () => done(null);
+    body.onsubmit = () => { if (!okB.disabled) done(values()); return false; };
+    m.onclick = e => { if (e.target === m) done(null); };
+    document.addEventListener('keydown', onKey, true);
+    m.classList.add('open');
+    setTimeout(() => body.querySelector('input,select,textarea')?.focus(), 40);
+  });
 }
 document.addEventListener('click', e => {
   const am = document.getElementById('account-menu');
@@ -5768,7 +5941,7 @@ function renderOnThisDay() {
   const years = new Date().getFullYear() - +m.date.slice(0, 4);
   const color = m.customColor || getColor(m.type);
   const poly = encodedPolyOf(m);
-  const thumb = poly ? mapboxStaticImg([`path-4+${color.replace('#', '')}-0.9(${encodeURIComponent(poly)})`], 184, 184) : '';
+  const thumb = poly ? mapboxStaticImg([pathOv(poly, color.replace('#', ''), 4, 0.9)], 184, 184) : '';
   return `<div class="card otd-card" onclick="goToActivity(${jsAttr(m.id)})">
     <div class="otd-thumb">${thumb}</div>
     <div style="min-width:0;flex:1"><div class="otd-kicker">On this day · ${years} year${years > 1 ? 's' : ''} ago</div>
@@ -5798,7 +5971,7 @@ function buildFeed() {
 // One card renderer for everyone's activities. `it` is a normalised item —
 // see itemFromMoment() / itemFromPublicRow().
 function renderActivityCard(it) {
-  const color = it.color || '#c0562b';
+  const color = it.color || '#C1502E';
   const group = getGroup(it.type);
   const typeLabel = TYPE_CONFIG[group]?.label || it.type || 'Activity';
   const authorClick = it.isOwn ? `switchView('profile')` : `openPublicProfile(${jsAttr(it.ownerId)})`;
@@ -5824,7 +5997,7 @@ function renderActivityCard(it) {
   if (it.polylines && it.polylines.length) {
     const cid = 'fcv-' + Math.random().toString(36).slice(2, 9);
     const stroke = color.replace('#', '');
-    h += `<div class="fc-map" onclick="${open}"><canvas id="${cid}" width="640" height="260"></canvas>${mapboxStaticImg(it.polylines.map(p => `path-4+${stroke}-0.9(${encodeURIComponent(p)})`), 640, 260)}</div>`;
+    h += `<div class="fc-map" onclick="${open}"><canvas id="${cid}" width="640" height="260"></canvas>${mapboxStaticImg(it.polylines.map(p => pathOv(p, stroke, 4, 0.9)), 640, 260)}</div>`;
     _canvasJobs.push({ id: cid, polylines: it.polylines, color });
   }
   if (it.photos && it.photos.length) h += `<div class="fc-photos">${it.photos.slice(0, 3).map(u => `<img src="${escapeHtml(u)}" alt="" loading="lazy" style="cursor:zoom-in" onclick="openLightboxUrl(this.src)">`).join('')}</div>`;
@@ -5856,7 +6029,7 @@ function flushCanvasJobs() {
     all.forEach(([x, y]) => { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); });
     const sc = Math.min((W - pad * 2) / (maxX - minX || 1), (H - pad * 2) / (maxY - minY || 1));
     const ox = (W - (maxX - minX) * sc) / 2, oy = (H - (maxY - minY) * sc) / 2;
-    ctx.fillStyle = '#efe9dd'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#EDE6D5'; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = j.color; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     segs.forEach(s => { ctx.beginPath(); s.forEach(([x, y], i) => { const px = ox + (x - minX) * sc, py = H - oy - (y - minY) * sc; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); });
   }));
@@ -6130,15 +6303,15 @@ async function renderShareCard(o) {
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
   try { await Promise.all([document.fonts.load('600 64px Fraunces'), document.fonts.load('600 32px Inter'), document.fonts.load('700 44px Inter')]); } catch (e) {}
-  ctx.fillStyle = '#f4efe6'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#F4F0E8'; ctx.fillRect(0, 0, W, H);
   // Map: Mapbox static image when the URL fits, otherwise our own drawing.
   const segs = [];
-  (o.polylines || []).forEach((p, i) => { try { const c = decodePolyline(p); if (c.length > 1) segs.push({ c, color: (o.colors || [])[i] || o.color || '#c0562b' }); } catch (e) {} });
+  (o.polylines || []).forEach((p, i) => { try { const c = decodePolyline(p); if (c.length > 1) segs.push({ c, color: (o.colors || [])[i] || o.color || '#C1502E' }); } catch (e) {} });
   let drewMap = false;
   if (segs.length) {
     const overlays = []; let budget = 7400;
     (o.polylines || []).forEach((p, i) => {
-      const seg = `path-6+${(((o.colors || [])[i]) || o.color || '#c0562b').replace('#', '')}-1(${encodeURIComponent(p)})`;
+      const seg = pathOv(p, (((o.colors || [])[i]) || o.color || '#C1502E').replace('#', ''), 6, 1);
       if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
     });
     if (overlays.length) {
@@ -6156,18 +6329,18 @@ async function renderShareCard(o) {
       segs.forEach(s => { ctx.strokeStyle = s.color; ctx.beginPath(); s.c.forEach(([x, y], i) => { const px = ox + (x - minX) * sc, py = MAP_H - oy - (y - minY) * sc; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }); ctx.stroke(); });
     }
   } else {
-    const g = ctx.createLinearGradient(0, 0, W, MAP_H); g.addColorStop(0, '#2b3a2e'); g.addColorStop(1, '#c0562b');
+    const g = ctx.createLinearGradient(0, 0, W, MAP_H); g.addColorStop(0, '#1A2318'); g.addColorStop(1, '#C1502E');
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, MAP_H);
   }
   // Soft fade from map into the paper panel
-  const fade = ctx.createLinearGradient(0, MAP_H - 120, 0, MAP_H); fade.addColorStop(0, 'rgba(244,239,230,0)'); fade.addColorStop(1, 'rgba(244,239,230,1)');
+  const fade = ctx.createLinearGradient(0, MAP_H - 120, 0, MAP_H); fade.addColorStop(0, 'rgba(244,240,232,0)'); fade.addColorStop(1, 'rgba(244,240,232,1)');
   ctx.fillStyle = fade; ctx.fillRect(0, MAP_H - 120, W, 120);
   // Kicker (type · date)
   let y = MAP_H + 40;
-  ctx.fillStyle = '#c0562b'; ctx.font = '700 30px Inter, sans-serif';
+  ctx.fillStyle = '#C1502E'; ctx.font = '700 30px Inter, sans-serif';
   ctx.fillText(String(o.kicker || '').toUpperCase(), 72, y); y += 22;
   // Title
-  ctx.fillStyle = '#1c1a17'; ctx.font = '600 74px Fraunces, Georgia, serif';
+  ctx.fillStyle = '#2A3324'; ctx.font = '600 74px Fraunces, Georgia, serif';
   _wrapText(ctx, o.title || 'Untitled', W - 144, 2).forEach(line => { y += 80; ctx.fillText(line, 72, y); });
   // Stats
   y += 150;
@@ -6175,17 +6348,17 @@ async function renderShareCard(o) {
   const colW = (W - 144) / Math.max(1, stats.length);
   stats.forEach(([label, val], i) => {
     const x = 72 + i * colW;
-    ctx.fillStyle = '#6f675b'; ctx.font = '500 30px Inter, sans-serif'; ctx.fillText(label, x, y - 56);
-    ctx.fillStyle = '#1c1a17'; ctx.font = '700 58px Inter, sans-serif'; ctx.fillText(val, x, y);
+    ctx.fillStyle = '#5C6B54'; ctx.font = '500 30px Inter, sans-serif'; ctx.fillText(label, x, y - 56);
+    ctx.fillStyle = '#2A3324'; ctx.font = '700 58px Inter, sans-serif'; ctx.fillText(val, x, y);
   });
   // Footer: brand + author
   const fy = H - 64;
-  ctx.fillStyle = '#c0562b';
+  ctx.fillStyle = '#C1502E';
   if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(72, fy - 44, 56, 56, 16); ctx.fill(); } else ctx.fillRect(72, fy - 44, 56, 56);
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(86, fy - 4); ctx.bezierCurveTo(98, fy - 8, 100, fy - 24, 108, fy - 24); ctx.bezierCurveTo(118, fy - 24, 116, fy - 34, 114, fy - 32); ctx.stroke();
-  ctx.fillStyle = '#1c1a17'; ctx.font = '600 44px Fraunces, Georgia, serif'; ctx.fillText('Relic', 144, fy);
-  if (o.author) { ctx.fillStyle = '#6f675b'; ctx.font = '500 30px Inter, sans-serif'; ctx.textAlign = 'right'; ctx.fillText(o.author, W - 72, fy); ctx.textAlign = 'left'; }
+  ctx.fillStyle = '#2A3324'; ctx.font = '600 44px Fraunces, Georgia, serif'; ctx.fillText('Relic', 144, fy);
+  if (o.author) { ctx.fillStyle = '#5C6B54'; ctx.font = '500 30px Inter, sans-serif'; ctx.textAlign = 'right'; ctx.fillText(o.author, W - 72, fy); ctx.textAlign = 'left'; }
   return new Promise(res => cv.toBlob(res, 'image/png'));
 }
 async function shareAsImage(o) {
@@ -6300,11 +6473,11 @@ function renderPublicStoryCard(r, prof) {
   const mood = MOODS.find(m => m.id === r.mood);
   const overlays = []; let budget = 7400;
   (r.polylines || []).forEach((p, i) => {
-    const seg = `path-3+${((r.colors || [])[i] || '#c0562b').replace('#', '')}-0.9(${encodeURIComponent(p)})`;
+    const seg = pathOv(p, ((r.colors || [])[i] || '#C1502E').replace('#', ''), 3, 0.9);
     if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
   });
   const cid = 'fcs-' + Math.random().toString(36).slice(2, 9);
-  if (r.polylines && r.polylines.length) _canvasJobs.push({ id: cid, polylines: r.polylines, color: (r.colors || [])[0] || '#c0562b' });
+  if (r.polylines && r.polylines.length) _canvasJobs.push({ id: cid, polylines: r.polylines, color: (r.colors || [])[0] || '#C1502E' });
   return `<article class="feed-card story-card-feed" data-story="${escapeHtml(socialKey(r.user_id, r.story_id))}">
     <header class="fc-header">
       <div class="fc-avatar" onclick="${authorClick}">${avatarHtml(prof?.avatarUrl, prof?.name, 'av-44', r.user_id)}</div>
@@ -6333,7 +6506,7 @@ function drawFeedStoryMap(story, canvasId) {
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
   var W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#f5f0e8';
+  ctx.fillStyle = '#EDE6D5';
   ctx.fillRect(0, 0, W, H);
 
   var tracks = [];
@@ -6385,6 +6558,11 @@ function encodedPolyOf(m) {
   if (!c || c.length < 2) return null;
   try { return encodePolyline(c); } catch (e) { return null; }
 }
+// A track overlay for the Static Images API.
+function pathOv(poly, color, width, opacity) {
+  const hex = String(color || '#C1502E').replace('#', '');
+  return `path-${width}+${hex}-${opacity}(${encodeURIComponent(poly)})`;
+}
 function mapboxStaticImg(overlays, w, h) {
   if (!overlays.length) return '';
   const url = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${overlays.join(',')}/auto/${w}x${h}@2x`
@@ -6396,7 +6574,7 @@ function staticMapImg(mem, color, w, h) {
   const poly = encodedPolyOf(mem);
   if (!poly) return '';
   const stroke = (color || '#c0392b').replace('#', '');
-  return mapboxStaticImg([`path-4+${stroke}-0.9(${encodeURIComponent(poly)})`], w, h);
+  return mapboxStaticImg([pathOv(poly, stroke, 4, 0.9)], w, h);
 }
 // Story = one map with every child moment's track, coloured per type. Adds tracks
 // until the URL budget runs out, so a big story still gets most of its tracks.
@@ -6409,7 +6587,7 @@ function staticStoryMapImg(story, w, h) {
     const poly = encodedPolyOf(m);
     if (!poly) return;
     const stroke = (m.customColor || getColor(m.type) || '#c0392b').replace('#', '');
-    const seg = `path-3+${stroke}-0.9(${encodeURIComponent(poly)})`;
+    const seg = pathOv(poly, stroke, 3, 0.9);
     if (seg.length + 1 > budget) return;
     overlays.push(seg);
     budget -= seg.length + 1;
@@ -6428,7 +6606,7 @@ function drawFeedMap(memId, coords, color, canvasId) {
   const scaleX=(W-pad*2)/(maxX-minX||1), scaleY=(H-pad*2)/(maxY-minY||1), scale=Math.min(scaleX,scaleY);
   const offX=(W-(maxX-minX)*scale)/2, offY=(H-(maxY-minY)*scale)/2;
   // Background
-  ctx.fillStyle='#f5f0e8'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#EDE6D5'; ctx.fillRect(0,0,W,H);
   // Track
   ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.globalAlpha=0.85;
   coords.forEach(([lng,lat],i)=>{const x=offX+(lng-minX)*scale;const y=H-offY-(lat-minY)*scale;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
@@ -6647,7 +6825,7 @@ function renderProfileCover() {
   const overlays = []; let budget = 7000;
   getMoments().sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1)).slice(0, 80).forEach(m => {
     const p = encodedPolyOf(m); if (!p) return;
-    const seg = `path-3+${(m.customColor || getColor(m.type)).replace('#', '')}-0.9(${encodeURIComponent(p)})`;
+    const seg = pathOv(p, (m.customColor || getColor(m.type)).replace('#', ''), 3, 0.9);
     if (seg.length + 1 > budget) return;
     overlays.push(seg); budget -= seg.length + 1;
   });
@@ -6695,34 +6873,339 @@ async function bulkSetVisibility(makePublic) {
     ok: 'Make private',
   });
   if (!ok) return;
-  const before = changing.map(m => ({ m, isPublic: m.isPublic, r: m.privacyRadiusM }));
-  changing.forEach(m => { m.isPublic = makePublic; if (makePublic && !m.privacyRadiusM) m.privacyRadiusM = 500; });
+  await applyBulkPrivacy(changing, { isPublic: makePublic });
   renderSharingState();
-  if (DEMO) { toast(`Updated ${n} activities`, { icon: 'check' }); return; }
-  const dismiss = toast(`Updating ${n} activities…`, { duration: 60000 });
+}
+
+// The one place that changes privacy for many activities (Settings "Make all",
+// and the bulk editor below). Updates local copies, writes `activities` + the
+// redacted `activity_public` snapshots in chunks of 150, and on failure rolls
+// back only the chunks that didn't save — and says so honestly.
+async function applyBulkPrivacy(mems, { isPublic, radiusM }) {
+  const before = new Map(mems.map(m => [m.id, { isPublic: m.isPublic, r: m.privacyRadiusM }]));
+  mems.forEach(m => {
+    if (isPublic != null) { m.isPublic = isPublic; if (isPublic && !m.privacyRadiusM) m.privacyRadiusM = 500; }
+    if (radiusM != null) m.privacyRadiusM = radiusM;
+  });
+  const n = mems.length.toLocaleString();
+  const done = isPublic === true ? `${n} activities are now public` : isPublic === false ? `${n} activities are now private` : `Privacy radius updated on ${n} activities`;
+  if (DEMO) { toast(done, { icon: 'check' }); return true; }
+  const dismiss = toast(`Updating ${n} activities…`, { duration: 120000 });
+  let saved = 0;
   try {
-    for (let i = 0; i < changing.length; i += 150) {
-      const chunk = changing.slice(i, i + 150);
+    for (let i = 0; i < mems.length; i += 150) {
+      const chunk = mems.slice(i, i + 150);
       const { error } = await sb.from('activities').upsert(chunk.map(momentToRow));
       if (error) throw error;
-      if (makePublic) {
-        const snaps = chunk.map(buildPublicSnapshotRow).filter(Boolean);
-        if (snaps.length) { const { error: e2 } = await sb.from('activity_public').upsert(snaps); if (e2) throw e2; }
-      } else {
-        const { error: e3 } = await sb.from('activity_public').delete().eq('user_id', currentUser.id).in('activity_id', chunk.map(m => m.id));
+      const pub = chunk.filter(m => m.isPublic), priv = chunk.filter(m => !m.isPublic);
+      if (pub.length) { const { error: e2 } = await sb.from('activity_public').upsert(pub.map(buildPublicSnapshotRow)); if (e2) throw e2; }
+      if (priv.length && isPublic === false) {
+        const { error: e3 } = await sb.from('activity_public').delete().eq('user_id', currentUser.id).in('activity_id', priv.map(m => m.id));
         if (e3) throw e3;
       }
+      saved += chunk.length;
     }
     saveArchiveCache();
     dismiss();
-    toast(makePublic ? `${n} activities are now public` : `${n} activities are now private`, { icon: 'check' });
+    toast(done, { icon: 'check' });
+    return true;
   } catch (e) {
-    console.error('Bulk visibility failed', e);
-    before.forEach(b => { b.m.isPublic = b.isPublic; b.m.privacyRadiusM = b.r; });
-    renderSharingState();
+    console.error('Bulk privacy failed', e);
+    mems.slice(saved).forEach(m => { const b = before.get(m.id); m.isPublic = b.isPublic; m.privacyRadiusM = b.r; });
+    saveArchiveCache();
     dismiss();
-    toast('Couldn\'t update everything. Nothing was changed. Try again.', { error: true });
+    toast(saved ? `Saved ${saved.toLocaleString()} of ${n} before an error. The rest were left unchanged. Try again.` : "Couldn't update — nothing was changed. Try again.", { error: true, duration: 7000 });
+    return false;
   }
+}
+
+// ── Bulk editor (Settings → Sharing → Manage activities) ──
+// Its own filter state — deliberately separate from the map's `filters`, so
+// managing privacy never changes what the map shows. Selection survives
+// filter changes, so you can build it up over several passes.
+let _be = { search: '', vis: 'all', from: '', to: '', types: null, color: 'any' };
+const _beSel = new Set();
+function openBulkEditor() {
+  _beSel.clear();
+  _be = { search: '', vis: 'all', from: '', to: '', types: null, color: 'any' };
+  ['be-search', 'be-from', 'be-to'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  const bc = document.getElementById('be-color'); if (bc) bc.value = 'any';
+  document.getElementById('bulk-modal').classList.add('open');
+  renderBulkEditor();
+}
+function closeBulkEditor() { document.getElementById('bulk-modal')?.classList.remove('open'); renderSharingState(); }
+function beSet(key, val) { _be[key] = val; renderBulkEditor(); }
+function beToggleType(k) {
+  const all = Object.keys(TYPE_CONFIG);
+  const set = _be.types ? new Set(_be.types) : new Set(all);
+  if (set.has(k)) set.delete(k); else set.add(k);
+  _be.types = set.size === all.length ? null : [...set];
+  renderBulkEditor();
+}
+function beMatches() {
+  const q = _be.search.trim().toLowerCase();
+  return getMoments().filter(m => {
+    if (q && !(m.name || '').toLowerCase().includes(q)) return false;
+    if (_be.vis === 'public' && !m.isPublic) return false;
+    if (_be.vis === 'private' && m.isPublic) return false;
+    const d = (m.date || '').slice(0, 10);
+    if (_be.from && (!d || d < _be.from)) return false;
+    if (_be.to && (!d || d > _be.to)) return false;
+    if (_be.types && !_be.types.includes(getGroup(m.type))) return false;
+    if (_be.color === 'custom' && !m.customColor) return false;
+    if (_be.color === 'default' && m.customColor) return false;
+    return true;
+  }).sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1));
+}
+function renderBulkEditor() {
+  const list = beMatches();
+  document.querySelectorAll('#be-vis button').forEach(b => b.classList.toggle('active', b.dataset.v === _be.vis));
+  // Only types the user actually has (same rule as the map's filter drawer).
+  const used = new Set(getMoments().map(m => getGroup(m.type)));
+  document.getElementById('be-types').innerHTML = Object.entries(TYPE_CONFIG).filter(([k]) => used.has(k)).map(([k, c]) =>
+    `<button class="fd-chip${!_be.types || _be.types.includes(k) ? ' on' : ''}" onclick="beToggleType(${jsAttr(k)})"><span class="av-type-dot" style="background:${escapeHtml(c.color)}"></span>${escapeHtml(c.label)}</button>`).join('');
+  const cap = 400;
+  document.getElementById('be-list').innerHTML = list.slice(0, cap).map(m => {
+    const sel = _beSel.has(m.id);
+    const date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+    const r = m.isPublic && m.privacyRadiusM ? ` · hides ${m.privacyRadiusM >= 1000 ? m.privacyRadiusM / 1000 + ' km' : Math.round(m.privacyRadiusM) + ' m'}` : '';
+    return `<label class="be-row${sel ? ' selected' : ''}">
+      <input type="checkbox" ${sel ? 'checked' : ''} onchange="beToggle(${jsAttr(m.id)}, this.checked, this)">
+      <span class="av-type-dot" style="background:${escapeHtml(m.customColor || getColor(m.type))}"></span>
+      <span class="be-name">${escapeHtml(m.name || 'Untitled')}<small>${escapeHtml(date)} · ${escapeHtml(TYPE_CONFIG[getGroup(m.type)]?.label || m.type)}${m.distance ? ' · ' + escapeHtml(fmtDist(m.distance)) : ''}${m.customColor ? ' · custom colour' : ''}</small></span>
+      <span class="vis-pill ${m.isPublic ? 'pub' : ''}" title="${m.isPublic ? 'Public' + r : 'Only you'}"><svg class="ic"><use href="#i-${m.isPublic ? 'globe' : 'lock'}"/></svg>${m.isPublic ? 'Public' : 'Private'}</span>
+    </label>`;
+  }).join('') + (list.length > cap ? `<div class="people-empty">Showing the first ${cap} of ${list.length.toLocaleString()}. "Select all" still selects every match.</div>` : '')
+    || '<div class="people-empty">No activities match these filters.</div>';
+  beUpdateSelUI(list);
+}
+function beToggle(id, on, cb) {
+  if (on) _beSel.add(id); else _beSel.delete(id);
+  cb?.closest('.be-row')?.classList.toggle('selected', on);
+  beUpdateSelUI();
+}
+function beSelectAll(on) {
+  beMatches().forEach(m => { if (on) _beSel.add(m.id); else _beSel.delete(m.id); });
+  renderBulkEditor();
+}
+function beClearSel() { _beSel.clear(); renderBulkEditor(); }
+function beUpdateSelUI(list) {
+  list = list || beMatches();
+  [..._beSel].forEach(id => { if (!db[id]) _beSel.delete(id); });
+  const selMatch = list.filter(m => _beSel.has(m.id)).length;
+  const all = document.getElementById('be-all');
+  all.checked = list.length > 0 && selMatch === list.length;
+  all.indeterminate = selMatch > 0 && selMatch < list.length;
+  document.getElementById('be-count').textContent = `Select all ${list.length.toLocaleString()} matching`;
+  document.getElementById('be-n').textContent = _beSel.size.toLocaleString();
+  document.getElementById('be-clear').hidden = !_beSel.size;
+  document.querySelectorAll('#be-bar button, #be-bar select').forEach(el => el.disabled = !_beSel.size);
+}
+function beSelected() { return [..._beSel].map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin); }
+function beMoreMenu(e) {
+  e.stopPropagation();
+  const a = e.currentTarget; a.setAttribute('data-menu-anchor', '');
+  openMenu(a, [
+    { label: 'Hide start / end of tracks…', icon: 'lock', fn: beRadius },
+    { label: 'Add to a story…', icon: 'book', fn: beAddToStory },
+    { label: 'Change activity type…', icon: 'activity', fn: beChangeType },
+    { label: 'Set track colour…', icon: 'pen', fn: beSetColour },
+    { label: 'Rename…', icon: 'file', fn: beRename },
+    { label: 'Delete…', icon: 'trash', danger: true, fn: beDelete },
+  ]);
+}
+async function beRadius() {
+  const opts = [['0', "Don't hide"], ['200', '200 m'], ['500', '500 m'], ['1000', '1 km'], ['2000', '2 km'], ['5000', '5 km']];
+  const v = await uiForm({ title: 'Hide the start and end of tracks', sub: `For ${beSelected().length.toLocaleString()} selected activities. Other people see the track with this much removed from each end.`,
+    bodyHtml: `<select class="modal-select" name="r">${opts.map(([v, l]) => `<option value="${v}"${v === '500' ? ' selected' : ''}>${l}</option>`).join('')}</select>`, ok: 'Continue' });
+  if (v) beAction('radius', v.r);
+}
+async function beAction(kind, value) {
+  const mems = beSelected();
+  if (!mems.length) return;
+  if (kind === 'radius') {
+    if (value === '' || value == null) return;
+    const r = Number(value), label = r ? (r >= 1000 ? r / 1000 + ' km' : r + ' m') : '';
+    if (!(await uiConfirm(r ? {
+      title: `Hide ${label} at the start and end of ${mems.length.toLocaleString()} activities?`,
+      body: 'Other people see these tracks with the first and last ' + label + ' removed, so places like your home stay private. Public ones update straight away.',
+      ok: 'Apply',
+    } : {
+      title: `Show the full track on ${mems.length.toLocaleString()} activities?`,
+      body: 'Public ones will show exactly where they start and end — including your home, if that\'s where you set off.',
+      ok: 'Show full tracks', danger: true,
+    }))) return;
+    await applyBulkPrivacy(mems, { radiusM: r });
+  } else {
+    const makePublic = kind === 'public';
+    const changing = mems.filter(m => !!m.isPublic !== makePublic);
+    if (!changing.length) { toast(makePublic ? 'Those are already public' : 'Those are already private'); return; }
+    const n = changing.length.toLocaleString();
+    if (!(await uiConfirm(makePublic ? {
+      title: `Make ${n} activities public?`,
+      body: 'They\'ll appear on your profile and in your followers\' feeds. Any without a privacy radius get 500 m hidden at the start and end.',
+      ok: 'Make public',
+    } : {
+      title: `Make ${n} activities private?`,
+      body: 'They\'ll disappear from your profile and your followers\' feeds. Kudos and comments are kept for if you make them public again.',
+      ok: 'Make private',
+    }))) return;
+    await applyBulkPrivacy(changing, { isPublic: makePublic });
+  }
+  renderBulkEditor();
+  renderSharingState();
+}
+
+// Generic bulk save for field edits (type / colour / name): mutate locally,
+// write activities + refresh public snapshots in chunks, roll back unsaved
+// chunks on failure, then refresh the map/lists.
+async function applyBulkEdit(mems, mutate, doneMsg) {
+  const fields = ['type', '_typeEdited', 'customColor', 'name', '_nameEdited'];
+  const before = new Map(mems.map(m => [m.id, Object.fromEntries(fields.map(f => [f, m[f]]))]));
+  mems.forEach(mutate);
+  let saved = 0, ok = true;
+  if (!DEMO) {
+    const dismiss = toast(`Updating ${mems.length.toLocaleString()} activities…`, { duration: 120000 });
+    try {
+      for (let i = 0; i < mems.length; i += 150) {
+        const chunk = mems.slice(i, i + 150);
+        const { error } = await sb.from('activities').upsert(chunk.map(momentToRow));
+        if (error) throw error;
+        const pub = chunk.filter(m => m.isPublic);
+        if (pub.length) { const { error: e2 } = await sb.from('activity_public').upsert(pub.map(buildPublicSnapshotRow)); if (e2) throw e2; }
+        saved += chunk.length;
+      }
+    } catch (e) {
+      console.error('Bulk edit failed', e); ok = false;
+      mems.slice(saved).forEach(m => Object.assign(m, before.get(m.id)));
+    }
+    dismiss();
+  }
+  refreshAfterBulk();
+  if (ok) toast(doneMsg, { icon: 'check' });
+  else toast(saved ? `Saved ${saved.toLocaleString()} of ${mems.length.toLocaleString()} before an error. The rest were left unchanged.` : "Couldn't save — nothing was changed. Try again.", { error: true, duration: 7000 });
+  return ok;
+}
+function refreshAfterBulk() {
+  saveArchiveCache();
+  allMemories = getMoments().sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1));
+  allStories = getStories(); allStories.forEach(s => computeStoryStats(s));
+  initMapLayers(); computeFilterBounds(); buildFilterDrawer(); applyFilters();
+  updateEmptyState();
+  if (document.getElementById('bulk-modal')?.classList.contains('open')) renderBulkEditor();
+}
+
+async function beChangeType() {
+  const mems = beSelected(); if (!mems.length) return;
+  const v = await uiForm({ title: 'Change activity type', sub: `For ${mems.length.toLocaleString()} selected activities.`,
+    bodyHtml: `<select class="modal-select" name="t">${typeOptionsHtml(mems[0].type)}</select>`, ok: 'Change type' });
+  if (!v) return;
+  const label = TYPE_CONFIG[getGroup(v.t)]?.label || v.t;
+  // _typeEdited: a later Strava resync must not undo this (see onTypeChange).
+  const ok = await applyBulkEdit(mems, m => { m.type = v.t; m._typeEdited = true; }, `${mems.length.toLocaleString()} activities are now ${label}`);
+  if (ok && getGroup(v.t) === 'Flight') await syncAirportPins();
+}
+async function beSetColour() {
+  const mems = beSelected(); if (!mems.length) return;
+  const start = mems.find(m => m.customColor)?.customColor || getColor(mems[0].type);
+  const v = await uiForm({ title: 'Set track colour', sub: `For ${mems.length.toLocaleString()} selected activities. To undo later, filter by "Custom colour" and reset.`,
+    bodyHtml: `<div class="be-colour-row"><input type="color" name="c" value="${escapeHtml(start)}" class="be-colour">
+      <label class="login-consent-row" style="color:var(--text-2);margin:0"><input type="checkbox" name="reset"> Reset to the default colour for each activity type</label></div>`,
+    ok: 'Apply colour' });
+  if (!v) return;
+  if (v.reset) await applyBulkEdit(mems, m => { m.customColor = null; }, `Reset colour on ${mems.length.toLocaleString()} activities`);
+  else await applyBulkEdit(mems, m => { m.customColor = v.c; }, `Coloured ${mems.length.toLocaleString()} activities`);
+}
+async function beRename() {
+  const mems = beSelected(); if (!mems.length) return;
+  const v = await uiForm({ title: 'Rename activities', sub: `For ${mems.length.toLocaleString()} selected activities.`,
+    bodyHtml: `<select class="modal-select" name="mode">
+        <option value="prefix">Add to the start of the name</option>
+        <option value="suffix">Add to the end of the name</option>
+        <option value="replace">Replace the whole name</option>
+      </select>
+      <input class="modal-input" name="text" maxlength="120" placeholder="e.g. Norway trip –" autocomplete="off">`,
+    ok: 'Rename', validate: x => x.text.trim().length > 0 });
+  if (!v) return;
+  const t = v.text.trim();
+  const fn = v.mode === 'prefix' ? m => { m.name = t + ' ' + (m.name || ''); }
+    : v.mode === 'suffix' ? m => { m.name = (m.name || '') + ' ' + t; }
+    : m => { m.name = t; };
+  // _nameEdited stops a later Strava sync from overwriting the new names.
+  await applyBulkEdit(mems, m => { fn(m); m.name = m.name.trim(); m._nameEdited = true; }, `Renamed ${mems.length.toLocaleString()} activities`);
+}
+async function beAddToStory() {
+  const mems = beSelected(); if (!mems.length) return;
+  const stories = getStories().sort((a, b) => ((b.lastModified || '') > (a.lastModified || '') ? 1 : -1));
+  const v = await uiForm({ title: 'Add to a story', sub: `${mems.length.toLocaleString()} selected activities.`,
+    bodyHtml: `<select class="modal-select" name="story" onchange="this.form.querySelector('[name=title]').hidden = this.value !== '__new'">
+        <option value="__new">+ New story</option>
+        ${stories.map(st => `<option value="${escapeHtml(st.id)}">${escapeHtml(st.title || 'Untitled')}</option>`).join('')}
+      </select>
+      <input class="modal-input" name="title" maxlength="120" placeholder="Story title, e.g. Norway 2024" autocomplete="off">`,
+    ok: 'Add to story', validate: x => x.story !== '__new' || x.title.trim().length > 0 });
+  if (!v) return;
+  const ids = mems.map(m => m.id);
+  let story, isNew = v.story === '__new', prevIds = null;
+  if (isNew) {
+    const now = new Date().toISOString();
+    story = { id: stableStoryId(v.title.trim()), type: 'story', title: v.title.trim(), narrative: '', mood: null, coverPhoto: null,
+      momentIds: ids, createdAt: now, lastModified: now };
+  } else {
+    story = db[v.story]; if (!story) return;
+    prevIds = [...(story.momentIds || [])];
+    story.momentIds = [...new Set(prevIds.concat(ids))];
+    story.lastModified = new Date().toISOString();
+  }
+  computeStoryStats(story);
+  db[story.id] = story;
+  if (!DEMO) {
+    const { error } = await sb.from('stories').upsert(storyToRow(story));
+    if (error) {
+      if (isNew) delete db[story.id]; else story.momentIds = prevIds;
+      toast("Couldn't save the story — try again", { error: true });
+      return;
+    }
+    if (story.isPublic && !_socialOff.stories) await sb.from('story_public').upsert(buildStorySnapshotRow(story));
+  }
+  refreshAfterBulk();
+  toast(isNew ? `Created "${story.title}" with ${ids.length} activities` : `Added ${ids.length} activities to "${story.title}"`,
+    { icon: 'check', duration: 5000, action: { label: 'View', fn: () => { closeBulkEditor(); viewStoryOnMap(story.id); } } });
+}
+async function beDelete() {
+  const mems = beSelected(); if (!mems.length) return;
+  const n = mems.length.toLocaleString();
+  const v = await uiForm({ title: `Delete ${n} activities?`, danger: true, ok: 'Delete permanently',
+    sub: 'This permanently deletes them, their photos, notes, kudos and comments. It cannot be undone. Strava activities may come back on a full re-sync.',
+    bodyHtml: `<label class="modal-sub" style="display:block;margin:0 0 6px">Type <b>DELETE</b> to confirm</label><input class="modal-input" name="confirm" autocomplete="off" placeholder="DELETE">`,
+    validate: x => x.confirm.trim() === 'DELETE' });
+  if (!v) return;
+  const ids = mems.map(m => m.id);
+  const photoPaths = mems.flatMap(m => (m.photos || []).map(p => p._path).filter(Boolean));
+  if (!DEMO) {
+    const dismiss = toast(`Deleting ${n} activities…`, { duration: 120000 });
+    try {
+      for (let i = 0; i < ids.length; i += 150) {
+        const chunk = ids.slice(i, i + 150);
+        const { error } = await sb.from('activities').delete().eq('user_id', currentUser.id).in('id', chunk);
+        if (error) throw error;
+        chunk.forEach(id => { delete db[id]; delete coordCache[id]; _beSel.delete(id); });
+        sb.from('activity_photos').delete().eq('user_id', currentUser.id).in('activity_id', chunk).then(({ error: e }) => { if (e) console.warn('Photo row cleanup failed', e); });
+      }
+      for (let i = 0; i < photoPaths.length; i += 500) sb.storage.from('photos').remove(photoPaths.slice(i, i + 500)).catch(e => console.warn('Photo cleanup failed', e));
+      dismiss();
+    } catch (e) {
+      console.error('Bulk delete failed', e);
+      dismiss();
+      refreshAfterBulk();
+      toast("Some activities couldn't be deleted — the ones still listed were kept. Try again.", { error: true, duration: 7000 });
+      return;
+    }
+  } else ids.forEach(id => { delete db[id]; _beSel.delete(id); });
+  if (selectedId && !db[selectedId]) closeDetail();
+  refreshAfterBulk();
+  renderSharingState();
+  toast(`Deleted ${n} activities`, { icon: 'check' });
 }
 
 // ════════════════════════════════════════
@@ -6971,7 +7454,7 @@ function renderPublicMap(acts, focusActivityId) {
     console.warn('Interactive profile map unavailable, using static image', e);
     const overlays = []; let budget = 7000;
     acts.forEach(a => (a.polylines || []).forEach(p => {
-      const seg = `path-3+${(a.custom_color || getColor(a.type)).replace('#', '')}-0.9(${encodeURIComponent(p)})`;
+      const seg = pathOv(p, (a.custom_color || getColor(a.type)).replace('#', ''), 3, 0.9);
       if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
     }));
     el.innerHTML = mapboxStaticImg(overlays, 880, 340) || '<div class="pp-map-empty">Map unavailable</div>';
@@ -7211,7 +7694,7 @@ function drawStoryCardMap(story) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = '#f5f0e8';
+  ctx.fillStyle = '#EDE6D5';
   ctx.fillRect(0, 0, W, H);
 
   // Collect all coords from child moments
@@ -8192,14 +8675,14 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
 window.addEventListener('resize', () => { if (map) map.resize(); if (document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb(); });
 
 // Register all functions
 const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
-_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
+_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openBulkEditor',openBulkEditor);_r('closeBulkEditor',closeBulkEditor);_r('beSet',beSet);_r('beToggleType',beToggleType);_r('beToggle',beToggle);_r('beSelectAll',beSelectAll);_r('beClearSel',beClearSel);_r('beAction',beAction);_r('beMoreMenu',beMoreMenu);_r('uiForm',uiForm);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
