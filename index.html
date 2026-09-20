@@ -728,21 +728,17 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .profile-stat-val { font: 700 24px var(--font-ui); letter-spacing: -0.02em; color: var(--ink); }
 .profile-stat-label { font-size: 13px; color: var(--text-3); }
 
-.profile-grid-header, .profile-stories-header {
+.profile-stories-header {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   margin: 32px 0 14px; border-bottom: none; padding-bottom: 0;
 }
-.profile-grid-title, .profile-stories-title { font: 600 19px var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--ink); }
-.profile-grid-sort { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.pg-sort-btn, .story-card-btn {
+.profile-stories-title { font: 600 19px var(--font-ui); letter-spacing: -0.01em; text-transform: none; color: var(--ink); }
+.story-card-btn {
   padding: 6px 12px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-pill);
   font: 500 13px var(--font-ui); color: var(--text-2); cursor: pointer; transition: all .15s;
 }
-.pg-sort-btn:hover, .story-card-btn:hover { border-color: var(--text-3); color: var(--ink); }
-.pg-sort-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.story-card-btn:hover { border-color: var(--text-3); color: var(--ink); }
 .story-card-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
-.profile-honeycomb-wrap { position: relative; overflow: hidden; }
-.profile-honeycomb { position: relative; width: 100%; }
 
 /* Settings rows (Settings page reuses .strava-section markup) */
 .strava-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--sh-1); }
@@ -886,36 +882,17 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .pp-map-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 14px; }
 .pp-activity-card { border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 14px; overflow: hidden; background: var(--surface); }
 
-/* #profile-map-modal — the "view full map" surface reached from the cover
-   hero on Profile / a public profile. */
-.profile-map-modal-inner { width: 940px; max-width: 100%; padding: 0; display: flex; flex-direction: column; max-height: 88vh; overflow: hidden; }
+/* #profile-map-modal — a bigger, interactive version of the map hero on
+   Profile / a public profile. Map only, fills the whole modal — no
+   activity list or honeycomb grid (see #activities-view for that, your
+   own activities' own page off the account menu). */
+.profile-map-modal-inner { width: 940px; max-width: 100%; height: 80vh; padding: 0; display: flex; flex-direction: column; max-height: 88vh; overflow: hidden; }
 .pmm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .pmm-title { font: 600 17px var(--font-ui); color: var(--ink); }
-.pmm-map { height: 320px; flex-shrink: 0; background: var(--paper2); position: relative; }
-.pmm-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 18px 20px calc(20px + var(--safe-b)); }
-.pmm-body .profile-grid-header { margin-top: 0; }
-.pmm-activities .feed-card:last-child { margin-bottom: 0; }
+.pmm-map { flex: 1; min-height: 0; background: var(--paper2); position: relative; }
 .pp-activity-body { padding: 14px 16px; }
 .pp-activity-name { font: 600 18px var(--font-display); color: var(--ink); margin-bottom: 2px; }
 .pp-activity-meta { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
-
-/* Hexagon cells (profile moment grid) */
-.hex-cell {
-  position: absolute; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  cursor: pointer; overflow: hidden; transition: transform 0.2s, filter 0.2s;
-}
-.hex-cell:hover { transform: scale(1.04); filter: brightness(1.08); z-index: 2; }
-.hex-bg { position: absolute; inset: 0; }
-.hex-img { width: 100%; height: 100%; object-fit: cover; }
-.hex-overlay {
-  position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(26,35,24,0.85) 0%, rgba(26,35,24,0.1) 60%);
-  display: flex; flex-direction: column; justify-content: flex-end; padding: 16px 14px 26px; text-align: center;
-}
-.hex-map { position: absolute; inset: 0; }
-.hex-name { font: 600 13px var(--font-ui); color: white; line-height: 1.25; margin-bottom: 3px; text-shadow: 0 1px 3px rgba(0,0,0,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hex-meta { font-size: 11px; color: rgba(255,255,255,0.85); }
-.hex-mood { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); font-size: 15px; }
 
 /* ── NOTIFICATIONS DRAWER ── */
 #notif-backdrop { position: fixed; inset: 0; background: rgba(26,35,24,0.3); z-index: 840; opacity: 0; pointer-events: none; transition: opacity .25s; }
@@ -1341,7 +1318,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   .save-indicator { padding-bottom: calc(8px + var(--safe-b)); }
   .detail-stats-grid { grid-template-columns: 1fr 1fr; }
   .mood-btn { min-height: 52px; }
-  .sb-sort-btn, .pg-sort-btn, .sm-filter-btn { min-height: 34px; }
+  .sb-sort-btn, .sm-filter-btn { min-height: 34px; }
 
   /* Map controls */
   #map-tools { top: 12px; right: calc(12px + var(--safe-r)); }
@@ -1379,7 +1356,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   .pp-header { flex-direction: column; text-align: center; padding: 20px 16px; }
   .pp-name, .pp-stats-row, .pp-btns { justify-content: center; }
   .pp-bio { margin-left: auto; margin-right: auto; }
-  .pmm-map { height: 220px; }
 
   /* Modals — bottom sheets */
   .modal-overlay { align-items: flex-end; padding: 0; }
@@ -1778,6 +1754,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <button class="menu-item" onclick="closeAccountMenu();switchView('profile')"><svg class="ic"><use href="#i-user"/></svg>Your profile</button>
     <button class="menu-item" onclick="closeAccountMenu();openImport()"><svg class="ic"><use href="#i-upload"/></svg>Import GPX / KML</button>
     <button class="menu-item" onclick="closeAccountMenu();shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Invite friends</button>
+    <button class="menu-item" onclick="closeAccountMenu();switchView('activities')"><svg class="ic"><use href="#i-activity"/></svg>Your activities</button>
     <button class="menu-item" onclick="closeAccountMenu();switchView('settings')"><svg class="ic"><use href="#i-settings"/></svg>Settings</button>
     <button class="menu-item" onclick="closeAccountMenu();openFeedback()"><svg class="ic"><use href="#i-message-square"/></svg>Send feedback</button>
     <div class="menu-sep"></div>
@@ -2480,30 +2457,18 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 </div>
 
 <!-- PROFILE MAP MODAL — tapping the map at the top of Profile (yours or a
-     public profile) opens this: an interactive map of every activity privacy
-     allows (all of yours; only their public ones for someone else), plus the
-     list below it. Stories stay curated on the profile page itself. -->
+     public profile) opens this: just a bigger, interactive version of that
+     same map (every track privacy allows — all of yours; only their public
+     ones for someone else). No activity list, no honeycomb grid — Stories
+     stay curated on the profile page, and your own individual activities
+     have their own page (account menu → "Your activities", #activities-view). -->
 <div class="modal-overlay" id="profile-map-modal" onclick="if(event.target===this)closeProfileMapModal()">
   <div class="modal profile-map-modal-inner">
     <div class="pmm-head">
-      <div class="pmm-title" id="pmm-title">Activities</div>
+      <div class="pmm-title" id="pmm-title">Map</div>
       <button class="fd-close" onclick="closeProfileMapModal()" aria-label="Close">&times;</button>
     </div>
     <div class="pmm-map" id="pmm-map"></div>
-    <div class="pmm-body" id="pmm-body">
-      <div class="profile-grid-header" id="pmm-own-header" hidden>
-        <div class="profile-grid-title">Moments</div>
-        <div class="profile-grid-sort">
-          <button class="pg-sort-btn active" data-sort="recent" onclick="setProfileSort('recent')">Recent</button>
-          <button class="pg-sort-btn" data-sort="distance" onclick="setProfileSort('distance')">Longest</button>
-          <button class="pg-sort-btn" data-sort="photos" onclick="setProfileSort('photos')">With photos</button>
-        </div>
-      </div>
-      <div class="profile-honeycomb-wrap" id="pmm-own-honeycomb-wrap" hidden>
-        <div class="profile-honeycomb" id="profile-honeycomb"></div>
-      </div>
-      <div class="pmm-activities" id="pmm-activities"></div>
-    </div>
   </div>
 </div>
 
@@ -2833,7 +2798,6 @@ function restoreBasemap(p) {
   try { if (p.friendsLayerOn && !friendsLayerOn) toggleFriendsLayer(); } catch (e) {}
 }
 let sidebarSort = 'recent';
-let profileSort = 'recent';
 let _profile = { name:'', bio:'', avatarPath:null, photo:null };
 let _profileTimer = null;
 
@@ -6040,7 +6004,7 @@ function renderActivityCard(it) {
   const authorClick = it.isOwn ? `switchView('profile')` : `openPublicProfile(${jsAttr(it.ownerId)})`;
   const open = it.isOwn ? `goToActivity(${jsAttr(it.activityId)})` : `openPublicProfile(${jsAttr(it.ownerId)},${jsAttr(it.activityId)})`;
   const mood = MOODS.find(m => m.id === it.mood);
-  let h = `<article class="feed-card" data-key="${escapeHtml(it.key)}" data-pmm-id="${escapeHtml(it.activityId)}">`;
+  let h = `<article class="feed-card" data-key="${escapeHtml(it.key)}">`;
   h += `<header class="fc-header">
       <div class="fc-avatar" onclick="${authorClick}">${avatarHtml(it.author.avatarUrl, it.author.name, 'av-44', it.ownerId)}</div>
       <div class="fc-user">
@@ -7498,48 +7462,26 @@ let _pmmMap = null;
 // activity, or "View on profile" from your own map popup), and that must
 // still use the already-fetched public acts, not every private Moment you
 // have. Only the map hero on your actual Profile page opts into full access.
+// Map only, on purpose — no activity list, no honeycomb grid. Your own
+// individual activities have their own page (#activities-view, account
+// menu → "Your activities"); someone else's stay behind their Stories/Feed.
 async function openProfileMapModal(userId, focusActivityId, isOwnContext) {
   if (!userId) return;
   const isOwn = !!isOwnContext;
-  const viewingSelf = userId === currentUser.id;
-  document.getElementById('pmm-title').textContent = isOwn ? 'Your activities' : `${(_ppProfile?.name || 'Their').split(' ')[0]}'s activities`;
+  document.getElementById('pmm-title').textContent = isOwn ? 'Your map' : `${(_ppProfile?.name || 'Their').split(' ')[0]}'s map`;
   document.getElementById('profile-map-modal').classList.add('open');
-  document.getElementById('pmm-own-header').hidden = !isOwn;
-  document.getElementById('pmm-own-honeycomb-wrap').hidden = !isOwn;
-  const activitiesEl = document.getElementById('pmm-activities');
-  activitiesEl.hidden = isOwn;
 
+  let tracks;
   if (isOwn) {
-    renderProfileHoneycomb();
-    const tracks = [];
+    tracks = [];
     getMoments().forEach(m => { const c = getCoords(m); if (c && c.length >= 2) tracks.push({ id: m.id, color: m.customColor || getColor(m.type), coords: c }); });
-    renderPmmMap(tracks, focusActivityId);
-    return;
+  } else {
+    let acts = (ppViewingUserId === userId) ? _ppActs : [];
+    if (!acts.length && ppViewingUserId !== userId) { try { acts = await Social.userActivities(userId); } catch (e) { acts = []; } }
+    tracks = [];
+    acts.forEach(a => (a.polylines || []).forEach(p => { let c; try { c = decodePolyline(p); } catch (e) { return; } if (c.length > 1) tracks.push({ id: a.activity_id, color: a.custom_color || getColor(a.type), coords: c }); }));
   }
-
-  activitiesEl.innerHTML = '<div class="skel skel-card"></div>';
-  let acts = (ppViewingUserId === userId) ? _ppActs : [];
-  if (!acts.length && ppViewingUserId !== userId) { try { acts = await Social.userActivities(userId); } catch (e) { acts = []; } }
-  const tracks = [];
-  acts.forEach(a => (a.polylines || []).forEach(p => { let c; try { c = decodePolyline(p); } catch (e) { return; } if (c.length > 1) tracks.push({ id: a.activity_id, color: a.custom_color || getColor(a.type), coords: c }); }));
   renderPmmMap(tracks, focusActivityId);
-
-  if (!acts.length) {
-    activitiesEl.innerHTML = emptyBlock('lock', viewingSelf ? 'Nothing public yet' : 'No public activities yet',
-      viewingSelf ? 'Make some activities public in Settings to see them here.' : 'They haven\'t shared anything publicly yet.', '');
-    return;
-  }
-  // Fetched here, not by openPublicProfile — the cards are only ever needed
-  // once this modal is actually opened.
-  const profileForCards = (ppViewingUserId === userId) ? _ppProfile : (await Social.profiles([userId]))[0];
-  const keys = acts.map(a => socialKey(a.user_id, a.activity_id));
-  const [photos, kudos, ccounts] = await Promise.all([Social.photos(acts), Social.kudos(keys), Social.commentCounts(keys)]);
-  activitiesEl.innerHTML = acts.map(a => renderActivityCard(itemFromPublicRow(a, profileForCards, photos, kudos, ccounts))).join('');
-  flushCanvasJobs();
-  if (focusActivityId) {
-    const card = activitiesEl.querySelector(`.feed-card[data-key="${CSS.escape(socialKey(userId, focusActivityId))}"]`);
-    if (card) setTimeout(() => { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.style.boxShadow = '0 0 0 3px var(--accent)'; setTimeout(() => card.style.boxShadow = '', 2400); }, 350);
-  }
 }
 function closeProfileMapModal() {
   document.getElementById('profile-map-modal').classList.remove('open');
@@ -7548,7 +7490,8 @@ function closeProfileMapModal() {
 // The modal's own map — every track it was given, on one interactive map
 // (static image fallback if WebGL/Mapbox isn't available). Shared by the
 // own-Moments path and the public-activities path above; `tracks` is
-// normalized to {id, color, coords} either way.
+// normalized to {id, color, coords} either way. No click-through — there's
+// nothing to click through to any more, just pan/zoom.
 function renderPmmMap(tracks, focusActivityId) {
   const el = document.getElementById('pmm-map');
   if (_pmmMap) { try { _pmmMap.remove(); } catch (e) {} _pmmMap = null; }
@@ -7564,13 +7507,6 @@ function renderPmmMap(tracks, focusActivityId) {
       _pmmMap.addSource('pmm', { type: 'geojson', data: { type: 'FeatureCollection', features: feats } });
       _pmmMap.addLayer({ id: 'pmm-lines', type: 'line', source: 'pmm', layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.5, 12, 3.5], 'line-opacity': 0.9 } });
-      _pmmMap.addLayer({ id: 'pmm-hit', type: 'line', source: 'pmm', paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 16 } });
-      _pmmMap.on('click', 'pmm-hit', e => {
-        const row = document.querySelector(`#pmm-body [data-pmm-id="${CSS.escape(String(e.features[0].properties.id))}"]`);
-        if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-      _pmmMap.on('mouseenter', 'pmm-hit', () => _pmmMap.getCanvas().style.cursor = 'pointer');
-      _pmmMap.on('mouseleave', 'pmm-hit', () => _pmmMap.getCanvas().style.cursor = '');
       if (focusActivityId) {
         const fb = new mapboxgl.LngLatBounds(); let any = false;
         feats.filter(f => f.properties.id === focusActivityId).forEach(f => f.geometry.coordinates.forEach(c => { fb.extend(c); any = true; }));
@@ -7758,12 +7694,6 @@ async function showInviteBanner() {
   } catch (e) {}
 }
 
-function setProfileSort(sort) {
-  profileSort = sort;
-  document.querySelectorAll('.pg-sort-btn').forEach(b=>b.classList.toggle('active',b.dataset.sort===sort));
-  renderProfileHoneycomb();
-}
-
 function renderProfileStories() {
   const section = document.getElementById('profile-stories-section');
   const grid = document.getElementById('profile-stories-grid');
@@ -7943,81 +7873,6 @@ async function deleteMoment(memId) {
   if (error) console.warn('Moment delete failed', error);
   if (photoPaths.length) sb.storage.from('photos').remove(photoPaths).catch(e => console.warn('Photo cleanup failed', e));
   sb.from('activity_photos').delete().eq('activity_id', memId).then(({error:e}) => { if (e) console.warn('Photo row cleanup failed', e); });
-}
-
-function renderProfileHoneycomb() {
-  const container = document.getElementById('profile-honeycomb');
-  container.innerHTML = '';
-  let mems = getMoments();
-  if(profileSort==='recent') mems.sort((a,b)=>new Date(b.date)-new Date(a.date));
-  else if(profileSort==='distance') mems.sort((a,b)=>(b.distance||0)-(a.distance||0));
-  else if(profileSort==='photos') mems=mems.filter(m=>m.photos?.length).sort((a,b)=>new Date(b.date)-new Date(a.date));
-
-  // Measure the modal's own body, not .profile-wrap — the honeycomb now
-  // renders inside #profile-map-modal, which can be open over either
-  // #profile-view or #public-profile-view (deep link to your own activity
-  // while viewing your public profile), so a global .profile-wrap lookup
-  // could silently grab the wrong (hidden, zero-width) one.
-  const wrapEl = container.closest('.pmm-body') || document.querySelector('.profile-wrap');
-  const wrapW = (wrapEl?.clientWidth
-    ? wrapEl.clientWidth - parseFloat(getComputedStyle(wrapEl).paddingLeft) - parseFloat(getComputedStyle(wrapEl).paddingRight)
-    : 680);
-  const COLS = Math.max(1, Math.floor((wrapW + 4) / (148 + 4)));
-  // Odd rows are brick-shifted by ~HEX_W/2, so budget an extra half-column so the
-  // right-most hex on those rows still fits inside wrapW (prevents horizontal overflow).
-  const HEX_W = Math.floor((wrapW - (COLS-1)*4 - 6) / (COLS + 0.5));
-  const HEX_H = HEX_W * 1.1547;
-  const COL_W = HEX_W + 4;
-  const ROW_H = HEX_H * 0.75;
-  const OFFSET = HEX_W / 2 + 2;
-
-  const totalRows = Math.ceil(mems.length / COLS);
-  container.style.height = (totalRows * ROW_H + HEX_H * 0.25 + 40) + 'px';
-
-  mems.slice(0,200).forEach((mem,idx) => {
-    const col=idx%COLS, row=Math.floor(idx/COLS), isOddRow=row%2===1;
-    const x=col*COL_W+(isOddRow?OFFSET:0)+4, y=row*ROW_H+10;
-    const cell=document.createElement('div'); cell.className='hex-cell'; cell.dataset.pmmId=mem.id;
-    const color=mem.customColor||getColor(mem.type);
-    const date=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
-    const dist=mem.distance?fmtDist(mem.distance):'';
-    const mood=MOODS.find(m=>m.id===mem.mood);
-
-    if(mem.photos?.length) {
-      cell.innerHTML=`<div class="hex-bg"><img class="hex-img" src="${mem.photos[0].dataUrl}" alt=""></div>
-        <div class="hex-overlay"><div class="hex-name">${escapeHtml(mem.name)}</div><div class="hex-meta">${date}${dist?' · '+dist:''}</div></div>
-        ${mood?`<div class="hex-mood">${mood.emoji}</div>`:''}`;
-    } else {
-      const coords = getCoords(mem);
-      cell.innerHTML=`<div class="hex-bg" style="background:${color}20">
-        ${coords?`<canvas class="hex-map" id="phex-${mem.id}" width="160" height="184"></canvas>${staticMapImg(mem,color,300,345)}`:''}
-        <div style="position:absolute;inset:0;background:linear-gradient(135deg,${color}40,${color}15)"></div></div>
-        <div class="hex-overlay"><div class="hex-name">${escapeHtml(mem.name)}</div><div class="hex-meta">${date}${dist?' · '+dist:''}</div></div>
-        ${mood?`<div class="hex-mood">${mood.emoji}</div>`:''}`;
-    }
-    cell.onclick=()=>goToActivity(mem.id);
-    cell.style.left=x+'px'; cell.style.top=y+'px'; cell.style.width=HEX_W+'px'; cell.style.height=HEX_H+'px';
-    container.appendChild(cell);
-    if(!mem.photos?.length){
-      const coords = getCoords(mem);
-      if(coords?.length>=2) requestAnimationFrame(()=>drawMiniMap(mem.id, coords, color, 'phex-'));
-    }
-  });
-}
-
-function drawMiniMap(memId, coords, color, prefix='phex-') {
-  const canvas=document.getElementById(`${prefix}${memId}`);
-  if(!canvas) return;
-  const ctx=canvas.getContext('2d');
-  const W=160,H=184;
-  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-  coords.forEach(([lng,lat])=>{minX=Math.min(minX,lng);maxX=Math.max(maxX,lng);minY=Math.min(minY,lat);maxY=Math.max(maxY,lat);});
-  const pad=24,scaleX=(W-pad*2)/(maxX-minX||1),scaleY=(H-pad*2)/(maxY-minY||1),scale=Math.min(scaleX,scaleY);
-  const offX=(W-(maxX-minX)*scale)/2,offY=(H-(maxY-minY)*scale)/2;
-  ctx.clearRect(0,0,W,H); ctx.beginPath(); ctx.strokeStyle=color; ctx.lineWidth=2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.globalAlpha=0.9;
-  coords.forEach(([lng,lat],i)=>{const x=offX+(lng-minX)*scale;const y=H-offY-(lat-minY)*scale;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
-  ctx.stroke();
-  if(coords.length>0){const[lng,lat]=coords[0];const x=offX+(lng-minX)*scale;const y=H-offY-(lat-minY)*scale;ctx.beginPath();ctx.arc(x,y,3,0,Math.PI*2);ctx.fillStyle=color;ctx.globalAlpha=1;ctx.fill();}
 }
 
 // ════════════════════════════════════════
@@ -8816,7 +8671,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
 });
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
-window.addEventListener('resize', () => { if (map) map.resize(); if (document.getElementById('profile-map-modal')?.classList.contains('open') && !document.getElementById('pmm-own-honeycomb-wrap')?.hidden) renderProfileHoneycomb(); });
+window.addEventListener('resize', () => { if (map) map.resize(); if (_pmmMap) _pmmMap.resize(); });
 
 // Register all functions
 const _fns={};
@@ -8846,7 +8701,7 @@ _r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSour
 _r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);
 _r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
 _r('renderActivitiesView',renderActivitiesView);_r('buildFilterDrawer',buildFilterDrawer);
-_r('setProfileSort',setProfileSort);_r('removeImportFile',removeImportFile);
+_r('removeImportFile',removeImportFile);
 _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
 _r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
 _r('computeStoryStats',computeStoryStats);_r('stableStoryId',stableStoryId);

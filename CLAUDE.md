@@ -183,24 +183,34 @@ sidebar list both mean "this individual Moment has a written note"
   helper, `renderProfileCover()` for your own, `renderPublicCover(acts)` for
   someone else's), and **Stories** (`renderProfileStories()` /
   `renderPublicStoryCard()` inside `#pp-body`). There is no "Moments"
-  honeycomb grid or "Activities" list on the page anymore — `getMoments()`/
-  `Social.userActivities()` results only ever show up inside the modal
-  below. Both stories sections show an `emptyBlock()` empty state (not a
-  hidden section) when there are none yet, with a "New story" CTA — the
-  point is to nudge people toward making one, not to look broken.
+  honeycomb grid or "Activities" list anywhere in Profile — not on the page,
+  and (2026-09-20) not in the map-hero modal either, see below. Both stories
+  sections show an `emptyBlock()` empty state (not a hidden section) when
+  there are none yet, with a "New story" CTA — the point is to nudge people
+  toward making one, not to look broken.
 - **The map hero is clickable** (`onclick="openProfileMapModal(...)"`,
   `role="button" tabindex="0"`, same plain-div-as-button pattern as
   `.profile-stat[onclick]` elsewhere in this file) and opens
-  `#profile-map-modal` — one interactive map (`#pmm-map`, `_pmmMap`,
-  `renderPmmMap(tracks, focusActivityId)`) of every activity privacy allows,
-  plus the list below it (`#pmm-body`): your own Moments honeycomb
-  (`renderProfileHoneycomb()`, moved here from the old always-visible grid —
-  the sort buttons/`setProfileSort()` are unchanged) for your own profile, or
-  the same `renderActivityCard(itemFromPublicRow(...))` feed-card list the
-  page used to show inline for someone else's. Clicking a track on the map
-  scrolls to the matching list item via a shared `data-pmm-id` attribute
-  (added to both hex cells and feed-card `<article>`s) — one handler,
-  `#pmm-hit` click, works for either content type.
+  `#profile-map-modal` — a bigger, interactive version of the same map
+  (`#pmm-map`, `_pmmMap`, `renderPmmMap(tracks, focusActivityId)`), every
+  track privacy allows. **Map only, no list of any kind** — an earlier
+  version of this modal also showed a Moments honeycomb grid (own profile)
+  or a feed-card activity list (someone else's); the user explicitly said no
+  activity list anywhere and no honeycomb grid, so both were deleted along
+  with their support code (`renderProfileHoneycomb()`, `drawMiniMap()`,
+  `setProfileSort()`/`profileSort`, the `.hex-*` CSS, `#pmm-body` and its
+  children). Don't resurrect any of that inside this modal — if a browsable
+  list is wanted again, it belongs on its own page, the way Activities does
+  below.
+- **Your own individual activities have their own page**: `#activities-view`
+  / `renderActivitiesView()` (a sortable table, pre-existing — see "Filters +
+  Activities view" below) is reachable from the header nav *and*, since
+  2026-09-20, from the account-avatar dropdown (`#account-menu`, "Your
+  activities", right next to Settings) — the user asked for a dropdown entry
+  point and this already-existing view was the natural fit, so no new view
+  was built. It only ever shows your own Moments; there's no equivalent
+  "browse all of someone else's activities" page — a visitor sees another
+  person's individual activities only via Stories and the Following feed.
 - **`isOwnContext` (the modal's 3rd argument) must come from the caller, not
   from `userId === currentUser.id`.** You can land on your *own*
   public-profile page — a deep link to your own shared activity, or "View on
@@ -211,28 +221,6 @@ sidebar list both mean "this individual Moment has a written note"
   (`openProfileMapModal(userId, focusActivityId)` at the end of
   `openPublicProfile`) both omit it, so they always take the "public" path
   even when `userId` happens to be you.
-- **Someone else's activity cards are fetched lazily, inside the modal, not
-  eagerly by `openPublicProfile`.** An earlier version built
-  `renderActivityCard()` HTML while `openPublicProfile` was still loading
-  and cached the string for later — that's wrong: `renderActivityCard()`
-  pushes a static-map fallback job onto the shared `_canvasJobs` queue as a
-  side effect, keyed to a canvas `id` that doesn't exist in the DOM yet, and
-  anything else calling the shared `flushCanvasJobs()` before the modal
-  opened would drain (and silently drop) that job for a canvas that was
-  never inserted. `openPublicProfile` now only loads what the page itself
-  needs (profile/acts-for-the-cover/counts/stories); `openProfileMapModal`
-  fetches photos/kudos/comments and calls `renderActivityCard()` right
-  before inserting the HTML and calling `flushCanvasJobs()`, same
-  build-then-flush order as everywhere else in the file (`buildOwnFeed()`,
-  `buildFollowingFeed()`).
-- **`renderProfileHoneycomb()`'s width calc measures `.pmm-body` first**
-  (`container.closest('.pmm-body') || document.querySelector('.profile-wrap')`),
-  not a bare global `.profile-wrap` lookup — the honeycomb now renders
-  inside the modal, which can be open over either `#profile-view` or
-  `#public-profile-view` (the deep-link-to-your-own-activity case above), and
-  `#profile-view`'s `.profile-wrap` happens to come first in the DOM
-  regardless of which view is actually active, so a global lookup could
-  silently measure a hidden, zero-width element.
 - **A Story can be just one moment** (`saveStory()` only requires 1+, back
   to the original rule — a same-session 2+ minimum was tried and reverted:
   the user, on reflection, was fine with a single-activity Relic). Grouping
@@ -271,10 +259,13 @@ bug, this is what replaced them:
   distance/duration/HR-style filters apply to them. Track colors moved into
   this same drawer too ("Track colours" section, still `updateTypeColor()`).
 - **Activities view** (`#activities-view`, `renderActivitiesView()`) is a
-  sortable table reachable from the header nav, sharing `filteredMemories`
-  with the map. The old Archive/stats page (`buildStats()`, `#stats-view`)
-  is **parked** — code kept, not reachable from nav — per `map-filters`'
-  original design, not something this merge changed.
+  sortable table reachable from the header nav (desktop) / mobile hamburger
+  menu, and since 2026-09-20 also from the account-avatar dropdown
+  (`#account-menu`, "Your activities") — see "Profile = Stories only" above.
+  Shares `filteredMemories` with the map. The old Archive/stats page
+  (`buildStats()`, `#stats-view`) is **parked** — code kept, not reachable
+  from nav — per `map-filters`' original design, not something this merge
+  changed.
 - **Map prefs persist per-user** (`relic_mapprefs_v1_<uid>`): `filters`,
   `sidebarSort`, `terrainOn`, `satelliteOn`, and last camera position, via
   `saveMapPrefs()` (debounced) / `loadMapPrefs()` / `applyStoredFilters()`
