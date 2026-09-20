@@ -1,8 +1,9 @@
 # Relic brand colours
 
-What's actually in the app as of 2026-09-19. The tokens live on `:root` at the
-top of `index.html`'s `<style>`. If this doc and the code disagree, the code
-wins; update this file.
+What's actually in the app as of 2026-09-20. The tokens live on `:root` at the
+top of `index.html`'s `<style>`; the track colours live in
+`activity-types.js`. If this doc and the code disagree, the code wins; update
+this file.
 
 Relic should feel like a keepsake (an old atlas, a travel journal), not a
 fitness-tracker dashboard. It is explicitly **not** Strava orange, and not
@@ -66,8 +67,10 @@ spec's dark-mode "ink" is `--ink-on-dark`.
 ## Map: activity tracks
 
 Tracks deliberately **don't** use the brand palette. Each activity type has
-its own bright colour, because telling types apart at a glance matters
-more on a map than matching the brand. Users can recolour any type in Filters → Track colours, and saved colours win.
+its own bright colour, because telling types apart at a glance matters more
+on a map than matching the brand. Users can recolour any type in Filters →
+Track colours, and saved colours win (`relic_colors_v1` in localStorage, the
+same blob pin colours use).
 
 Defined in `activity-types.js` (shared by the app and the bulk importer).
 Types only show in the filters if the user has at least one track of them.
