@@ -148,9 +148,86 @@ to know:
 - **Views:** `feed` (Following/You tabs + `#feed-top` checklist/"On this day"),
   `people` (Discover/Following/Followers tabs — the follower lists moved here
   from the old People page; the profile's Followers/Following stats open
-  them via `openConnections()`), `public-profile` (hero + interactive
-  `_ppMap` of their public tracks). The map's activity list (`#sidebar`)
+  them via `openConnections()`), `public-profile` (hero + a static cover band
+  of their public tracks — see "Profile = Stories only" below for where the
+  interactive map actually lives now). The map's activity list (`#sidebar`)
   opens from the `#list-toggle` pill.
+
+## Profile = Stories only (2026-09-20)
+
+The user was explicit: Profile (yours or someone else's) is not another
+activity list — Strava already does that. It's Stories, curated. Individual
+Moments/activities live behind a click, not on the page.
+
+- **Profile page itself** (`#profile-view` / `#public-profile-view`) now
+  shows only: header (photo/name/bio/stats, or avatar/name/bio/stats for a
+  public profile), a **map hero** (`.profile-cover-wrap` wrapping
+  `#profile-cover` on your own profile / `#pp-cover` on a public one — both
+  reuse the same `.profile-cover` static-image-band styling and rendering
+  helper, `renderProfileCover()` for your own, `renderPublicCover(acts)` for
+  someone else's), and **Stories** (`renderProfileStories()` /
+  `renderPublicStoryCard()` inside `#pp-body`). There is no "Moments"
+  honeycomb grid or "Activities" list on the page anymore — `getMoments()`/
+  `Social.userActivities()` results only ever show up inside the modal
+  below. Both stories sections show an `emptyBlock()` empty state (not a
+  hidden section) when there are none yet, with a "New story" CTA — the
+  point is to nudge people toward making one, not to look broken.
+- **The map hero is clickable** (`onclick="openProfileMapModal(...)"`,
+  `role="button" tabindex="0"`, same plain-div-as-button pattern as
+  `.profile-stat[onclick]` elsewhere in this file) and opens
+  `#profile-map-modal` — one interactive map (`#pmm-map`, `_pmmMap`,
+  `renderPmmMap(tracks, focusActivityId)`) of every activity privacy allows,
+  plus the list below it (`#pmm-body`): your own Moments honeycomb
+  (`renderProfileHoneycomb()`, moved here from the old always-visible grid —
+  the sort buttons/`setProfileSort()` are unchanged) for your own profile, or
+  the same `renderActivityCard(itemFromPublicRow(...))` feed-card list the
+  page used to show inline for someone else's. Clicking a track on the map
+  scrolls to the matching list item via a shared `data-pmm-id` attribute
+  (added to both hex cells and feed-card `<article>`s) — one handler,
+  `#pmm-hit` click, works for either content type.
+- **`isOwnContext` (the modal's 3rd argument) must come from the caller, not
+  from `userId === currentUser.id`.** You can land on your *own*
+  public-profile page — a deep link to your own shared activity, or "View on
+  profile" from your own map popup — and that must still use the
+  already-fetched public `acts` (what a visitor would see), not every
+  private Moment you have. Only the map hero on your actual `#profile-view`
+  passes `true`; the public-profile hero and the internal deep-link call
+  (`openProfileMapModal(userId, focusActivityId)` at the end of
+  `openPublicProfile`) both omit it, so they always take the "public" path
+  even when `userId` happens to be you.
+- **Someone else's activity cards are fetched lazily, inside the modal, not
+  eagerly by `openPublicProfile`.** An earlier version built
+  `renderActivityCard()` HTML while `openPublicProfile` was still loading
+  and cached the string for later — that's wrong: `renderActivityCard()`
+  pushes a static-map fallback job onto the shared `_canvasJobs` queue as a
+  side effect, keyed to a canvas `id` that doesn't exist in the DOM yet, and
+  anything else calling the shared `flushCanvasJobs()` before the modal
+  opened would drain (and silently drop) that job for a canvas that was
+  never inserted. `openPublicProfile` now only loads what the page itself
+  needs (profile/acts-for-the-cover/counts/stories); `openProfileMapModal`
+  fetches photos/kudos/comments and calls `renderActivityCard()` right
+  before inserting the HTML and calling `flushCanvasJobs()`, same
+  build-then-flush order as everywhere else in the file (`buildOwnFeed()`,
+  `buildFollowingFeed()`).
+- **`renderProfileHoneycomb()`'s width calc measures `.pmm-body` first**
+  (`container.closest('.pmm-body') || document.querySelector('.profile-wrap')`),
+  not a bare global `.profile-wrap` lookup — the honeycomb now renders
+  inside the modal, which can be open over either `#profile-view` or
+  `#public-profile-view` (the deep-link-to-your-own-activity case above), and
+  `#profile-view`'s `.profile-wrap` happens to come first in the DOM
+  regardless of which view is actually active, so a global lookup could
+  silently measure a hidden, zero-width element.
+- **Stories now require 2+ moments to save** (`saveStory()`) — a Story is a
+  curated group, not a single-activity wrapper; a 1-moment "story" isn't
+  what this feature is for. Grouping is free-form (search/type/date filters
+  in the story modal already support both "this trip" and "Walks in May"
+  style themes) — no change needed there, just the minimum-size rule.
+- **Deferred, not built:** auto-suggesting a Story by grouping a user's
+  Moments that share an area and a time window ("relic suggestions"). The
+  user raised it as a future idea, not a request for this pass — flagging it
+  here so a future session doesn't have to rediscover the intent from
+  scratch. It would slot in naturally as a nudge on the map hero or the
+  empty-story-state CTA, once there's a grouping heuristic to build it on.
 
 ## Filters + Activities view (merged from `map-filters`, 2026-09-04)
 

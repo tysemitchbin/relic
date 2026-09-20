@@ -679,6 +679,19 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .profile-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
 .profile-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(26,35,24,.35), transparent 60%); }
+/* Wraps .profile-cover (own profile) or #pp-cover (a public profile) to make
+   the map hero at the top of Profile clickable — opens #profile-map-modal
+   with every activity privacy allows. Profile itself only shows Stories. */
+.profile-cover-wrap { position: relative; cursor: pointer; border-radius: var(--r-xl); }
+.profile-cover-wrap .cover-hint {
+  position: absolute; right: 14px; bottom: 14px; z-index: 1; display: flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: var(--r-pill); background: rgba(26,35,24,.55); color: #fff;
+  font: 500 13px var(--font-ui); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  pointer-events: none; transition: background .15s;
+}
+.profile-cover-wrap .cover-hint .ic { width: 15px; height: 15px; }
+.profile-cover-wrap:hover .cover-hint { background: rgba(26,35,24,.75); }
+.profile-cover-wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .profile-hero { display: flex; gap: 22px; align-items: flex-end; margin: -56px 0 0; padding: 0 24px 22px; position: relative; z-index: 1; border-bottom: none; }
 .profile-photo-wrap { cursor: pointer; flex-shrink: 0; position: relative; }
 .profile-photo {
@@ -870,9 +883,18 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .pp-stat-label { font-size: 13px; color: var(--text-3); }
 .pp-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .pp-btns .follow-btn { height: 40px; padding: 0 20px; font-size: 14px; }
-.pp-map { height: 340px; border-radius: var(--r-lg); overflow: hidden; margin-bottom: 22px; background: var(--paper2); position: relative; border: 1px solid var(--border); }
 .pp-map-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 14px; }
 .pp-activity-card { border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 14px; overflow: hidden; background: var(--surface); }
+
+/* #profile-map-modal — the "view full map" surface reached from the cover
+   hero on Profile / a public profile. */
+.profile-map-modal-inner { width: 940px; max-width: 100%; padding: 0; display: flex; flex-direction: column; max-height: 88vh; overflow: hidden; }
+.pmm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.pmm-title { font: 600 17px var(--font-ui); color: var(--ink); }
+.pmm-map { height: 320px; flex-shrink: 0; background: var(--paper2); position: relative; }
+.pmm-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 18px 20px calc(20px + var(--safe-b)); }
+.pmm-body .profile-grid-header { margin-top: 0; }
+.pmm-activities .feed-card:last-child { margin-bottom: 0; }
 .pp-activity-body { padding: 14px 16px; }
 .pp-activity-name { font: 600 18px var(--font-display); color: var(--ink); margin-bottom: 2px; }
 .pp-activity-meta { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
@@ -1357,7 +1379,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   .pp-header { flex-direction: column; text-align: center; padding: 20px 16px; }
   .pp-name, .pp-stats-row, .pp-btns { justify-content: center; }
   .pp-bio { margin-left: auto; margin-right: auto; }
-  .pp-map { height: 260px; }
+  .pmm-map { height: 220px; }
 
   /* Modals — bottom sheets */
   .modal-overlay { align-items: flex-end; padding: 0; }
@@ -1382,6 +1404,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   #add-modal .choice-ic, #draw-picker-modal .choice-ic { width: 38px; height: 38px; border-radius: 11px; }
   .story-modal { width: 100vw; padding: 0; height: calc(100% - 12px - var(--safe-t)); max-height: none; }
   .story-modal::before { margin: 8px auto 0; }
+  /* Same calc(100% - ...) rule as .story-modal above, not 100dvh — see the
+     iOS Safari note on .modal earlier in this block. */
+  .profile-map-modal-inner { width: 100vw; height: calc(100% - 12px - var(--safe-t)); max-height: none; }
+  .profile-map-modal-inner::before { margin: 8px auto 0; }
+  .pmm-head { padding: 10px 16px 12px; }
   .story-modal-header { padding: 12px 18px 12px; }
   .story-modal-footer { padding-bottom: calc(12px + var(--safe-b)); }
   .modal-actions { position: sticky; bottom: calc(-18px - var(--safe-b)); background: var(--surface); padding: 12px 0 calc(4px + var(--safe-b)); margin-top: 12px; }
@@ -1979,7 +2006,10 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <!-- PROFILE VIEW (your own) -->
     <div class="view" id="profile-view">
       <div class="profile-wrap">
-        <div class="profile-cover" id="profile-cover"></div>
+        <div class="profile-cover-wrap" onclick="openProfileMapModal(currentUser.id,null,true)" onkeydown="if(event.key==='Enter')openProfileMapModal(currentUser.id,null,true)" role="button" tabindex="0" aria-label="View your full map and every activity">
+          <div class="profile-cover" id="profile-cover"></div>
+          <div class="cover-hint"><svg class="ic"><use href="#i-map"/></svg>View full map</div>
+        </div>
         <div class="profile-hero">
           <div class="profile-photo-wrap" onclick="document.getElementById('profile-photo-input').click()" title="Change photo">
             <div class="profile-photo" id="profile-photo-display"><div class="profile-photo-placeholder">+</div></div>
@@ -2012,23 +2042,12 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           </div>
         </div>
 
-        <div class="profile-stories-section" id="profile-stories-section" style="display:none">
+        <div class="profile-stories-section" id="profile-stories-section">
           <div class="profile-stories-header">
             <div class="profile-stories-title">Stories</div>
             <button class="btn-ghost btn-sm" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New story</button>
           </div>
           <div class="profile-stories-grid" id="profile-stories-grid"></div>
-        </div>
-        <div class="profile-grid-header">
-          <div class="profile-grid-title">Moments</div>
-          <div class="profile-grid-sort">
-            <button class="pg-sort-btn active" data-sort="recent" onclick="setProfileSort('recent')">Recent</button>
-            <button class="pg-sort-btn" data-sort="distance" onclick="setProfileSort('distance')">Longest</button>
-            <button class="pg-sort-btn" data-sort="photos" onclick="setProfileSort('photos')">With photos</button>
-          </div>
-        </div>
-        <div class="profile-honeycomb-wrap">
-          <div class="profile-honeycomb" id="profile-honeycomb"></div>
         </div>
       </div>
     </div>
@@ -2223,8 +2242,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             </div>
           </div>
         </div>
-        <div class="pp-map" id="pp-map"></div>
-        <div class="section-title" style="margin-top:6px"><h2>Public activities</h2></div>
+        <div class="profile-cover-wrap" id="pp-cover-wrap" onclick="openProfileMapModal(ppViewingUserId)" onkeydown="if(event.key==='Enter')openProfileMapModal(ppViewingUserId)" role="button" tabindex="0" aria-label="View full map and every public activity">
+          <div class="profile-cover" id="pp-cover"></div>
+          <div class="cover-hint"><svg class="ic"><use href="#i-map"/></svg>View full map</div>
+        </div>
+        <div class="section-title" style="margin-top:6px"><h2>Stories</h2></div>
         <div class="pp-body" id="pp-body"></div>
       </div>
     </div>
@@ -2405,7 +2427,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   <div class="modal story-modal">
     <div class="story-modal-header">
       <div class="modal-title" id="story-modal-title">New Story</div>
-      <div class="modal-sub">Select moments, then build your story</div>
+      <div class="modal-sub">Select 2 or more moments, then build your story</div>
     </div>
     <div class="story-modal-body">
       <div class="story-modal-left">
@@ -2453,6 +2475,34 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="story-modal-footer">
       <button class="btn-ghost" onclick="closeStoryModal()">Cancel</button>
       <button class="btn-primary" id="sm-save-btn" onclick="saveStory()">Create Story</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MAP MODAL — tapping the map at the top of Profile (yours or a
+     public profile) opens this: an interactive map of every activity privacy
+     allows (all of yours; only their public ones for someone else), plus the
+     list below it. Stories stay curated on the profile page itself. -->
+<div class="modal-overlay" id="profile-map-modal" onclick="if(event.target===this)closeProfileMapModal()">
+  <div class="modal profile-map-modal-inner">
+    <div class="pmm-head">
+      <div class="pmm-title" id="pmm-title">Activities</div>
+      <button class="fd-close" onclick="closeProfileMapModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="pmm-map" id="pmm-map"></div>
+    <div class="pmm-body" id="pmm-body">
+      <div class="profile-grid-header" id="pmm-own-header" hidden>
+        <div class="profile-grid-title">Moments</div>
+        <div class="profile-grid-sort">
+          <button class="pg-sort-btn active" data-sort="recent" onclick="setProfileSort('recent')">Recent</button>
+          <button class="pg-sort-btn" data-sort="distance" onclick="setProfileSort('distance')">Longest</button>
+          <button class="pg-sort-btn" data-sort="photos" onclick="setProfileSort('photos')">With photos</button>
+        </div>
+      </div>
+      <div class="profile-honeycomb-wrap" id="pmm-own-honeycomb-wrap" hidden>
+        <div class="profile-honeycomb" id="profile-honeycomb"></div>
+      </div>
+      <div class="pmm-activities" id="pmm-activities"></div>
     </div>
   </div>
 </div>
@@ -5990,7 +6040,7 @@ function renderActivityCard(it) {
   const authorClick = it.isOwn ? `switchView('profile')` : `openPublicProfile(${jsAttr(it.ownerId)})`;
   const open = it.isOwn ? `goToActivity(${jsAttr(it.activityId)})` : `openPublicProfile(${jsAttr(it.ownerId)},${jsAttr(it.activityId)})`;
   const mood = MOODS.find(m => m.id === it.mood);
-  let h = `<article class="feed-card" data-key="${escapeHtml(it.key)}">`;
+  let h = `<article class="feed-card" data-key="${escapeHtml(it.key)}" data-pmm-id="${escapeHtml(it.activityId)}">`;
   h += `<header class="fc-header">
       <div class="fc-avatar" onclick="${authorClick}">${avatarHtml(it.author.avatarUrl, it.author.name, 'av-44', it.ownerId)}</div>
       <div class="fc-user">
@@ -6824,7 +6874,6 @@ async function buildProfile() {
   const row = document.getElementById('profile-stats-row');
   row.innerHTML = statsHtml('…', '…');
   renderProfileStories();
-  renderProfileHoneycomb();
   updatePinNudge();
   // The follow counts are a network call — render everything else first, and
   // never let a failure here blank the page.
@@ -7225,7 +7274,7 @@ async function beDelete() {
 // PEOPLE — discover, following, followers
 // ════════════════════════════════════════
 let peopleSearchTimer = null, peopleTab = 'discover';
-let ppViewingUserId = null, ppViewingFollowerCount = 0, _ppReturnView = 'people', _ppMap = null, _ppProfile = null;
+let ppViewingUserId = null, ppViewingFollowerCount = 0, _ppReturnView = 'people', _ppProfile = null;
 
 function followBtnHtml(id, extraCls) {
   const f = myFollowingIds.has(id);
@@ -7358,18 +7407,20 @@ function renderPpFollowButton() {
 }
 
 // ── Public profile ──
+let _ppActs = [];
 async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   if (!userId) return;
   if (currentView !== 'public-profile') _ppReturnView = currentView;
   ppViewingUserId = userId;
   _ppProfile = null;
+  _ppActs = [];
   document.getElementById('pp-avatar').innerHTML = '';
   document.getElementById('pp-name').textContent = '';
   document.getElementById('pp-bio').textContent = '';
   document.getElementById('pp-stats-row').innerHTML = '';
   document.getElementById('pp-follows-you').hidden = true;
   document.getElementById('pp-follow-btn').style.display = 'none';
-  document.getElementById('pp-map').innerHTML = '<div class="skel" style="position:absolute;inset:0"></div>';
+  document.getElementById('pp-cover').innerHTML = '<div class="skel" style="position:absolute;inset:0"></div>';
   document.getElementById('pp-body').innerHTML = '<div class="skel skel-card"></div>';
   switchView('public-profile');
   document.getElementById('public-profile-view').scrollTop = 0;
@@ -7384,8 +7435,9 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   }
   if (ppViewingUserId !== userId) return; // navigated away while loading
   const profile = profRows[0];
-  if (!profile) { document.getElementById('pp-body').innerHTML = emptyBlock('user', 'Profile not found', 'This account may have been deleted.', ''); document.getElementById('pp-map').innerHTML = ''; return; }
+  if (!profile) { document.getElementById('pp-body').innerHTML = emptyBlock('user', 'Profile not found', 'This account may have been deleted.', ''); document.getElementById('pp-cover').innerHTML = ''; return; }
   _ppProfile = profile;
+  _ppActs = acts;
   document.getElementById('pp-avatar').innerHTML = profile.avatarUrl ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="">` : escapeHtml(initials(profile.name));
   const h = _hue(userId);
   document.getElementById('pp-avatar').style.cssText = profile.avatarUrl ? '' : `background:hsl(${h} 42% 88%);color:hsl(${h} 38% 30%)`;
@@ -7399,84 +7451,146 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
     `<div><div class="pp-stat-val" id="pp-follower-count">${counts.followers}</div><div class="pp-stat-label">Followers</div></div>` +
     `<div><div class="pp-stat-val">${counts.following}</div><div class="pp-stat-label">Following</div></div>`;
   renderPpFollowButton();
-  renderPublicMap(acts, focusActivityId);
-  const storiesHtml = stories.length
-    ? `<div class="section-title" style="margin-top:0"><h2>Stories</h2></div>${stories.map(st => renderPublicStoryCard(st, profile)).join('')}<div class="section-title"><h2>Activities</h2></div>`
-    : '';
-  document.querySelector('#public-profile-view .section-title h2').parentElement.style.display = stories.length ? 'none' : '';
+  renderPublicCover(acts);
 
-  if (!acts.length) {
-    const own = userId === currentUser.id;
-    document.getElementById('pp-body').innerHTML = emptyBlock('lock', own ? 'Nothing public yet' : 'No public activities yet',
-      own ? 'This is how other people see your profile. Make some activities public in Settings.' : `${(profile.name || 'They').split(' ')[0]} hasn't shared anything publicly yet. Follow them to see new activities in your feed.`,
-      own ? `<button class="btn-primary" onclick="switchView('settings')">Sharing settings</button>` : '');
-    if (stories.length) { document.getElementById('pp-body').insertAdjacentHTML('afterbegin', storiesHtml); flushCanvasJobs(); }
-    return;
-  }
-  const keys = acts.map(a => socialKey(a.user_id, a.activity_id));
-  const [photos, kudos, ccounts] = await Promise.all([Social.photos(acts), Social.kudos(keys), Social.commentCounts(keys)]);
-  if (ppViewingUserId !== userId) return;
-  const body = document.getElementById('pp-body');
-  body.innerHTML = storiesHtml + acts.map(a => renderActivityCard(itemFromPublicRow(a, profile, photos, kudos, ccounts))).join('');
+  // Profile only shows Stories — their individual activities live behind the
+  // map hero above (tap it → #profile-map-modal), same as your own profile.
+  const own = userId === currentUser.id;
+  document.getElementById('pp-body').innerHTML = stories.length
+    ? stories.map(st => renderPublicStoryCard(st, profile)).join('')
+    : emptyBlock('book', own ? 'No stories yet' : `${(profile.name || 'They').split(' ')[0]} hasn't posted a story yet`,
+        own ? 'This is how other people see your profile. Group 2 or more moments into a Story to post it here.' : 'Stories are how people here share whole trips and chapters, not single activities.',
+        own ? `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New story</button>` : '');
   flushCanvasJobs();
   if (focusStoryId) {
+    const body = document.getElementById('pp-body');
     const sc = body.querySelector(`.feed-card[data-story="${CSS.escape(socialKey(userId, focusStoryId))}"]`);
     if (sc) setTimeout(() => { sc.scrollIntoView({ behavior: 'smooth', block: 'center' }); sc.style.boxShadow = '0 0 0 3px var(--accent)'; setTimeout(() => sc.style.boxShadow = '', 2400); }, 350);
   }
+  // Photos/kudos/comments and the activity cards themselves are only built
+  // when #profile-map-modal actually opens (see openProfileMapModal) — the
+  // profile page itself only needs the cover image and the stats above.
+  if (focusActivityId) openProfileMapModal(userId, focusActivityId);
+}
+// A cover band made of their public tracks — same idea as renderProfileCover,
+// just built from Social.userActivities() rows instead of local Moments.
+function renderPublicCover(acts) {
+  const el = document.getElementById('pp-cover'); if (!el) return;
+  const overlays = []; let budget = 7000;
+  acts.forEach(a => (a.polylines || []).forEach(p => {
+    const seg = pathOv(p, (a.custom_color || getColor(a.type)).replace('#', ''), 3, 0.9);
+    if (seg.length + 1 > budget) return;
+    overlays.push(seg); budget -= seg.length + 1;
+  }));
+  el.innerHTML = overlays.length ? mapboxStaticImg(overlays, 880, 180) : '';
+}
+
+// ════════════════════════════════════════
+// FULL MAP / ALL-ACTIVITIES MODAL — reached by tapping the map hero on
+// Profile (yours) or a public profile. Own case: every Moment, no privacy
+// filtering (you're the owner). Someone else's: whatever openPublicProfile
+// already fetched via Social.userActivities() — their privacy settings,
+// already applied.
+// ════════════════════════════════════════
+let _pmmMap = null;
+// isOwnContext must come from the caller, not from userId === currentUser.id:
+// you can land on YOUR OWN public-profile page (deep link to your own shared
+// activity, or "View on profile" from your own map popup), and that must
+// still use the already-fetched public acts, not every private Moment you
+// have. Only the map hero on your actual Profile page opts into full access.
+async function openProfileMapModal(userId, focusActivityId, isOwnContext) {
+  if (!userId) return;
+  const isOwn = !!isOwnContext;
+  const viewingSelf = userId === currentUser.id;
+  document.getElementById('pmm-title').textContent = isOwn ? 'Your activities' : `${(_ppProfile?.name || 'Their').split(' ')[0]}'s activities`;
+  document.getElementById('profile-map-modal').classList.add('open');
+  document.getElementById('pmm-own-header').hidden = !isOwn;
+  document.getElementById('pmm-own-honeycomb-wrap').hidden = !isOwn;
+  const activitiesEl = document.getElementById('pmm-activities');
+  activitiesEl.hidden = isOwn;
+
+  if (isOwn) {
+    renderProfileHoneycomb();
+    const tracks = [];
+    getMoments().forEach(m => { const c = getCoords(m); if (c && c.length >= 2) tracks.push({ id: m.id, color: m.customColor || getColor(m.type), coords: c }); });
+    renderPmmMap(tracks, focusActivityId);
+    return;
+  }
+
+  activitiesEl.innerHTML = '<div class="skel skel-card"></div>';
+  let acts = (ppViewingUserId === userId) ? _ppActs : [];
+  if (!acts.length && ppViewingUserId !== userId) { try { acts = await Social.userActivities(userId); } catch (e) { acts = []; } }
+  const tracks = [];
+  acts.forEach(a => (a.polylines || []).forEach(p => { let c; try { c = decodePolyline(p); } catch (e) { return; } if (c.length > 1) tracks.push({ id: a.activity_id, color: a.custom_color || getColor(a.type), coords: c }); }));
+  renderPmmMap(tracks, focusActivityId);
+
+  if (!acts.length) {
+    activitiesEl.innerHTML = emptyBlock('lock', viewingSelf ? 'Nothing public yet' : 'No public activities yet',
+      viewingSelf ? 'Make some activities public in Settings to see them here.' : 'They haven\'t shared anything publicly yet.', '');
+    return;
+  }
+  // Fetched here, not by openPublicProfile — the cards are only ever needed
+  // once this modal is actually opened.
+  const profileForCards = (ppViewingUserId === userId) ? _ppProfile : (await Social.profiles([userId]))[0];
+  const keys = acts.map(a => socialKey(a.user_id, a.activity_id));
+  const [photos, kudos, ccounts] = await Promise.all([Social.photos(acts), Social.kudos(keys), Social.commentCounts(keys)]);
+  activitiesEl.innerHTML = acts.map(a => renderActivityCard(itemFromPublicRow(a, profileForCards, photos, kudos, ccounts))).join('');
+  flushCanvasJobs();
   if (focusActivityId) {
-    const card = body.querySelector(`.feed-card[data-key="${CSS.escape(socialKey(userId, focusActivityId))}"]`);
+    const card = activitiesEl.querySelector(`.feed-card[data-key="${CSS.escape(socialKey(userId, focusActivityId))}"]`);
     if (card) setTimeout(() => { card.scrollIntoView({ behavior: 'smooth', block: 'center' }); card.style.boxShadow = '0 0 0 3px var(--accent)'; setTimeout(() => card.style.boxShadow = '', 2400); }, 350);
   }
 }
-// Their life map: every public track on one interactive map (static image
-// fallback if WebGL/Mapbox isn't available).
-function renderPublicMap(acts, focusActivityId) {
-  const el = document.getElementById('pp-map');
-  if (_ppMap) { try { _ppMap.remove(); } catch (e) {} _ppMap = null; }
+function closeProfileMapModal() {
+  document.getElementById('profile-map-modal').classList.remove('open');
+  if (_pmmMap) { try { _pmmMap.remove(); } catch (e) {} _pmmMap = null; }
+}
+// The modal's own map — every track it was given, on one interactive map
+// (static image fallback if WebGL/Mapbox isn't available). Shared by the
+// own-Moments path and the public-activities path above; `tracks` is
+// normalized to {id, color, coords} either way.
+function renderPmmMap(tracks, focusActivityId) {
+  const el = document.getElementById('pmm-map');
+  if (_pmmMap) { try { _pmmMap.remove(); } catch (e) {} _pmmMap = null; }
   el.innerHTML = '';
-  const feats = [];
-  acts.forEach(a => (a.polylines || []).forEach(p => {
-    let c; try { c = decodePolyline(p); } catch (e) { return; }
-    if (c.length > 1) feats.push({ type: 'Feature', properties: { id: a.activity_id, color: a.custom_color || getColor(a.type) }, geometry: { type: 'LineString', coordinates: c } });
-  }));
-  if (!feats.length) { el.innerHTML = '<div class="pp-map-empty">No public tracks to show yet</div>'; return; }
+  if (!tracks.length) { el.innerHTML = '<div class="pp-map-empty">Nothing to show on the map yet</div>'; return; }
+  const feats = tracks.map(t => ({ type: 'Feature', properties: { id: t.id, color: t.color }, geometry: { type: 'LineString', coordinates: t.coords } }));
   const b = new mapboxgl.LngLatBounds();
   feats.forEach(f => f.geometry.coordinates.forEach(c => b.extend(c)));
   try {
-    _ppMap = new mapboxgl.Map({ container: el, style: 'mapbox://styles/mapbox/outdoors-v12', bounds: b, fitBoundsOptions: { padding: 40, maxZoom: 13 }, attributionControl: false, cooperativeGestures: true });
-    _ppMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
-    _ppMap.on('load', () => {
-      _ppMap.addSource('pp', { type: 'geojson', data: { type: 'FeatureCollection', features: feats } });
-      _ppMap.addLayer({ id: 'pp-lines', type: 'line', source: 'pp', layout: { 'line-join': 'round', 'line-cap': 'round' },
+    _pmmMap = new mapboxgl.Map({ container: el, style: 'mapbox://styles/mapbox/outdoors-v12', bounds: b, fitBoundsOptions: { padding: 40, maxZoom: 13 }, attributionControl: false, cooperativeGestures: true });
+    _pmmMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+    _pmmMap.on('load', () => {
+      _pmmMap.addSource('pmm', { type: 'geojson', data: { type: 'FeatureCollection', features: feats } });
+      _pmmMap.addLayer({ id: 'pmm-lines', type: 'line', source: 'pmm', layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.5, 12, 3.5], 'line-opacity': 0.9 } });
-      _ppMap.addLayer({ id: 'pp-hit', type: 'line', source: 'pp', paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 16 } });
-      _ppMap.on('click', 'pp-hit', e => {
-        const id = e.features[0].properties.id;
-        const card = document.querySelector(`#pp-body .feed-card[data-key="${CSS.escape(socialKey(ppViewingUserId, id))}"]`);
-        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      _pmmMap.addLayer({ id: 'pmm-hit', type: 'line', source: 'pmm', paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 16 } });
+      _pmmMap.on('click', 'pmm-hit', e => {
+        const row = document.querySelector(`#pmm-body [data-pmm-id="${CSS.escape(String(e.features[0].properties.id))}"]`);
+        if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
-      _ppMap.on('mouseenter', 'pp-hit', () => _ppMap.getCanvas().style.cursor = 'pointer');
-      _ppMap.on('mouseleave', 'pp-hit', () => _ppMap.getCanvas().style.cursor = '');
+      _pmmMap.on('mouseenter', 'pmm-hit', () => _pmmMap.getCanvas().style.cursor = 'pointer');
+      _pmmMap.on('mouseleave', 'pmm-hit', () => _pmmMap.getCanvas().style.cursor = '');
       if (focusActivityId) {
         const fb = new mapboxgl.LngLatBounds(); let any = false;
         feats.filter(f => f.properties.id === focusActivityId).forEach(f => f.geometry.coordinates.forEach(c => { fb.extend(c); any = true; }));
-        if (any) _ppMap.fitBounds(fb, { padding: 50, maxZoom: 14, duration: 900 });
+        if (any) _pmmMap.fitBounds(fb, { padding: 50, maxZoom: 14, duration: 900 });
       }
     });
   } catch (e) {
-    console.warn('Interactive profile map unavailable, using static image', e);
+    console.warn('Interactive activities map unavailable, using static image', e);
     const overlays = []; let budget = 7000;
-    acts.forEach(a => (a.polylines || []).forEach(p => {
-      const seg = pathOv(p, (a.custom_color || getColor(a.type)).replace('#', ''), 3, 0.9);
+    tracks.forEach(t => {
+      const seg = pathOv(encodePolyline(t.coords), String(t.color || '#C1502E').replace('#', ''), 3, 0.9);
       if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
-    }));
-    el.innerHTML = mapboxStaticImg(overlays, 880, 340) || '<div class="pp-map-empty">Map unavailable</div>';
+    });
+    el.innerHTML = mapboxStaticImg(overlays, 880, 400) || '<div class="pp-map-empty">Map unavailable</div>';
   }
 }
 function closePublicProfile() {
   if (currentView !== 'public-profile') return;
   ppViewingUserId = null;
-  if (_ppMap) { try { _ppMap.remove(); } catch (e) {} _ppMap = null; }
+  closeProfileMapModal();
   switchView(_ppReturnView && _ppReturnView !== 'public-profile' ? _ppReturnView : 'people');
 }
 function sharePublicProfile() {
@@ -7654,9 +7768,17 @@ function renderProfileStories() {
   const section = document.getElementById('profile-stories-section');
   const grid = document.getElementById('profile-stories-grid');
   const stories = getStories();
+  section.querySelector('.profile-stories-empty')?.remove();
 
-  if (stories.length === 0) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
+  // Profile only shows Stories — the map hero above is where all your
+  // individual Moments live now (tap it to browse them).
+  if (stories.length === 0) {
+    section.insertAdjacentHTML('beforeend', `<div class="profile-stories-empty">${emptyBlock('book', 'No stories yet',
+      'Group 2 or more moments — a trip, "Walks in May", anything — into a Story to post it here. Individual moments live on your map, not your profile.',
+      `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New story</button>`)}</div>`);
+    grid.innerHTML = '';
+    return;
+  }
   grid.innerHTML = '';
 
   stories.sort((a, b) => (b.lastModified || b.createdAt || '') > (a.lastModified || a.createdAt || '') ? 1 : -1);
@@ -7831,7 +7953,12 @@ function renderProfileHoneycomb() {
   else if(profileSort==='distance') mems.sort((a,b)=>(b.distance||0)-(a.distance||0));
   else if(profileSort==='photos') mems=mems.filter(m=>m.photos?.length).sort((a,b)=>new Date(b.date)-new Date(a.date));
 
-  const wrapEl = document.querySelector('.profile-wrap');
+  // Measure the modal's own body, not .profile-wrap — the honeycomb now
+  // renders inside #profile-map-modal, which can be open over either
+  // #profile-view or #public-profile-view (deep link to your own activity
+  // while viewing your public profile), so a global .profile-wrap lookup
+  // could silently grab the wrong (hidden, zero-width) one.
+  const wrapEl = container.closest('.pmm-body') || document.querySelector('.profile-wrap');
   const wrapW = (wrapEl?.clientWidth
     ? wrapEl.clientWidth - parseFloat(getComputedStyle(wrapEl).paddingLeft) - parseFloat(getComputedStyle(wrapEl).paddingRight)
     : 680);
@@ -7850,7 +7977,7 @@ function renderProfileHoneycomb() {
   mems.slice(0,200).forEach((mem,idx) => {
     const col=idx%COLS, row=Math.floor(idx/COLS), isOddRow=row%2===1;
     const x=col*COL_W+(isOddRow?OFFSET:0)+4, y=row*ROW_H+10;
-    const cell=document.createElement('div'); cell.className='hex-cell';
+    const cell=document.createElement('div'); cell.className='hex-cell'; cell.dataset.pmmId=mem.id;
     const color=mem.customColor||getColor(mem.type);
     const date=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'';
     const dist=mem.distance?fmtDist(mem.distance):'';
@@ -8204,7 +8331,7 @@ function updateStoryPreview() {
 async function saveStory() {
   const title = document.getElementById('sm-title').value.trim();
   if (!title) { document.getElementById('sm-status').textContent = 'Please enter a title.'; return; }
-  if (storySelectedIds.size === 0) { document.getElementById('sm-status').textContent = 'Select at least one moment.'; return; }
+  if (storySelectedIds.size < 2) { document.getElementById('sm-status').textContent = 'Select at least 2 moments to make a story.'; return; }
 
   const btn = document.getElementById('sm-save-btn');
   btn.disabled = true;
@@ -8504,7 +8631,7 @@ function goToActivity(id) {
 
 let currentView = 'map';
 function switchView(view) {
-  if (view !== 'public-profile' && _ppMap) { try { _ppMap.remove(); } catch (e) {} _ppMap = null; }
+  if (view !== 'public-profile' && view !== 'profile') closeProfileMapModal();
   currentView = view;
   closeAccountMenu();
   const lp = document.getElementById('layers-pop'); if (lp) lp.hidden = true;
@@ -8689,7 +8816,7 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
 });
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
-window.addEventListener('resize', () => { if (map) map.resize(); if (document.getElementById('profile-view')?.classList.contains('active')) renderProfileHoneycomb(); });
+window.addEventListener('resize', () => { if (map) map.resize(); if (document.getElementById('profile-map-modal')?.classList.contains('open') && !document.getElementById('pmm-own-honeycomb-wrap')?.hidden) renderProfileHoneycomb(); });
 
 // Register all functions
 const _fns={};
@@ -8710,6 +8837,7 @@ _r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('onPeopleSearchInput',onPeopleSearchInput);_r('toggleFollow',toggleFollow);
 _r('openPublicProfile',openPublicProfile);_r('closePublicProfile',closePublicProfile);
+_r('openProfileMapModal',openProfileMapModal);_r('closeProfileMapModal',closeProfileMapModal);
 _r('togglePublicProfileFollow',togglePublicProfileFollow);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
