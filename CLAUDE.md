@@ -85,6 +85,21 @@ to know:
   there (24px grid, stroke). No unicode glyphs as UI icons.
 - **Dialogs:** never `alert()`/`confirm()`. Use `toast(msg, {error, icon,
   action})` and `await uiConfirm({title, body, ok, danger})`.
+- **Modals on mobile** (<=768px) become bottom sheets. Two rules learned the
+  hard way (2026-09-20, from a user report about the "+ Add" sheet):
+  1. Every modal needs a *visible* dismiss control — a `.modal-actions`
+     Cancel (sticky at the bottom of the sheet on mobile) and/or backdrop
+     tap-to-close (`onclick="if(event.target===this)closeX()"`, the
+     `#lightbox` pattern). The global Escape handler is desktop-only, so a
+     modal without one is a dead end on a phone. `#add-modal` shipped with
+     neither and was unexitable.
+  2. Never size anything inside `.modal-overlay` with `100dvh`. The overlay
+     is `position: fixed`, so iOS Safari lays it out against the *small*
+     viewport while `100dvh` is the *large* one; with
+     `align-items: flex-end` the sheet then overflows off the **top** of the
+     screen, and the overlay isn't scrollable, so the title and first rows
+     are unreachable. Use `calc(100% - ...)` — a percentage of the overlay.
+     Same trap as `#app`'s layout notes in the mobile media query.
 - **Escaping:** anything user-authored that goes into an HTML string goes
   through `escapeHtml()`; ids/strings passed into inline `onclick` go through
   `jsAttr()`. Friends' content is rendered now, so a miss is cross-user XSS,

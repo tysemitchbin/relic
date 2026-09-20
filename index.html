@@ -939,6 +939,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .modal {
   background: var(--surface); border: none; border-radius: var(--r-xl); box-shadow: var(--sh-3);
   padding: 28px; width: 480px; max-width: 100%; max-height: 88vh; overflow-y: auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   animation: modalIn .22s var(--ease);
 }
 @keyframes modalIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
@@ -1283,8 +1284,13 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 
   /* Modals — bottom sheets */
   .modal-overlay { align-items: flex-end; padding: 0; }
+  /* max-height is a % of the overlay, NOT 100dvh: the overlay is position:fixed,
+     so on iOS Safari it is laid out against the SMALL viewport, while 100dvh is
+     the large one. When the toolbar was retracted the sheet came out taller than
+     the overlay and — with align-items:flex-end — overflowed off the TOP of the
+     screen, where nothing can scroll it back into view. Same lesson as #app above. */
   .modal {
-    width: 100vw; max-width: none; max-height: calc(100dvh - 24px - var(--safe-t));
+    width: 100vw; max-width: none; max-height: calc(100% - 24px - var(--safe-t));
     border-radius: var(--r-xl) var(--r-xl) 0 0;
     padding: 22px 18px calc(18px + var(--safe-b));
     animation: sheetIn .26s var(--ease);
@@ -1293,7 +1299,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   .modal::before { content: ''; display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--paper3); margin: -10px auto 14px; }
   .modal-title { font-size: 22px; }
   .modal-input, .modal-select { font-size: 16px; } /* ≥16px avoids iOS focus-zoom */
-  .story-modal { width: 100vw; padding: 0; height: calc(100dvh - 12px - var(--safe-t)); max-height: none; }
+  /* Keep the Add chooser's six rows on one screen where the phone allows it. */
+  #add-modal .modal-sub, #draw-picker-modal .modal-sub { margin-bottom: 14px; }
+  #add-modal .choice, #draw-picker-modal .choice { padding: 10px 14px; gap: 12px; }
+  #add-modal .choice-ic, #draw-picker-modal .choice-ic { width: 38px; height: 38px; border-radius: 11px; }
+  .story-modal { width: 100vw; padding: 0; height: calc(100% - 12px - var(--safe-t)); max-height: none; }
   .story-modal::before { margin: 8px auto 0; }
   .story-modal-header { padding: 12px 18px 12px; }
   .story-modal-footer { padding-bottom: calc(12px + var(--safe-b)); }
@@ -2302,7 +2312,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 </div>
 
 <!-- ADD MODAL: chooser for non-GPS ways to add to the map (Retrospective entry) -->
-<div class="modal-overlay" id="add-modal">
+<div class="modal-overlay" id="add-modal" onclick="if(event.target===this)closeAddModal()">
   <div class="modal">
     <div class="modal-title">Add to your map</div>
     <div class="modal-sub">No GPS needed. Pick how you want to add it.</div>
@@ -2313,6 +2323,9 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <button class="choice" onclick="closeAddModal();switchView('map');openDrawRoutePicker()"><span class="choice-ic"><svg class="ic"><use href="#i-pen"/></svg></span><span><b>Draw a route</b><span>Trace it on the map, snapped to roads or trails</span></span><svg class="ic chev"><use href="#i-chevron-right"/></svg></button>
       <button class="choice" onclick="closeAddModal();openManualEntryModal()"><span class="choice-ic"><svg class="ic"><use href="#i-file"/></svg></span><span><b>Manual entry</b><span>Start, end, date and notes</span></span><svg class="ic chev"><use href="#i-chevron-right"/></svg></button>
       <button class="choice" onclick="closeAddModal();openImport()"><span class="choice-ic"><svg class="ic"><use href="#i-upload"/></svg></span><span><b>Import GPX / KML</b><span>Files from a watch, app or Google Earth</span></span><svg class="ic chev"><use href="#i-chevron-right"/></svg></button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeAddModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -2389,7 +2402,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 </div>
 
 <!-- DRAW-ROUTE MODE PICKER -->
-<div class="modal-overlay" id="draw-picker-modal">
+<div class="modal-overlay" id="draw-picker-modal" onclick="if(event.target===this)closeDrawPicker()">
   <div class="modal">
     <div class="modal-title">Draw a route</div>
     <div class="modal-sub">How did you travel? Then tap points on the map. Your route snaps to paths or roads.</div>
