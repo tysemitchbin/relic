@@ -2061,7 +2061,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           <div class="profile-stories-grid" id="profile-stories-grid"></div>
         </div>
         <div class="profile-grid-header">
-          <div class="profile-grid-title">Moments</div>
+          <div class="profile-grid-title">Activities</div>
           <div class="profile-grid-sort">
             <button class="pg-sort-btn active" data-sort="recent" onclick="setProfileSort('recent')">Recent</button>
             <button class="pg-sort-btn" data-sort="distance" onclick="setProfileSort('distance')">Longest</button>
@@ -2465,12 +2465,12 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   <div class="modal story-modal">
     <div class="story-modal-header">
       <div class="modal-title" id="story-modal-title">New Relic</div>
-      <div class="modal-sub">Select moments, then build your relic</div>
+      <div class="modal-sub">Select activities, then build your relic</div>
     </div>
     <div class="story-modal-body">
       <div class="story-modal-left">
         <div class="sm-filter-bar">
-          <input class="sm-search" type="text" id="sm-search" placeholder="Search moments..." oninput="renderStoryMomentList()">
+          <input class="sm-search" type="text" id="sm-search" placeholder="Search activities..." oninput="renderStoryMomentList()">
           <div class="sm-filter-row" id="sm-type-filters"></div>
           <div class="sm-date-row">
             <input class="sm-date-input" type="date" id="sm-date-from" onchange="renderStoryMomentList()">
@@ -2506,7 +2506,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             </div>
           </div>
           <div>
-            <div class="sm-label">Selected Moments</div>
+            <div class="sm-label">Selected activities</div>
             <div class="sm-selected-list" id="sm-selected-list"></div>
           </div>
           <div>
@@ -4261,7 +4261,7 @@ function showStoryDetail(storyId) {
     { val: story._totalDistance > 0 ? fmtDist(story._totalDistance) : '—', label: 'Total Distance' },
     { val: story._totalDuration > 0 ? formatDur(story._totalDuration) : '—', label: 'Total Time' },
     { val: story._totalElevation > 0 ? fmtElev(story._totalElevation) : '—', label: 'Total Elevation' },
-    { val: story._momentCount || 0, label: 'Moments' },
+    { val: story._momentCount || 0, label: 'Activities' },
   ].map(function(s) { return '<div class="dstat"><div class="dstat-val">' + s.val + '</div><div class="dstat-label">' + s.label + '</div></div>'; }).join('');
   document.getElementById('d-stats').style.display = '';
 
@@ -4288,7 +4288,7 @@ function showStoryDetail(storyId) {
       '<div class="glyph-thumb" id="sd-glyph-art">' + glyphSvg + '</div>' +
       '<div class="glyph-ctl"><div class="glyph-name">' +
       escapeHtml(GLYPH_STYLES[glyphPrefFor(story.id).style].label) + ' glyph</div>' +
-      '<div class="glyph-sub">' + (story._momentCount || 0) + ' moments</div></div>';
+      '<div class="glyph-sub">' + (story._momentCount || 0) + ' activities</div></div>';
     document.getElementById('d-stats').insertAdjacentElement('beforebegin', glyphDiv);
   }
 
@@ -4358,7 +4358,7 @@ function showStoryDetail(storyId) {
   // Moment timeline
   var timelineDiv = document.createElement('div');
   timelineDiv.className = 'sd-moment-timeline';
-  timelineDiv.innerHTML = '<div class="detail-section-title" style="padding:10px 18px 6px;border-bottom:1px solid var(--border)">Moments in this Relic</div>';
+  timelineDiv.innerHTML = '<div class="detail-section-title" style="padding:10px 18px 6px;border-bottom:1px solid var(--border)">Activities in this Relic</div>';
   var moments = (story.momentIds || []).map(function(id) { return db[id]; }).filter(function(m) { return m && !isStory(m); });
   moments.sort(function(a, b) { return (a.date || '') > (b.date || '') ? 1 : -1; });
 
@@ -6309,25 +6309,20 @@ async function hydrateSocialCounts(container, keys) {
 function buildOwnFeed() {
   const container = document.getElementById('feed-container');
   document.getElementById('feed-more').innerHTML = '';
-  const mems = getMoments().sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1));
+  // Relics only, same as the Following tab. Individual activities live in the
+  // Activities view; the feed is the curated layer on both tabs.
   const stories = getStories();
-  if (!mems.length && !stories.length) {
-    container.innerHTML = emptyBlock('map', 'Nothing here yet', 'Your activities, trips and stories will show up here as you add them.',
-      `<button class="btn-primary" onclick="openAddModal()"><svg class="ic"><use href="#i-plus"/></svg>Add to your map</button><button class="btn-ghost" onclick="switchView('settings')">Connect Strava</button>`);
+  if (!stories.length) {
+    container.innerHTML = emptyBlock('book', 'No relics yet',
+      'Group your activities into a relic — a trip, a season, a route — and it will show up here.',
+      `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button><button class="btn-ghost" onclick="switchView('activities')">See your activities</button>`);
     return;
   }
-  const items = [];
-  mems.slice(0, 60).forEach(m => items.push({ t: 'm', o: m, d: m.date || '' }));
-  stories.forEach(s => { computeStoryStats(s); items.push({ t: 's', o: s, d: s.dateEnd || s.createdAt || '' }); });
-  items.sort((a, b) => (b.d > a.d ? 1 : -1));
+  stories.forEach(s => computeStoryStats(s));
+  stories.sort((a, b) => ((b.dateEnd || b.createdAt || '') > (a.dateEnd || a.createdAt || '') ? 1 : -1));
   container.innerHTML = '';
-  items.forEach(it => {
-    if (it.t === 's') renderFeedStoryCard(container, it.o, loadProfile());
-    else container.insertAdjacentHTML('beforeend', renderActivityCard(itemFromMoment(it.o)));
-  });
+  stories.forEach(s => renderFeedStoryCard(container, s, loadProfile()));
   flushCanvasJobs();
-  requestAnimationFrame(() => stories.forEach(s => drawFeedStoryMap(s)));
-  hydrateSocialCounts(container, mems.slice(0, 60).filter(m => m.isPublic).map(m => socialKey(currentUser.id, m.id)));
 }
 // Kept for the _r() registry / older callers.
 function renderFeedMomentCard(container, mem) {
@@ -6494,6 +6489,7 @@ function renderFeedStoryCard(container, story, profile) {
       <div class="fc-user"><button class="fc-username" onclick="switchView('profile')">${escapeHtml(profile.name || 'You')}</button><div class="fc-date"><span>${escapeHtml(dateRange)}</span><span class="fc-vis" title="${story.isPublic ? 'Shared with followers' : 'Only you'}"><svg class="ic"><use href="#i-${story.isPublic ? 'globe' : 'lock'}"/></svg></span></div></div>
       <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Relic</span>
     </header>
+    <div class="fc-glyph" onclick="${open}" title="Open this relic">${storyGlyphSvg(story)}</div>
     <div class="fc-name" onclick="${open}">${escapeHtml(story.title || 'Untitled relic')}</div>`;
   if (story.narrative) h += `<div class="fc-note">${escapeHtml(story.narrative)}</div>`;
   if (typeKeys.length) h += `<div class="fc-story-types">${typeKeys.map(k => `<span class="fc-story-type-pill" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}">${escapeHtml(TYPE_CONFIG[k]?.label || k)} · ${story._typeBreakdown[k] || 0}</span>`).join('')}</div>`;
@@ -6501,9 +6497,13 @@ function renderFeedStoryCard(container, story, profile) {
       <div class="fc-stat"><div class="fc-stat-val">${story._totalDistance > 0 ? fmtKm(story._totalDistance) : '—'}</div><div class="fc-stat-label">Distance</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${story._totalDuration > 0 ? formatDur(story._totalDuration) : '—'}</div><div class="fc-stat-label">Time</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${story._totalElevation > 0 ? fmtElev(story._totalElevation) : '—'}</div><div class="fc-stat-label">Elevation</div></div>
-      <div class="fc-stat"><div class="fc-stat-val">${story._momentCount || 0}</div><div class="fc-stat-label">Moments</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${story._momentCount || 0}</div><div class="fc-stat-label">Activities</div></div>
     </div>
-    <div class="fc-map" onclick="${open}"><canvas id="fc-smap-${escapeHtml(story.id)}" width="640" height="260"></canvas>${staticStoryMapImg(story, 640, 260)}</div>`;
+`;
+  // Same as the shared card: the glyph leads and the map lives in the relic.
+  const ph = storyPhotos(story).slice(0, 6);
+  if (ph.length) h += `<div class="fc-photos">${ph.map(p =>
+    `<button class="fc-photo" onclick="openLightboxUrl(${jsAttr(p.url)})"><img src="${escapeHtml(p.url)}" alt="" loading="lazy"></button>`).join('')}</div>`;
   if (mood) h += `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>`;
   h += `<footer class="fc-actions">${story.isPublic ? '' : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span><button class="fc-act" onclick="shareStoryImage(${jsAttr(story.id)})" title="Share as image" aria-label="Share as image"><svg class="ic"><use href="#i-image"/></svg></button>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View relic</button></footer></article>`;
   container.insertAdjacentHTML('beforeend', h);
@@ -7076,7 +7076,7 @@ function renderStoryPhotos(storyId) {
     '<span>+</span><span class="sd-photo-add-label">Add</span></button>';
   const cap = document.getElementById('sd-photo-caption');
   if (cap) cap.textContent = photos.length
-    ? photos.length + (photos.length === 1 ? ' photo from this relic\'s tracks' : ' photos from this relic\'s tracks')
+    ? photos.length + (photos.length === 1 ? ' photo from this relic\'s activities' : ' photos from this relic\'s activities')
     : 'No photos yet. Added photos are matched to the right track.';
 }
 // Photos dropped on the relic are filed onto the track they were taken on.
@@ -7119,7 +7119,7 @@ function openRelicShare(storyId) {
   _rsStoryId = storyId;
   computeStoryStats(story);
   document.getElementById('rs-sub').textContent =
-    (story.title || 'Untitled') + ' · ' + (story._momentCount || 0) + ' moments';
+    (story.title || 'Untitled') + ' · ' + (story._momentCount || 0) + ' activities';
   glyphRefresh(storyId);
   document.getElementById('relic-share-modal').classList.add('open');
 }
@@ -7275,7 +7275,7 @@ function shareStoryImage(storyId) {
   shareAsImage({
     kicker: 'Relic · ' + (snap.date_start === snap.date_end ? fmt(snap.date_end) : fmt(snap.date_start) + ' – ' + fmt(snap.date_end)),
     title: st.title, polylines: snap.polylines, colors: snap.colors,
-    stats: [['Distance', snap.distance ? fmtKm(snap.distance) : ''], ['Moments', String(snap.moment_count || '')], ['Time', snap.duration ? formatDur(snap.duration) : '']],
+    stats: [['Distance', snap.distance ? fmtKm(snap.distance) : ''], ['Activities', String(snap.moment_count || '')], ['Time', snap.duration ? formatDur(snap.duration) : '']],
     author: _profile.name || '',
   });
 }
@@ -7381,7 +7381,7 @@ function renderPublicStoryCard(r, prof, photoUrls) {
     <div class="fc-stats">
       <div class="fc-stat"><div class="fc-stat-val">${r.distance > 0 ? fmtKm(r.distance) : '—'}</div><div class="fc-stat-label">Distance</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${r.duration > 0 ? formatDur(r.duration) : '—'}</div><div class="fc-stat-label">Time</div></div>
-      <div class="fc-stat"><div class="fc-stat-val">${r.moment_count || 0}</div><div class="fc-stat-label">Moments</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${r.moment_count || 0}</div><div class="fc-stat-label">Activities</div></div>
     </div>
     ${(photoUrls || []).length ? `<div class="fc-photos">${photoUrls.slice(0, 6).map(u =>
       `<button class="fc-photo" onclick="openLightboxUrl(${jsAttr(u)})"><img src="${escapeHtml(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
@@ -7695,7 +7695,7 @@ async function buildProfile() {
   const mems = getMoments();
   const totalDist = mems.reduce((s, m) => s + (m.distance || 0), 0) / 1000;
   const statsHtml = (fl, fr) => [
-    { val: mems.length.toLocaleString(), label: 'Moments' },
+    { val: mems.length.toLocaleString(), label: 'Activities' },
     { val: fmtDist(totalDist * 1000, 0), label: 'Distance' },
     { val: fr, label: 'Followers', onclick: "openConnections('followers')" },
     { val: fl, label: 'Following', onclick: "openConnections('following')" },
@@ -8557,7 +8557,7 @@ function renderProfileStories() {
     let mapHtml = glyph
       ? '<div class="story-card-map is-glyph">' + glyph
       : '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>' + staticStoryMapImg(story, 440, 200);
-    mapHtml += '<div class="story-card-badge">' + (story._momentCount || 0) + ' moments</div></div>';
+    mapHtml += '<div class="story-card-badge">' + (story._momentCount || 0) + ' activities</div></div>';
 
     card.innerHTML = mapHtml +
       '<div class="story-card-body">' +
@@ -8679,7 +8679,7 @@ function viewStoryOnMap(storyId) {
 }
 
 async function deleteStory(storyId) {
-  if (!(await uiConfirm({ title: 'Delete this relic?', body: 'The moments inside it are not affected.', ok: 'Delete relic', danger: true }))) return;
+  if (!(await uiConfirm({ title: 'Delete this relic?', body: 'The activities inside it are not affected.', ok: 'Delete relic', danger: true }))) return;
   delete db[storyId];
   allStories = getStories();
   if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
@@ -9087,7 +9087,7 @@ function updateStoryPreview() {
 async function saveStory() {
   const title = document.getElementById('sm-title').value.trim();
   if (!title) { document.getElementById('sm-status').textContent = 'Please enter a title.'; return; }
-  if (storySelectedIds.size === 0) { document.getElementById('sm-status').textContent = 'Select at least one moment.'; return; }
+  if (storySelectedIds.size === 0) { document.getElementById('sm-status').textContent = 'Select at least one activity.'; return; }
 
   const btn = document.getElementById('sm-save-btn');
   btn.disabled = true;

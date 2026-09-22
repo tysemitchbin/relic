@@ -259,14 +259,23 @@ copy says Relic. Don't rename the model.
 
 ## The feed is relics only (`relic-glyph`, 2026-09-22)
 
-`buildFollowingFeed()` reads `story_public` and nothing else, paginated on
-`date_end`. **A public activity is still public** — it shows on its owner's
-profile and on the friends map layer, and `Social.feed()` / `itemFromPublicRow()`
-still serve those — but it is not a post. The feed is the curated layer.
+**Both tabs.** `buildFollowingFeed()` reads `story_public` and nothing else,
+paginated on `date_end`; `buildOwnFeed()` (the You tab) reads `getStories()`.
+**A public activity is still public** — it shows on its owner's profile, in
+the Activities view and on the friends map layer, and `Social.feed()` /
+`itemFromPublicRow()` still serve those — but it is not a post. The feed is
+the curated layer; individual activities live in the Activities view.
 
 A feed card leads with the glyph (clickable, opens the relic), then title,
 narrative, stats and photos. The card's own mini-map was removed: the glyph
-replaced it and two maps of the same tracks was one too many.
+replaced it and two maps of the same tracks was one too many. The two card
+builders — `renderPublicStoryCard` (snapshot rows) and `renderFeedStoryCard`
+(your own, from `db`) — must stay in step; they quietly diverged once and the
+You tab kept rendering a canvas map after the shared card had moved on.
+
+**Front-end copy says "activity", never "moment".** `Moment` stays the model
+name in code (`getMoments`, `momentIds`, `moment_count`, every identifier and
+CSS class); only user-visible strings changed.
 
 Any new `Social` method needs its `DemoSocial` twin (`storyPhotos` has one),
 and the `demoStories` fixture has to carry new snapshot fields or `?demo`
