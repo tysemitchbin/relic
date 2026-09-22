@@ -152,6 +152,52 @@ to know:
   `_ppMap` of their public tracks). The map's activity list (`#sidebar`)
   opens from the `#list-toggle` pill.
 
+## Relic glyph (`relic-glyph`, 2026-09-22)
+
+A Story's tracks drawn as one line-drawing, used as its thumbnail. "Relic" is
+the **front-end name for a Story** — the code, table, `type: 'story'`
+discriminator, every identifier and CSS class stay `story`; only user-visible
+copy says Relic. Don't rename the model.
+
+- **Not a map.** Each track is scaled *on its own* to a common size and
+  stacked on a shared anchor, so the result is a mark. Tracks are **never
+  rotated** — north stays up, so a glyph keeps true cardinal direction and a
+  straight track stays straight at its real bearing. The user asked for this
+  explicitly; don't add PCA/orientation normalisation.
+- **Pipeline** (`gly*`-prefixed pure functions, near `renderShareCard`):
+  cos(lat) projection → `glySimplifyTo` (RDP to a *target segment count*, not a
+  fixed tolerance) → `glyQuantAngles` → fit → whole-composition fit. Quantising
+  every heading drifts the endpoint and leaves loops visibly unclosed, so the
+  error is spread back along the path — don't "fix" that by removing it.
+- **`glyphBudget(n)` is the single most important number**: total segments
+  across the whole glyph, scaled per style by `det`. It decides whether a relic
+  reads as a figure or a ball of wire. It was originally ~3× higher and real
+  relics came out as scribble — if glyphs look busy, lower this before
+  anything else. `maxSeg` caps one long activity from eating the budget.
+- **Flights ignore their geometry.** Most flight data has no usable trace
+  (Strava/GPX never populate `endLat`/`endPlace`; manual entry draws a straight
+  line), so a flight is redrawn as a fixed-bow arc at its real bearing via
+  `glyFlightArc` — every flight is the same mark differing only in heading,
+  which is what makes a curve read as "flight" at 64px.
+- **Five styles** in `GLYPH_STYLES`, user-picked, not inferred: Compass
+  (default), Rune, Weave, Survey (true geography), Tracks (`ang: 0`, high
+  `det` — deliberately looks like the real GPS). **The default is constant.**
+  Deriving it from the tracks was tried and measured worse: an unchosen relic
+  recomputes on every render, so its mark changed *kind* as the relic grew.
+  A glyph is an identity; keep the default constant.
+- **Colour is a separate axis** from style: the user's track colours
+  (`m.customColor || getColor(m.type)`, so `relic_colors_v1` overrides come
+  through) or one colour they pick. `glyInk()` floors luminance because a pale
+  custom colour vanishes on the light card.
+- **Choices live in `relic_glyph_v1` (localStorage), keyed by story id** — no
+  migration. Consequence: followers see the default glyph. Promoting to
+  columns on `stories` + `story_public` is the known follow-up.
+- Renders on the profile story card (`is-glyph`; the canvas mini-map stays as
+  the fallback for a relic with no GPS) and in the detail panel as a 64px
+  thumbnail top-left, with the `sd-map` hero below it placed *relative to the
+  glyph at insert time* — it is built later in `showStoryDetail` than it is
+  displayed.
+
 ## Filters + Activities view (merged from `map-filters`, 2026-09-04)
 
 `retrospective-entry` originally branched off `main` *before* the separate
