@@ -48,6 +48,27 @@ Gamified, rewarding moments — make opening the app feel good.
 - **Shareable recap cards** — generate a polished image card (à la Strava /
   Spotify Wrapped) for a trip, a year, or a milestone, sized for sharing.
 
+## Relic glyph
+
+The glyph shipped with two styles (Accurate, Runic) and three colour modes.
+These are the deliberate leftovers.
+
+- **Release the three held-back glyph styles** — Geometric, Weave and Survey
+  are built and tuned, but sit behind a `wip: true` flag in `GLYPH_STYLES`
+  (index.html) so they don't reach the picker. Deleting the flag releases one.
+  Geometric and Weave are ready whenever; **Survey needs a fix first** (below).
+- **Fix Survey's collapse before releasing it** — Survey keeps true geography
+  instead of scaling each activity separately, which is lovely for a relic that
+  happened in one place and broken for one spread over a region: the longest
+  activity sets the scale and everything else shrinks to specks in the middle.
+  Likely fix is a floor on how small any track can render relative to the
+  largest — keeps most of the geographic truth without anything vanishing.
+  Needs tuning against real relics to pick the floor.
+- **Fade by age** — draw a relic's older activities fainter and recent ones
+  solid, so a repeated route reads as history rather than noise. Designed and
+  mocked up during the glyph work, never built. Best on "same walk from home,
+  many times" relics, where the variation currently renders as an even fringe.
+
 ## AI
 
 - **AI-suggested stories** — cluster moments into proposed Stories automatically
