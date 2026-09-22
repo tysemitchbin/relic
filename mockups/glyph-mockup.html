@@ -56,6 +56,7 @@
   .box{background:#fff;border-radius:8px;overflow:hidden;flex:none}
   .auto td.meas{font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
   .auto td.rec{font-size:12.5px;color:var(--ink-2);max-width:34ch}
+  table.grid td.name em{white-space:normal;max-width:30ch}
   .auto td.rec b{display:block;color:var(--ink);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
   .steps{display:flex;flex-wrap:wrap;gap:8px}
   .step{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px;border-radius:10px;
@@ -122,6 +123,14 @@
   <table class="grid auto">
     <thead><tr><th>Relic</th><th>Glyph</th><th>Measured</th><th>Recipe</th></tr></thead>
     <tbody id="autoGrid"></tbody>
+  </table>
+
+  <h2>The picker — five styles × two colour modes</h2>
+  <p class="note" style="margin:0 0 12px">What the user chooses between, for the relic selected above.
+  Style and colour are independent, so any style can be drawn either way.</p>
+  <table class="grid">
+    <thead><tr><th>Style</th><th>Track colours</th><th>Monochrome</th></tr></thead>
+    <tbody id="pickGrid"></tbody>
   </table>
 
   <h2>Colour — matched to the user's map palette</h2>
@@ -383,25 +392,52 @@ function features(tracks){
   };
 }
 
-/* ── selection: a short, readable ladder. Order matters. ── */
+/* ── the five styles a user can pick between. Composition + look only;
+   everything that scales with the relic is derived, not stored. ── */
+var GLYPH_STYLES={
+  compass:{label:'Compass',comp:'radial',   ang:8, w:2.4,op:0.80,cap:'butt',  join:'miter',term:true,
+           blurb:'Radiating from a shared start, eight directions. Always one connected figure.'},
+  rune   :{label:'Rune',   comp:'radial',   ang:6, w:2.9,op:0.90,cap:'square',join:'miter',term:false,
+           blurb:'Six directions, heavy square strokes. The most abstract — and the best sticker.'},
+  survey :{label:'Survey', comp:'map',      ang:8, w:2.0,op:0.80,cap:'round', join:'round',term:true,
+           blurb:'True geography, stylised. For a relic that happened in one place.'},
+  weave  :{label:'Weave',  comp:'intersect',ang:8, w:2.4,op:0.75,cap:'round', join:'round',term:false,
+           blurb:'Each track centred on the others, so the lines interlock.'},
+  trace  :{label:'Trace',  comp:'radial',   ang:0, w:1.6,op:0.60,cap:'round', join:'round',term:false,
+           blurb:'Barely stylised. For people who want it to look like real GPS.'}
+};
+
+/* Colour is its own axis, not part of the style: any style can be drawn in the
+   user's track colours or in one ink. */
+function glyphFor(tracks,styleKey,mono){
+  var st=GLYPH_STYLES[styleKey]||GLYPH_STYLES.compass,n=tracks.length;
+  return glyphSVG(tracks,{
+    /* One track has nothing to radiate from, so it centres instead. That's a
+       derived parameter, not a different style — the picker still says Compass. */
+    mode:n===1?'solo':st.comp,
+    ang:st.ang,
+    /* fixed ink budget: a busier relic spends it thinner, so adding a track
+       adds a stroke instead of changing the kind of image */
+    budget:Math.max(20,Math.min(70,18+n*5)),
+    tol:0,grid:0,sm:0,w:st.w*(n>=10?0.85:1),op:st.op,
+    cap:st.cap,join:st.join,term:st.term,
+    blend:'multiply',bow:0.26,mono:!!mono,arcs:true,cos:true,fade:false,wbyd:false});
+}
+
+/* The default is Compass, always. Deriving it from dispersion looked smarter
+   and was worse: an unchosen relic recomputes its default on every render, so
+   the mark still changed kind as the relic grew (Survey -> Compass -> Survey
+   over seven additions on Southeast Asia). A constant default can't flip, and
+   Survey is one tap away for the relics that want it. */
+function defaultStyle(f){ return 'compass'; }
+
 function chooseRecipe(f){
-  if(f.n===1)
-    return {name:'Solo',comp:'solo',ang:8,budget:20,w:2.6,op:0.9,cap:'round',join:'round',term:true,
-      why:'One track is already a figure. Draw it alone and large — stacking has nothing to stack.'};
-  if(f.flightRatio>=0.8)
-    return {name:'Pinwheel',comp:'radial',ang:0,budget:0,w:2.6,op:0.7,cap:'round',join:'round',term:true,
-      why:'Nothing but flights. Arcs are already a vocabulary; quantising them only makes them worse.'};
-  if(f.dispersion<1.2)
-    return {name:'Survey',comp:'map',ang:8,budget:52,w:2.0,op:0.8,cap:'butt',join:'miter',term:true,
-      why:'The tracks overlap in real space, so they already compose one figure. Keep true geography and stylise it.'};
-  if(f.n<=5&&f.loopRatio>=0.5)
-    return {name:'Weave',comp:'intersect',ang:8,budget:40,w:2.4,op:0.75,cap:'round',join:'round',term:false,
-      why:'A few closed loops. Centred on each other they interlock instead of colliding.'};
-  if(f.n>=10)
-    return {name:'Thicket',comp:'radial',ang:6,budget:64,w:2.4,op:0.85,cap:'square',join:'miter',term:false,
-      why:'Too many tracks to intersect legibly. Radiate them and spend the ink budget thinly.'};
-  return {name:'Fan',comp:'radial',ang:8,budget:44,w:2.4,op:0.8,cap:'butt',join:'miter',term:true,
-    why:'A handful of mixed tracks in different places. Radiate from a shared start, eight directions.'};
+  var key=defaultStyle(f),st=GLYPH_STYLES[key];
+  return {name:st.label,key:key,comp:f.n===1?'solo':st.comp,ang:st.ang,
+    budget:Math.max(20,Math.min(70,18+f.n*5)),w:st.w*(f.n>=10?0.85:1),op:st.op,
+    cap:st.cap,join:st.join,term:st.term,
+    why:f.n===1?'One track. Centred rather than radiating — there is nothing to radiate from.'
+      :'The default, unchanged by what the tracks happen to measure. Adding a track adds a stroke.'};
 }
 
 function fitIntersect(p,size,pad){
@@ -571,6 +607,15 @@ function render(){
       '<td class="meas">'+f.n+' tracks<br>'+pct(f.flightRatio)+' flights<br>'+pct(f.loopRatio)+' loops<br>'+
         'dispersion '+f.dispersion.toFixed(2)+'<br>sinuosity '+f.sinuosity.toFixed(1)+'</td>'+
       '<td class="rec"><b>'+r.name+'</b>'+r.why+'</td></tr>';}).join('');
+
+  el('pickGrid').innerHTML=Object.keys(GLYPH_STYLES).map(function(k){
+    var st=GLYPH_STYLES[k],def=defaultStyle(features(tracks))===k;
+    var cell=function(mono){return '<td><div class="tcell">'+[96,44,28].map(function(px){
+      return '<div class="box" style="width:'+px+'px;height:'+px+'px">'+glyphFor(tracks,k,mono)+'</div>';
+      }).join('')+'</div></td>';};
+    return '<tr><td class="name">'+st.label+(def?' <span style="color:var(--rust)">· default</span>':'')+
+      '<em>'+st.blurb+'</em></td>'+cell(false)+cell(true)+'</tr>';
+  }).join('');
 
   el('colourGrid').innerHTML=Object.keys(PRESETS).map(function(name){
     var tracks=buildTracks(name,seed),r=chooseRecipe(features(tracks));
