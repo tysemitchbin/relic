@@ -214,6 +214,30 @@ sidebar list both mean "this individual Moment has a written note"
   `::before` (not a sheet any more). If a future modal ever wants this same
   full-bleed treatment, copy this pair of overrides rather than fighting the
   base `.modal` sizing per breakpoint.
+- **The map inside this modal has most of the main map's controls** (user
+  ask, 2026-09-22) — a layers popover (`#pmm-layers-pop`, same `.lp-*` CSS as
+  the main map's) with Standard/Satellite + 3D terrain, a "Show everything"
+  fit button (`fitPmmMap()`), reset-north, zoom, and a bottom-left legend
+  (`pmmBuildLegend()`) of the activity-type colors present, built from
+  `TYPE_CONFIG` (so it reflects any user recoloring) rather than per-track
+  `customColor`. No `cooperativeGestures` on this map (unlike the main map's
+  embed elsewhere) — it's a genuine full-screen takeover per the point above,
+  not a page fighting the map for scroll, so requiring ctrl+scroll to zoom
+  was just friction (user report). The controls/legend markup are DOM
+  siblings of `#pmm-map`, not children of it — `renderPmmMap()` does
+  `el.innerHTML=''` on that container on every (re)open, which would
+  otherwise wipe them. **"Your tracks" comparison overlay**: on someone
+  else's map only (`#pmm-mine-row` hidden when `_pmmIsOwn`), a switch loads
+  every one of *your* Moments as a second line layer (`pmm-mine-lines`,
+  dimmed, `line-opacity:0.32`) added with `beforeId:'pmm-lines'` so their
+  tracks always render on top of yours — lets someone compare their map
+  against a friend's. Because `mapboxgl.Map#setStyle` (the satellite toggle)
+  wipes any source/layer not baked into the style, every `pmm-*` source/layer
+  add is idempotent and funneled through one function (`pmmAddLayers()`,
+  called from both the map's first `style.load` and every subsequent one) —
+  don't add a new pmm layer as a one-off `.on('load', ...)` call the way the
+  original single-layer version did, it'll vanish the moment someone flips
+  Satellite.
 - **Your own individual activities have their own page**: `#activities-view`
   / `renderActivitiesView()` (a sortable table, pre-existing — see "Filters +
   Activities view" below) is reachable from the header nav *and*, since
