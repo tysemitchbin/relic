@@ -1178,14 +1178,17 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card-map canvas { width: 100%; height: 100%; }
 .story-card-map.is-glyph { display: flex; align-items: center; justify-content: center; background: var(--surface); }
 .story-card-map.is-glyph svg { width: 100%; height: 100%; padding: 10px; }
-.glyph-art { display: flex; align-items: center; justify-content: center; background: var(--surface);
-  border: 1px solid var(--border); border-radius: var(--r-md, 12px); aspect-ratio: 1; max-width: 220px; margin: 0 auto 12px; }
-.glyph-art svg { width: 100%; height: 100%; padding: 12px; }
-.glyph-empty { font-size: 13px; color: var(--text-3); text-align: center; padding: 24px 12px; }
-.glyph-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.sd-glyph { display: flex; gap: 12px; align-items: flex-start; padding: 14px 18px 2px; }
+.glyph-thumb { width: 64px; height: 64px; flex: none; display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md, 12px); overflow: hidden; }
+.glyph-thumb svg { width: 100%; height: 100%; padding: 6px; }
+.glyph-ctl { flex: 1; min-width: 0; }
+.sd-map-hero { cursor: pointer; }
+.glyph-select { width: auto; min-width: 150px; max-width: 100%; font-size: 13px; min-height: 34px; padding: 6px 34px 6px 10px; margin-bottom: 6px; }
+.glyph-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .glyph-row .chip { cursor: pointer; border: 1px solid transparent; font-size: 12px; padding: 4px 10px; }
 .glyph-row .chip.on { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent); }
-.glyph-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.glyph-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
 .glyph-sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
 .glyph-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface) inset; }
 .glyph-sw-custom { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: none; cursor: pointer; }
@@ -2006,7 +2009,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         </div>
         <div class="profile-actions">
           <button class="btn-primary" onclick="shareMyProfile()"><svg class="ic"><use href="#i-share"/></svg>Share profile</button>
-          <button class="btn-ghost" onclick="openStoryModal()"><svg class="ic"><use href="#i-book"/></svg>New story</button>
+          <button class="btn-ghost" onclick="openStoryModal()"><svg class="ic"><use href="#i-book"/></svg>New relic</button>
           <button class="btn-ghost" onclick="openImport()"><svg class="ic"><use href="#i-upload"/></svg>Import</button>
           <button class="btn-ghost" onclick="switchView('settings')"><svg class="ic"><use href="#i-settings"/></svg>Settings</button>
         </div>
@@ -2027,8 +2030,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 
         <div class="profile-stories-section" id="profile-stories-section" style="display:none">
           <div class="profile-stories-header">
-            <div class="profile-stories-title">Stories</div>
-            <button class="btn-ghost btn-sm" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New story</button>
+            <div class="profile-stories-title">Relics</div>
+            <button class="btn-ghost btn-sm" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>
           </div>
           <div class="profile-stories-grid" id="profile-stories-grid"></div>
         </div>
@@ -2378,7 +2381,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="modal-title">Delete your account</div>
     <div class="modal-sub">This cannot be undone</div>
     <p style="font-size:15px;line-height:1.55;color:var(--ink);margin:0 0 14px">
-      This permanently deletes your account and everything tied to it: every activity, photo, story, note,
+      This permanently deletes your account and everything tied to it: every activity, photo, relic, note,
       follower/following relationship, and your Strava connection. There is no way to recover it afterward.
     </p>
     <div class="import-progress" id="delete-account-status"></div>
@@ -2417,8 +2420,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 <div class="modal-overlay" id="story-modal">
   <div class="modal story-modal">
     <div class="story-modal-header">
-      <div class="modal-title" id="story-modal-title">New Story</div>
-      <div class="modal-sub">Select moments, then build your story</div>
+      <div class="modal-title" id="story-modal-title">New Relic</div>
+      <div class="modal-sub">Select moments, then build your relic</div>
     </div>
     <div class="story-modal-body">
       <div class="story-modal-left">
@@ -2441,7 +2444,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <div class="sm-builder">
           <div>
             <div class="sm-label">Title</div>
-            <input class="sm-title-input" type="text" id="sm-title" placeholder="Name your story..." oninput="updateStoryPreview()">
+            <input class="sm-title-input" type="text" id="sm-title" placeholder="Name your relic..." oninput="updateStoryPreview()">
           </div>
           <div>
             <div class="sm-label">Narrative</div>
@@ -2465,7 +2468,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     </div>
     <div class="story-modal-footer">
       <button class="btn-ghost" onclick="closeStoryModal()">Cancel</button>
-      <button class="btn-primary" id="sm-save-btn" onclick="saveStory()">Create Story</button>
+      <button class="btn-primary" id="sm-save-btn" onclick="saveStory()">Create Relic</button>
     </div>
   </div>
 </div>
@@ -4183,7 +4186,7 @@ function showStoryDetail(storyId) {
 
   // Header
   document.getElementById('d-type-dot').style.background = 'var(--accent)';
-  document.getElementById('d-type-label').textContent = 'Story';
+  document.getElementById('d-type-label').textContent = 'Relic';
   document.getElementById('d-type-label').hidden = false; document.getElementById('d-type-select').hidden = true;
   document.getElementById('d-name-input').value = story.title || '';
   document.getElementById('d-name-input').oninput = function() {
@@ -4220,18 +4223,18 @@ function showStoryDetail(storyId) {
 
   const body = document.getElementById('detail-body');
 
-  // Glyph — the story's tracks as one mark. Style and colour are the user's.
-  var glyphDiv = document.createElement('div');
-  glyphDiv.className = 'sd-glyph';
-  glyphDiv.innerHTML =
-    '<div class="detail-section-title">Glyph</div>' +
-    '<div class="glyph-art" id="sd-glyph-art">' +
-      (storyGlyphSvg(story) || '<div class="glyph-empty">No GPS tracks in this story yet.</div>') +
-    '</div>' +
-    '<div id="sd-glyph-controls">' + glyphControlsHtml(story.id) + '</div>';
-  // Straight under the stats — it's the story's mark, not an afterthought.
-  // appendChild would drop it below the hidden moment-detail sections.
-  document.getElementById('d-stats').insertAdjacentElement('afterend', glyphDiv);
+  // Glyph — the relic's mark, as a small thumbnail at the top left. The map
+  // below is the hero. Skipped entirely when there's no GPS to draw from.
+  var glyphSvg = storyGlyphSvg(story);
+  if (glyphSvg) {
+    var glyphDiv = document.createElement('div');
+    glyphDiv.className = 'sd-glyph';
+    glyphDiv.innerHTML =
+      '<div class="glyph-thumb" id="sd-glyph-art">' + glyphSvg + '</div>' +
+      '<div class="glyph-ctl" id="sd-glyph-controls">' + glyphControlsHtml(story.id) + '</div>';
+    document.getElementById('d-stats').insertAdjacentElement('beforebegin', glyphDiv);
+  }
+
 
   // Narrative section
   var narrativeDiv = document.createElement('div');
@@ -4243,9 +4246,15 @@ function showStoryDetail(storyId) {
 
   // Map — real Mapbox tiles behind every child moment's track, same as the story cards
   var mapDiv = document.createElement('div');
-  mapDiv.className = 'sd-map';
+  mapDiv.className = 'sd-map sd-map-hero';
+  mapDiv.title = 'Open on the map';
+  mapDiv.onclick = function() { viewStoryOnMap(story.id); };
   mapDiv.innerHTML = '<canvas id="sd-map-' + story.id + '" width="620" height="180"></canvas>' + staticStoryMapImg(story, 620, 180);
-  body.insertBefore(mapDiv, narrativeDiv);
+  // The map is the hero: directly under the glyph, not below the stats and
+  // mood where it used to sit.
+  var glyphEl = document.querySelector('#detail-body .sd-glyph');
+  if (glyphEl) glyphEl.insertAdjacentElement('afterend', mapDiv);
+  else body.insertBefore(mapDiv, narrativeDiv);
   requestAnimationFrame(function() { drawFeedStoryMap(story, 'sd-map-' + story.id); });
 
   document.getElementById('sd-narrative-input').oninput = function() {
@@ -4269,7 +4278,7 @@ function showStoryDetail(storyId) {
   actionsDiv.innerHTML =
     '<button class="btn-ghost btn-sm" onclick="openStoryModal(\'' + storyId + '\')"><svg class="ic"><use href="#i-pen"/></svg>Edit moments</button>' +
     '<button class="btn-ghost btn-sm" onclick="shareStoryImage(\'' + storyId + '\')"><svg class="ic"><use href="#i-image"/></svg>Share as image</button>' +
-    '<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="deleteStory(\'' + storyId + '\');closeDetail()">Delete Story</button>';
+    '<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="deleteStory(\'' + storyId + '\');closeDetail()">Delete Relic</button>';
   body.insertBefore(actionsDiv, document.getElementById('d-rows'));
   var shareDiv = document.createElement('div');
   shareDiv.className = 'detail-section sd-share';
@@ -4280,7 +4289,7 @@ function showStoryDetail(storyId) {
   // Moment timeline
   var timelineDiv = document.createElement('div');
   timelineDiv.className = 'sd-moment-timeline';
-  timelineDiv.innerHTML = '<div class="detail-section-title" style="padding:10px 18px 6px;border-bottom:1px solid var(--border)">Moments in this Story</div>';
+  timelineDiv.innerHTML = '<div class="detail-section-title" style="padding:10px 18px 6px;border-bottom:1px solid var(--border)">Moments in this Relic</div>';
   var moments = (story.momentIds || []).map(function(id) { return db[id]; }).filter(function(m) { return m && !isStory(m); });
   moments.sort(function(a, b) { return (a.date || '') > (b.date || '') ? 1 : -1; });
 
@@ -5000,7 +5009,7 @@ async function saveParsedRoute() {
   }
   if (storyId) {
     const { error } = await sb.from('stories').upsert(storyToRow(db[storyId]));
-    if (error) { statusEl.textContent = 'Legs saved, but grouping them into a Story failed: ' + error.message; btn.disabled = false; return; }
+    if (error) { statusEl.textContent = 'Legs saved, but grouping them into a Relic failed: ' + error.message; btn.disabled = false; return; }
   }
   statusEl.textContent = `Saved ${legs.length} leg${legs.length===1?'':'s'}.`;
   _pendingParsedRoute = null;
@@ -6303,9 +6312,9 @@ function renderFeedStoryCard(container, story, profile) {
     <header class="fc-header">
       <div class="fc-avatar" onclick="switchView('profile')">${avatarHtml(profile.photo, profile.name || 'You', 'av-44', currentUser.id)}</div>
       <div class="fc-user"><button class="fc-username" onclick="switchView('profile')">${escapeHtml(profile.name || 'You')}</button><div class="fc-date"><span>${escapeHtml(dateRange)}</span><span class="fc-vis" title="${story.isPublic ? 'Shared with followers' : 'Only you'}"><svg class="ic"><use href="#i-${story.isPublic ? 'globe' : 'lock'}"/></svg></span></div></div>
-      <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Story</span>
+      <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Relic</span>
     </header>
-    <div class="fc-name" onclick="${open}">${escapeHtml(story.title || 'Untitled story')}</div>`;
+    <div class="fc-name" onclick="${open}">${escapeHtml(story.title || 'Untitled relic')}</div>`;
   if (story.narrative) h += `<div class="fc-note">${escapeHtml(story.narrative)}</div>`;
   if (typeKeys.length) h += `<div class="fc-story-types">${typeKeys.map(k => `<span class="fc-story-type-pill" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}">${escapeHtml(TYPE_CONFIG[k]?.label || k)} · ${story._typeBreakdown[k] || 0}</span>`).join('')}</div>`;
   h += `<div class="fc-stats">
@@ -6316,7 +6325,7 @@ function renderFeedStoryCard(container, story, profile) {
     </div>
     <div class="fc-map" onclick="${open}"><canvas id="fc-smap-${escapeHtml(story.id)}" width="640" height="260"></canvas>${staticStoryMapImg(story, 640, 260)}</div>`;
   if (mood) h += `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>`;
-  h += `<footer class="fc-actions">${story.isPublic ? '' : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span><button class="fc-act" onclick="shareStoryImage(${jsAttr(story.id)})" title="Share as image" aria-label="Share as image"><svg class="ic"><use href="#i-image"/></svg></button>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View story</button></footer></article>`;
+  h += `<footer class="fc-actions">${story.isPublic ? '' : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span><button class="fc-act" onclick="shareStoryImage(${jsAttr(story.id)})" title="Share as image" aria-label="Share as image"><svg class="ic"><use href="#i-image"/></svg></button>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View relic</button></footer></article>`;
   container.insertAdjacentHTML('beforeend', h);
 }
 
@@ -6611,9 +6620,12 @@ function glyphControlsHtml(storyId) {
   const chip = (on, label, fn) =>
     '<button class="chip' + (on ? ' on' : '') + '" onclick="' + fn + '">' + escapeHtml(label) + '</button>';
   let html =
-    '<div class="glyph-row">' + Object.keys(GLYPH_STYLES).map(k =>
-      chip(k === g.style, GLYPH_STYLES[k].label, 'setStoryGlyphStyle(' + jsAttr(storyId) + ',' + jsAttr(k) + ')')
-    ).join('') + '</div>' +
+    '<select class="modal-select glyph-select" aria-label="Glyph style" onchange="setStoryGlyphStyle(' +
+      jsAttr(storyId) + ',this.value)">' +
+      Object.keys(GLYPH_STYLES).map(k =>
+        '<option value="' + k + '"' + (k === g.style ? ' selected' : '') + '>' +
+        escapeHtml(GLYPH_STYLES[k].label) + '</option>').join('') +
+    '</select>' +
     '<div class="glyph-row">' +
       chip(!g.mono, 'Track colours', 'setStoryGlyphMono(' + jsAttr(storyId) + ',false)') +
       chip(g.mono, 'One colour', 'setStoryGlyphMono(' + jsAttr(storyId) + ',true)') +
@@ -6630,7 +6642,7 @@ function glyphControlsHtml(storyId) {
 }
 function glyphRefresh(storyId) {
   const art = document.getElementById('sd-glyph-art');
-  if (art && db[storyId]) art.innerHTML = storyGlyphSvg(db[storyId]) || '<div class="glyph-empty">No GPS tracks in this story yet.</div>';
+  if (art && db[storyId]) art.innerHTML = storyGlyphSvg(db[storyId]) || '<div class="glyph-empty">No GPS tracks in this relic yet.</div>';
   const ctl = document.getElementById('sd-glyph-controls');
   if (ctl) ctl.innerHTML = glyphControlsHtml(storyId);
   if (document.getElementById('profile-stories-grid')) renderProfileStories();
@@ -6736,7 +6748,7 @@ function shareStoryImage(storyId) {
   const snap = buildStorySnapshotRow(st);
   const fmt = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   shareAsImage({
-    kicker: 'Story · ' + (snap.date_start === snap.date_end ? fmt(snap.date_end) : fmt(snap.date_start) + ' – ' + fmt(snap.date_end)),
+    kicker: 'Relic · ' + (snap.date_start === snap.date_end ? fmt(snap.date_end) : fmt(snap.date_start) + ' – ' + fmt(snap.date_end)),
     title: st.title, polylines: snap.polylines, colors: snap.colors,
     stats: [['Distance', snap.distance ? fmtKm(snap.distance) : ''], ['Moments', String(snap.moment_count || '')], ['Time', snap.duration ? formatDur(snap.duration) : '']],
     author: _profile.name || '',
@@ -6768,13 +6780,13 @@ async function setStoryVisibility(storyId, makePublic) {
   const story = db[storyId]; if (!story || !isStory(story)) return;
   if (!!story.isPublic === makePublic) return;
   if (makePublic && !(await uiConfirm({
-    title: 'Share this story?',
+    title: 'Share this relic?',
     body: 'Your followers will see it in their feed and on your profile — its title, narrative, stats and a map of its tracks. The first and last 500 m of each track are hidden (or your own privacy radius, if you set one). The individual activities keep their own privacy setting.',
-    ok: 'Share story',
+    ok: 'Share relic',
   }))) { renderStoryShareSection(storyId); return; }
   story.isPublic = makePublic;
   renderStoryShareSection(storyId);
-  if (DEMO) { toast(makePublic ? 'Story shared' : 'Story is private again', { icon: 'check' }); return; }
+  if (DEMO) { toast(makePublic ? 'Relic shared' : 'Relic is private again', { icon: 'check' }); return; }
   try {
     const q = makePublic
       ? sb.from('story_public').upsert(buildStorySnapshotRow(story))
@@ -6782,7 +6794,7 @@ async function setStoryVisibility(storyId, makePublic) {
     const { error } = await q;
     if (error) throw error;
     saveArchiveCache();
-    toast(makePublic ? 'Story shared with your followers' : 'Story is private again', { icon: 'check' });
+    toast(makePublic ? 'Relic shared with your followers' : 'Relic is private again', { icon: 'check' });
   } catch (e) {
     story.isPublic = !makePublic;
     renderStoryShareSection(storyId);
@@ -6823,9 +6835,9 @@ function renderPublicStoryCard(r, prof) {
     <header class="fc-header">
       <div class="fc-avatar" onclick="${authorClick}">${avatarHtml(prof?.avatarUrl, prof?.name, 'av-44', r.user_id)}</div>
       <div class="fc-user"><button class="fc-username" onclick="${authorClick}">${escapeHtml(prof?.name || 'Someone')}</button><div class="fc-date">${escapeHtml(range)}</div></div>
-      <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Story</span>
+      <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Relic</span>
     </header>
-    <div class="fc-name" onclick="${open}">${escapeHtml(r.title || 'Untitled story')}</div>
+    <div class="fc-name" onclick="${open}">${escapeHtml(r.title || 'Untitled relic')}</div>
     ${r.narrative ? `<div class="fc-note">${escapeHtml(r.narrative)}</div>` : ''}
     ${types.length ? `<div class="fc-story-types">${types.map(([k, n]) => `<span class="fc-story-type-pill" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}">${escapeHtml(TYPE_CONFIG[k]?.label || k)} · ${n}</span>`).join('')}</div>` : ''}
     <div class="fc-stats">
@@ -6837,7 +6849,7 @@ function renderPublicStoryCard(r, prof) {
     ${mood ? `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>` : ''}
     <footer class="fc-actions"><span class="fc-spacer"></span>
       <button class="fc-act" onclick="shareStory(${jsAttr(r.user_id)},${jsAttr(r.story_id)},${jsAttr(r.title)})" title="Share" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>
-      <button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View story</button>
+      <button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View relic</button>
     </footer>
   </article>`;
 }
@@ -7348,7 +7360,7 @@ function beMoreMenu(e) {
   const a = e.currentTarget; a.setAttribute('data-menu-anchor', '');
   openMenu(a, [
     { label: 'Hide start / end of tracks…', icon: 'lock', fn: beRadius },
-    { label: 'Add to a story…', icon: 'book', fn: beAddToStory },
+    { label: 'Add to a relic…', icon: 'book', fn: beAddToStory },
     { label: 'Change activity type…', icon: 'activity', fn: beChangeType },
     { label: 'Set track colour…', icon: 'pen', fn: beSetColour },
     { label: 'Rename…', icon: 'file', fn: beRename },
@@ -7478,13 +7490,13 @@ async function beRename() {
 async function beAddToStory() {
   const mems = beSelected(); if (!mems.length) return;
   const stories = getStories().sort((a, b) => ((b.lastModified || '') > (a.lastModified || '') ? 1 : -1));
-  const v = await uiForm({ title: 'Add to a story', sub: `${mems.length.toLocaleString()} selected activities.`,
+  const v = await uiForm({ title: 'Add to a relic', sub: `${mems.length.toLocaleString()} selected activities.`,
     bodyHtml: `<select class="modal-select" name="story" onchange="this.form.querySelector('[name=title]').hidden = this.value !== '__new'">
-        <option value="__new">+ New story</option>
+        <option value="__new">+ New relic</option>
         ${stories.map(st => `<option value="${escapeHtml(st.id)}">${escapeHtml(st.title || 'Untitled')}</option>`).join('')}
       </select>
-      <input class="modal-input" name="title" maxlength="120" placeholder="Story title, e.g. Norway 2024" autocomplete="off">`,
-    ok: 'Add to story', validate: x => x.story !== '__new' || x.title.trim().length > 0 });
+      <input class="modal-input" name="title" maxlength="120" placeholder="Relic title, e.g. Norway 2024" autocomplete="off">`,
+    ok: 'Add to relic', validate: x => x.story !== '__new' || x.title.trim().length > 0 });
   if (!v) return;
   const ids = mems.map(m => m.id);
   let story, isNew = v.story === '__new', prevIds = null;
@@ -7504,7 +7516,7 @@ async function beAddToStory() {
     const { error } = await sb.from('stories').upsert(storyToRow(story));
     if (error) {
       if (isNew) delete db[story.id]; else story.momentIds = prevIds;
-      toast("Couldn't save the story — try again", { error: true });
+      toast("Couldn't save the relic — try again", { error: true });
       return;
     }
     if (story.isPublic && !_socialOff.stories) await sb.from('story_public').upsert(buildStorySnapshotRow(story));
@@ -7729,7 +7741,7 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   renderPpFollowButton();
   renderPublicMap(acts, focusActivityId);
   const storiesHtml = stories.length
-    ? `<div class="section-title" style="margin-top:0"><h2>Stories</h2></div>${stories.map(st => renderPublicStoryCard(st, profile)).join('')}<div class="section-title"><h2>Activities</h2></div>`
+    ? `<div class="section-title" style="margin-top:0"><h2>Relics</h2></div>${stories.map(st => renderPublicStoryCard(st, profile)).join('')}<div class="section-title"><h2>Activities</h2></div>`
     : '';
   document.querySelector('#public-profile-view .section-title h2').parentElement.style.display = stories.length ? 'none' : '';
 
@@ -8128,7 +8140,7 @@ function viewStoryOnMap(storyId) {
 }
 
 async function deleteStory(storyId) {
-  if (!(await uiConfirm({ title: 'Delete this story?', body: 'The moments inside it are not affected.', ok: 'Delete story', danger: true }))) return;
+  if (!(await uiConfirm({ title: 'Delete this relic?', body: 'The moments inside it are not affected.', ok: 'Delete relic', danger: true }))) return;
   delete db[storyId];
   allStories = getStories();
   if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
@@ -8367,15 +8379,15 @@ function openStoryModal(existingId) {
     const s = db[editingStoryId];
     document.getElementById('sm-title').value = s.title || '';
     document.getElementById('sm-narrative').value = s.narrative || '';
-    document.getElementById('story-modal-title').textContent = 'Edit Story';
+    document.getElementById('story-modal-title').textContent = 'Edit Relic';
     document.getElementById('sm-save-btn').textContent = 'Save Changes';
     (s.momentIds || []).forEach(id => { if (db[id]) storySelectedIds.add(id); });
     _storyMood = s.mood || null;
   } else {
     document.getElementById('sm-title').value = '';
     document.getElementById('sm-narrative').value = '';
-    document.getElementById('story-modal-title').textContent = 'New Story';
-    document.getElementById('sm-save-btn').textContent = 'Create Story';
+    document.getElementById('story-modal-title').textContent = 'New Relic';
+    document.getElementById('sm-save-btn').textContent = 'Create Relic';
     _storyMood = null;
   }
 
@@ -8574,7 +8586,7 @@ async function saveStory() {
     btn.disabled = false;
     return;
   }
-  document.getElementById('sm-status').textContent = 'Story saved.';
+  document.getElementById('sm-status').textContent = 'Relic saved.';
 
   // Refresh app state
   allStories = getStories();
