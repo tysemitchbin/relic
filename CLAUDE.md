@@ -246,6 +246,194 @@ sidebar list both mean "this individual Moment has a written note"
   scratch. It would slot in naturally as a nudge on the map hero or the
   empty-story-state CTA, once there's a grouping heuristic to build it on.
 
+## Relic glyph (`relic-glyph`, 2026-09-22)
+
+A Story's tracks drawn as one line-drawing, used as its thumbnail. "Relic" is
+the **front-end name for a Story** — the code, table, `type: 'story'`
+discriminator, every identifier and CSS class stay `story`; only user-visible
+copy says Relic. Don't rename the model.
+
+- **Chains, not tracks, are the unit of normalisation.** A multi-day route
+  arrives as one Moment per day, each starting where the last finished;
+  normalising them separately pins every day's start on the anchor and shreds
+  the route. `glyChainIds()` groups days whose endpoints meet (tolerance
+  scaled to the legs, floor 0.3 km, ceiling 8 km) and the chain is fitted as
+  one figure by `glyFitOriginMulti`/`glyFitIntersectMulti`, while each day
+  keeps its own colour. A chain of one behaves exactly as a lone track did.
+  Flights never chain — their geometry is replaced by a synthetic arc, so
+  there is no real endpoint to meet. `storyGlyphTracks()` sorts by date,
+  without which chaining means nothing.
+- **Not a map.** Each chain is scaled *on its own* to a common size and
+  stacked on a shared anchor, so the result is a mark. Tracks are **never
+  rotated** — north stays up, so a glyph keeps true cardinal direction and a
+  straight track stays straight at its real bearing. The user asked for this
+  explicitly; don't add PCA/orientation normalisation.
+- **Pipeline** (`gly*`-prefixed pure functions, near `renderShareCard`):
+  cos(lat) projection → `glySimplifyTo` (RDP to a *target segment count*, not a
+  fixed tolerance) → `glyQuantAngles` → fit → whole-composition fit. Quantising
+  every heading drifts the endpoint and leaves loops visibly unclosed, so the
+  error is spread back along the path — don't "fix" that by removing it.
+- **Two families of style, and the difference is the segment budget.** The
+  faithful ones (Tracks, Survey) set `ink` — a large budget spent on keeping
+  the real shape. The geometric ones scale the small `glyphBudget(n)` by `det`
+  into a handful of bold strokes. `maxSeg` stops one long activity eating the
+  budget. If geometric glyphs look busy, lower `glyphBudget` before anything
+  else; it was once ~3× higher and real relics came out as scribble.
+- **Simplification destroys lap sports, so the default is faithful.** An
+  alpine day is the same corridor ridden up and down a dozen times; RDP keeps
+  only the extremes, so an over-simplified ski relic collapses to a line
+  traced back and forth — a real user relic looked like this. Rendered
+  faithfully the same relic is a legible comb of laps. The user's standing
+  preference is that **glyphs should look like the tracks**, so `tracks` is
+  `GLYPH_DEFAULT_STYLE`; the geometric styles are the alternative, not the
+  norm.
+- **Flights ignore their geometry.** Most flight data has no usable trace
+  (Strava/GPX never populate `endLat`/`endPlace`; manual entry draws a straight
+  line), so a flight is redrawn as a fixed-bow arc at its real bearing via
+  `glyFlightArc` — every flight is the same mark differing only in heading,
+  which is what makes a curve read as "flight" at 64px.
+- **Styles are user-picked, not inferred.** `GLYPH_STYLES` holds five, all
+  tuned and working, but only those without `wip: true` reach the picker
+  (`glyphStyleKeys()`). Shipping two — **Accurate** (default) and **Runic**,
+  the two ends of the abstraction axis — and releasing another is just
+  deleting its flag. Held back, with reasons: `geometric` (the natural third),
+  `weave` (least differentiated; reads as busier Geometric at 64px), `survey`
+  (true geography, so a relic spread over a region collapses — the longest
+  track dominates the shared bounds). A relic already set to a held-back style
+  still renders and still lists it, so releasing one never strands a choice.
+  `GLYPH_STYLE_ALIASES` maps earlier names. **The default is constant.**
+  Deriving it from the tracks was tried and measured worse: an unchosen relic
+  recomputes on every render, so its mark changed *kind* as the relic grew.
+  A glyph is an identity; keep the default constant.
+- **Colour is a separate axis** from style, with three modes: `track` (the
+  user's own colours — `m.customColor || getColor(m.type)`, so
+  `relic_colors_v1` overrides come through), `shade`, and `one` (a colour they
+  pick). `shade` exists because same-sport tracks share a colour, so a relic
+  of five runs was five identical red lines: `glyShadeColours()` groups tracks
+  by resolved colour and spreads HSL lightness within each group, so different
+  sports keep their hue and same-sport tracks still separate. `glyInk()`
+  floors luminance and `glyShade()` caps it at 0.70, because a pale colour
+  vanishes on the light card the glyph sits on. The old two-state `mono` flag
+  is migrated in `glyphPrefFor`.
+- **Choices live on the relic row** (`glyph_style` / `glyph_colour` /
+  `glyph_ink`, see `docs/supabase-glyph.sql` — must be applied before this
+  ships). `relic_glyph_v1` in localStorage is now only a *fallback*, read per
+  field for choices made before the columns existed and for a relic still
+  being built (`GLYPH_NEW`), which has no row. Changing the look of a shared
+  relic re-pushes its snapshot (`refreshStorySnapshot`).
+- **A follower's glyph must match the owner's, which `polylines` cannot do.**
+  Redaction splits one track into several segments, so that array is not 1:1
+  with the relic's activities and rebuilding tracks from it would normalise
+  fragments. `story_public.glyph_tracks` is the glyph's own structure — one
+  jsonb entry per activity in date order, `{p: [encoded…], c, k}` — where `k`
+  is the TYPE_CONFIG group, without which a follower cannot tell a flight
+  (an arc) from anything else. `publicGlyphSvg(row)` renders it.
+- **`story_public.photos` holds storage paths, not URLs**, signed on read by
+  `Social.storyPhotos()`, so nothing long-lived sits in the snapshot. Sharing
+  a relic therefore shares its photos — the share confirm says so. This needs
+  the **"public relic photo files"** storage policy in
+  `docs/supabase-glyph.sql`: the older policy grants a signed URL only via
+  `activity_public`, and a relic is usually built from private activities, so
+  without it a shared relic renders no photos at all.
+- Snapshot upserts use `onConflict: 'user_id,story_id'` — `story_public`'s
+  primary key is the pair, and naming `story_id` alone fails with 42P10 on
+  every write.
+- **Every `.modal-overlay` shares `z-index: 500`, so DOM order decides.**
+  `#confirm-modal` / `#form-modal` are opened *from* later modals (bulk
+  editor, relic builder, share sheet) and so are pinned above them
+  explicitly. A new modal that can raise a confirm must sit below that.
+- Renders on the profile story card (`is-glyph`; the canvas mini-map stays as
+  the fallback for a relic with no GPS) and in the detail panel as a 64px
+  thumbnail top-left, with the `sd-map` hero below it placed *relative to the
+  glyph at insert time* — it is built later in `showStoryDetail` than it is
+  displayed.
+- **The detail panel shows the glyph, it does not configure it.** Style and
+  colour live behind **Edit** (the glyph block in `#story-modal`) and in the
+  **Share** popup (`#relic-share-modal`), the way a Strava activity keeps its
+  settings out of the view. `glyphControlsHtml()` is rendered into whichever
+  of the mounts in `GLYPH_MOUNTS` exist, and `glyphRefresh()` updates them
+  all — add a new mount there rather than wiring a fourth refresh path.
+- **`saveStory()` rebuilds the relic object from the form**, so any field not
+  restated there is dropped on every save — that is how the glyph columns and
+  `isPublic` were being reset by clicking "Save Changes". Add a new relic
+  field to that literal as well as to the mappers.
+- A relic being built has no id, so its glyph choices are staged under
+  `GLYPH_NEW` and written straight onto the object in `saveStory()` — not via
+  `setGlyphPref`, which would take its localStorage branch because `db[id]`
+  does not exist yet. `clearStagedGlyphPref()` runs on save *and* on
+  `openStoryModal`, or a cancelled relic's look leaks into the next one.
+  `glyphStoryById()` returns the staged stand-in built from
+  `storySelectedIds`, which is what lets the edit modal preview a relic that
+  does not exist yet.
+- `glyphToBlob()` rasterises the *same* inline SVG through an `Image` rather
+  than redrawing on canvas, so the shared PNG and the on-screen glyph cannot
+  drift apart.
+
+## The feed is relics only (`relic-glyph`, 2026-09-22)
+
+**Both tabs.** `buildFollowingFeed()` reads `story_public` and nothing else,
+with **keyset pagination on `(date_end, story_id)`** — `date_end` is a *date*,
+so a plain `.lt(date_end, cursor)` permanently skips every other relic ending
+on the same day as a page boundary. The cursor is `{d, id}`; `buildOwnFeed()` (the You tab) reads `getStories()`.
+**A public activity is still public** — it shows on its owner's profile, in
+the Activities view and on the friends map layer, and `Social.feed()` /
+`itemFromPublicRow()` still serve those — but it is not a post. The feed is
+the curated layer; individual activities live in the Activities view.
+
+A feed card leads with the glyph (clickable, opens the relic), then title,
+narrative, stats and photos. The card's own mini-map was removed: the glyph
+replaced it and two maps of the same tracks was one too many. The two card
+builders — `renderPublicStoryCard` (snapshot rows) and `renderFeedStoryCard`
+(your own, from `db`) — must stay in step; they quietly diverged once and the
+You tab kept rendering a canvas map after the shared card had moved on.
+
+**Every empty feed state offers both roads out** — follow someone, or make
+your own relic — because either one fills the feed. There are three
+(`buildFollowingFeed`: following nobody, and nobody-has-shared;
+`buildOwnFeed`: no relics of your own), and they differ only in which action
+is primary. Don't write copy promising an action the block has no button for.
+
+**Front-end copy says "activity", never "moment".** `Moment` stays the model
+name in code (`getMoments`, `momentIds`, `moment_count`, every identifier and
+CSS class); only user-visible strings changed.
+
+Any new `Social` method needs its `DemoSocial` twin (`storyPhotos` has one),
+and the `demoStories` fixture has to carry new snapshot fields or `?demo`
+renders a relic card with no glyph and no photos. That fixture is built during
+boot, so it cannot name consts declared further down the file — doing so
+throws on the temporal dead zone and takes the whole demo seed with it.
+
+## Relic photos (`relic-glyph`, 2026-09-22)
+
+A relic shows every photo taken on its tracks (`storyPhotos()` gathers
+`m.photos` across `momentIds`, in date order), and photos added *to the relic*
+are filed onto the track they belong to rather than the relic itself — there is
+no relic-level photo store, and adding one would duplicate `activity_photos`.
+
+- **`assignPhotoToRelic(story, taken, lat, lng)` decides where a photo goes.**
+  **Time is tried first and beats GPS**: a photo taken during an activity
+  belongs to it, and `DateTimeOriginal` survives when location tagging is off,
+  which it often is. A photo within 30 min either side of the activity window
+  counts. GPS is the fallback, nearest point on any of the relic's tracks
+  within 1.5 km. Neither → returns null and the caller *says so* rather than
+  guessing a track.
+- **Both times are compared as UTC, and that is deliberate.** An activity's
+  `date` is Strava's `start_date_local` stored as a timestamptz with a `+00:00`
+  offset — local wall-clock labelled UTC. EXIF `DateTimeOriginal` is also
+  wall-clock with no zone, so `readExifTaken()` returns `Date.UTC(...)`.
+  Reading it as browser-local instead compares the two in different frames and
+  silently breaks time matching for every user outside UTC.
+- **`readExifTaken()` is deliberately separate from `readEXIF()`.** The latter
+  is dense, load-bearing GPS-parsing code; this only needed one more tag
+  (IFD0 → Exif SubIFD `0x8769` → `0x9003`), so it walks its own copy rather
+  than risking that parser. EXIF timestamps carry no zone, so it is read as
+  local time — which is what a camera writes and what an activity's local
+  start time is stored as.
+- `uploadPhotoToMoment(memId, file, geo)` is the single place storage layout,
+  the `activity_photos` row and the local `db` update happen; the Moment's own
+  grid and the relic upload both call it. `geo` is passed in when the caller
+  already read EXIF, so a file isn't parsed twice.
+
 ## Filters + Activities view (merged from `map-filters`, 2026-09-04)
 
 `retrospective-entry` originally branched off `main` *before* the separate

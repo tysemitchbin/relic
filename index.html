@@ -950,6 +950,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
 .modal-overlay.open { display: flex; animation: fadeIn .18s ease; }
+/* Every overlay shares z-index 500, so DOM order decides who wins. These two
+   are opened *from* other modals (bulk editor, relic builder, share sheet),
+   all of which sit later in the document — so without this a confirm or form
+   paints behind the modal that asked for it and can't be clicked. */
+#confirm-modal, #form-modal { z-index: 620; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
   background: var(--surface); border: none; border-radius: var(--r-xl); box-shadow: var(--sh-3);
@@ -1179,6 +1184,47 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card:hover { box-shadow: var(--sh-2); transform: translateY(-2px); }
 .story-card-map { width: 100%; height: 140px; background: var(--paper3); position: relative; overflow: hidden; }
 .story-card-map canvas { width: 100%; height: 100%; }
+.story-card-map.is-glyph { display: flex; align-items: center; justify-content: center; background: var(--surface); }
+.story-card-map.is-glyph svg { width: 100%; height: 100%; padding: 10px; }
+.fc-glyph { display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--surface); border-block: 1px solid var(--border); padding: 18px; }
+.fc-glyph svg { width: 100%; max-width: 260px; aspect-ratio: 1; }
+.fc-glyph:empty { display: none; }
+.fc-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; padding: 10px 18px 0; }
+.fc-photo { padding: 0; border: 0; border-radius: var(--r-sm, 8px); overflow: hidden; aspect-ratio: 1; cursor: pointer; background: var(--paper2); }
+.fc-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sd-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin-top: 8px; }
+.sd-photo { padding: 0; border: 0; border-radius: var(--r-sm, 8px); overflow: hidden; aspect-ratio: 1; cursor: pointer; background: var(--paper2); }
+.sd-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sd-photo-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: 1px dashed var(--border); color: var(--text-3); font: 600 20px var(--font-ui); background: none; }
+.sd-photo-add-label { font-size: 11px; font-weight: 600; }
+.sd-narrative-read { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text-2); white-space: pre-wrap; }
+.sd-mood-read { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); }
+.sd-mood-read span { font-weight: 600; color: var(--ink); }
+.sm-glyph-row { display: flex; gap: 12px; align-items: flex-start; }
+.glyph-name { font: 600 15px var(--font-ui); color: var(--ink); }
+.glyph-sub { font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
+.rs-preview { display: flex; align-items: center; justify-content: center; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r-md, 12px); aspect-ratio: 1;
+  max-width: 230px; margin: 4px auto 14px; }
+.rs-preview svg { width: 100%; height: 100%; padding: 14px; }
+.rs-targets { display: flex; flex-direction: column; gap: 8px; }
+.rs-targets .btn-ghost { justify-content: flex-start; width: 100%; }
+.sd-glyph { display: flex; gap: 12px; align-items: flex-start; padding: 14px 18px 2px; }
+.glyph-thumb { width: 64px; height: 64px; flex: none; display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md, 12px); overflow: hidden; }
+.glyph-thumb svg { width: 100%; height: 100%; padding: 6px; }
+.glyph-ctl { flex: 1; min-width: 0; }
+.sd-map-hero { cursor: pointer; }
+.glyph-select { width: auto; min-width: 150px; max-width: 100%; font-size: 13px; min-height: 34px; padding: 6px 34px 6px 10px; margin-bottom: 6px; }
+.glyph-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.glyph-row .chip { cursor: pointer; border: 1px solid transparent; font-size: 12px; padding: 4px 10px; }
+.glyph-row .chip.on { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent); }
+.glyph-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+.glyph-sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
+.glyph-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface) inset; }
+.glyph-sw-custom { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: none; cursor: pointer; }
 .story-card-body { padding: 14px 16px 16px; }
 .story-card-title { font: 600 18px/1.25 var(--font-display); color: var(--ink); margin-bottom: 4px; }
 .story-card-meta { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
@@ -2420,16 +2466,35 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 </div>
 
 <!-- STORY MODAL -->
+<input type="file" id="relic-photo-input" accept="image/*" multiple hidden onchange="handleRelicPhotoUpload(this)">
+
+<div class="modal-overlay" id="relic-share-modal" onclick="if(event.target===this)closeRelicShare()">
+  <div class="modal">
+    <div class="modal-title">Share relic</div>
+    <div class="modal-sub" id="rs-sub"></div>
+    <div class="rs-preview" id="rs-preview"></div>
+    <div class="sm-label">How it looks</div>
+    <div id="rs-controls"></div>
+    <div class="sm-label" style="margin-top:14px">How to share</div>
+    <div class="rs-targets">
+      <button class="btn-ghost" onclick="rsSaveGlyph()"><svg class="ic"><use href="#i-image"/></svg>Save glyph as image</button>
+      <button class="btn-ghost" onclick="rsShareCard()"><svg class="ic"><use href="#i-image"/></svg>Share as card</button>
+      <button class="btn-ghost" onclick="rsShareLink()"><svg class="ic"><use href="#i-share"/></svg>Share a link</button>
+    </div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeRelicShare()">Cancel</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="story-modal">
   <div class="modal story-modal">
     <div class="story-modal-header">
       <div class="modal-title" id="story-modal-title">New Relic</div>
-      <div class="modal-sub">Select moments, then build your relic</div>
+      <div class="modal-sub">Select activities, then build your relic</div>
     </div>
     <div class="story-modal-body">
       <div class="story-modal-left">
         <div class="sm-filter-bar">
-          <input class="sm-search" type="text" id="sm-search" placeholder="Search moments..." oninput="renderStoryMomentList()">
+          <input class="sm-search" type="text" id="sm-search" placeholder="Search activities..." oninput="renderStoryMomentList()">
           <div class="sm-filter-row" id="sm-type-filters"></div>
           <div class="sm-date-row">
             <input class="sm-date-input" type="date" id="sm-date-from" onchange="renderStoryMomentList()">
@@ -2458,7 +2523,14 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             <div class="mood-row" id="sm-mood-row"></div>
           </div>
           <div>
-            <div class="sm-label">Selected Moments</div>
+            <div class="sm-label">Glyph</div>
+            <div class="sm-glyph-row">
+              <div class="glyph-thumb" id="sm-glyph-art"></div>
+              <div class="glyph-ctl" id="sm-glyph-controls"></div>
+            </div>
+          </div>
+          <div>
+            <div class="sm-label">Selected activities</div>
             <div class="sm-selected-list" id="sm-selected-list"></div>
           </div>
           <div>
@@ -2925,6 +2997,7 @@ function rowToStory(r) {
     id: r.id, type: 'story', title: r.title || 'Untitled', narrative: r.narrative || '',
     mood: r.mood || null, coverPhoto: r.cover_photo_path || null,
     momentIds: Array.isArray(r.moment_ids) ? r.moment_ids : [],
+    glyphStyle: r.glyph_style || null, glyphColour: r.glyph_colour || null, glyphInk: r.glyph_ink || null,
     createdAt: r.created_at, lastModified: r.updated_at,
   };
 }
@@ -2934,6 +3007,7 @@ function storyToRow(s) {
     narrative: s.narrative || '', mood: s.mood || null,
     cover_photo_path: s.coverPhoto || null,
     moment_ids: Array.isArray(s.momentIds) ? s.momentIds : [],
+    glyph_style: s.glyphStyle || null, glyph_colour: s.glyphColour || null, glyph_ink: s.glyphInk || null,
   };
 }
 
@@ -4188,7 +4262,7 @@ function showDetail(memId) {
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
   // Restore detail body to moment layout (in case it was showing a story)
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(el => el.remove());
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(el => el.remove());
   document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
   document.getElementById('d-rows').style.display='';
   document.getElementById('d-strava-link').style.display='';
@@ -4277,7 +4351,7 @@ function showStoryDetail(storyId) {
     { val: story._totalDistance > 0 ? fmtDist(story._totalDistance) : '—', label: 'Total Distance' },
     { val: story._totalDuration > 0 ? formatDur(story._totalDuration) : '—', label: 'Total Time' },
     { val: story._totalElevation > 0 ? fmtElev(story._totalElevation) : '—', label: 'Total Elevation' },
-    { val: story._momentCount || 0, label: 'Moments' },
+    { val: story._momentCount || 0, label: 'Activities' },
   ].map(function(s) { return '<div class="dstat"><div class="dstat-val">' + s.val + '</div><div class="dstat-label">' + s.label + '</div></div>'; }).join('');
   document.getElementById('d-stats').style.display = '';
 
@@ -4288,46 +4362,81 @@ function showStoryDetail(storyId) {
   document.getElementById('d-delete-row').style.display = 'none';
 
   // Remove any previous story detail elements
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
 
   const body = document.getElementById('detail-body');
 
-  // Narrative section
-  var narrativeDiv = document.createElement('div');
-  narrativeDiv.className = 'sd-narrative';
-  narrativeDiv.innerHTML =
-    '<div class="detail-section-title">Narrative</div>' +
-    '<textarea class="sd-narrative-input" id="sd-narrative-input" placeholder="Write about this chapter of your life...">' + escapeHtml(story.narrative || '') + '</textarea>';
-  body.insertBefore(narrativeDiv, document.getElementById('d-rows'));
+  // Glyph — the relic's mark, as a small thumbnail at the top left. The map
+  // below is the hero. Skipped entirely when there's no GPS to draw from.
+  var glyphSvg = storyGlyphSvg(story);
+  if (glyphSvg) {
+    var glyphDiv = document.createElement('div');
+    glyphDiv.className = 'sd-glyph';
+    // Thumbnail only — style and colour live behind Edit, the way a Strava
+    // activity keeps its settings out of the view.
+    glyphDiv.innerHTML =
+      '<div class="glyph-thumb" id="sd-glyph-art">' + glyphSvg + '</div>' +
+      '<div class="glyph-ctl"><div class="glyph-name">' +
+      escapeHtml(GLYPH_STYLES[glyphPrefFor(story.id).style].label) + ' glyph</div>' +
+      '<div class="glyph-sub">' + (story._momentCount || 0) + ' activities</div></div>';
+    document.getElementById('d-stats').insertAdjacentElement('beforebegin', glyphDiv);
+  }
+
+
+  // Narrative — read-only, and only when written, same rule as the mood. It
+  // is authored in Edit; an empty textarea on every relic was clutter.
+  var narrativeDiv = null;
+  if ((story.narrative || '').trim()) {
+    narrativeDiv = document.createElement('div');
+    narrativeDiv.className = 'sd-narrative';
+    narrativeDiv.innerHTML =
+      '<div class="detail-section-title">Narrative</div>' +
+      '<p class="sd-narrative-read">' + escapeHtml(story.narrative) + '</p>';
+    body.insertBefore(narrativeDiv, document.getElementById('d-rows'));
+  }
 
   // Map — real Mapbox tiles behind every child moment's track, same as the story cards
   var mapDiv = document.createElement('div');
-  mapDiv.className = 'sd-map';
+  mapDiv.className = 'sd-map sd-map-hero';
+  mapDiv.title = 'Open on the map';
+  mapDiv.onclick = function() { viewStoryOnMap(story.id); };
   mapDiv.innerHTML = '<canvas id="sd-map-' + story.id + '" width="620" height="180"></canvas>' + staticStoryMapImg(story, 620, 180);
-  body.insertBefore(mapDiv, narrativeDiv);
+  // The map is the hero: directly under the glyph, not below the stats and
+  // mood where it used to sit.
+  var glyphEl = document.querySelector('#detail-body .sd-glyph');
+  if (glyphEl) glyphEl.insertAdjacentElement('afterend', mapDiv);
+  else body.insertBefore(mapDiv, narrativeDiv || document.getElementById('d-rows'));
   requestAnimationFrame(function() { drawFeedStoryMap(story, 'sd-map-' + story.id); });
 
-  document.getElementById('sd-narrative-input').oninput = function() {
-    story.narrative = this.value;
-    story.lastModified = new Date().toISOString();
-    markDirty(story.id);
-  };
+  // Photos — everything shot on the relic's tracks, plus a way to add more.
+  var photoDiv = document.createElement('div');
+  photoDiv.className = 'detail-section sd-photos';
+  photoDiv.innerHTML =
+    '<div class="detail-section-title">Photos</div>' +
+    '<div class="detail-section-sub" id="sd-photo-caption"></div>' +
+    '<div class="sd-photo-grid" id="sd-photo-grid"></div>';
+  body.insertBefore(photoDiv, document.getElementById('d-rows'));
+  _relicPhotoStoryId = storyId;
+  renderStoryPhotos(storyId);
 
-  // Mood section
+  // Mood — read-only, and only when there is one. Setting it lives in Edit,
+  // same as the glyph; an unset mood was rendering an empty five-button row on
+  // every relic that had never been given one.
   var moodSection = document.getElementById('d-mood-section');
   if (moodSection) {
-    moodSection.style.display = '';
-    document.getElementById('d-mood').innerHTML = MOODS.map(function(m) {
-      return '<button class="mood-btn ' + (story.mood === m.id ? 'active' : '') + '" onclick="setStoryDetailMood(\'' + storyId + '\',\'' + m.id + '\',this)">' + m.emoji + '<span>' + m.label + '</span></button>';
-    }).join('');
+    var mood = MOODS.find(function(m) { return m.id === story.mood; });
+    moodSection.style.display = mood ? '' : 'none';
+    if (mood) document.getElementById('d-mood').innerHTML =
+      // the section is already titled "Feeling", so don't say "Felt" again
+      '<div class="sd-mood-read">' + mood.emoji + '<span>' + escapeHtml(mood.label) + '</span></div>';
   }
 
   // Actions
   var actionsDiv = document.createElement('div');
   actionsDiv.className = 'sd-actions';
   actionsDiv.innerHTML =
-    '<button class="btn-ghost btn-sm" onclick="openStoryModal(\'' + storyId + '\')"><svg class="ic"><use href="#i-pen"/></svg>Edit moments</button>' +
-    '<button class="btn-ghost btn-sm" onclick="shareStoryImage(\'' + storyId + '\')"><svg class="ic"><use href="#i-image"/></svg>Share as image</button>' +
+    '<button class="btn-ghost btn-sm" onclick="openStoryModal(\'' + storyId + '\')"><svg class="ic"><use href="#i-pen"/></svg>Edit</button>' +
+    '<button class="btn-ghost btn-sm" onclick="openRelicShare(\'' + storyId + '\')"><svg class="ic"><use href="#i-share"/></svg>Share</button>' +
     '<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="deleteStory(\'' + storyId + '\');closeDetail()">Delete Relic</button>';
   body.insertBefore(actionsDiv, document.getElementById('d-rows'));
   var shareDiv = document.createElement('div');
@@ -4339,7 +4448,7 @@ function showStoryDetail(storyId) {
   // Moment timeline
   var timelineDiv = document.createElement('div');
   timelineDiv.className = 'sd-moment-timeline';
-  timelineDiv.innerHTML = '<div class="detail-section-title" style="padding:10px 18px 6px;border-bottom:1px solid var(--border)">Moments in this Relic</div>';
+  timelineDiv.innerHTML = '<div class="detail-section-title" style="padding:10px 18px 6px;border-bottom:1px solid var(--border)">Activities in this Relic</div>';
   var moments = (story.momentIds || []).map(function(id) { return db[id]; }).filter(function(m) { return m && !isStory(m); });
   moments.sort(function(a, b) { return (a.date || '') > (b.date || '') ? 1 : -1; });
 
@@ -4370,15 +4479,6 @@ function showStoryDetail(storyId) {
   document.getElementById('save-indicator').textContent = '';
 }
 
-function setStoryDetailMood(storyId, moodId, btn) {
-  var story = db[storyId];
-  if (!story) return;
-  story.mood = story.mood === moodId ? null : moodId;
-  story.lastModified = new Date().toISOString();
-  document.querySelectorAll('#d-mood .mood-btn').forEach(function(b) { b.classList.remove('active'); });
-  if (story.mood) btn.classList.add('active');
-  markDirty(storyId);
-}
 function closeDetail() {
   var wasStory = selectedId && db[selectedId] && isStory(db[selectedId]);
   selectedId=null;
@@ -4386,7 +4486,7 @@ function closeDetail() {
   renderList();
   updateTrackHighlight(null);
   // Clean up any story-injected elements from detail body
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
@@ -4459,6 +4559,118 @@ async function resizeImageToJpeg(file, maxDim, quality) {
   return new Promise(res => c.toBlob(res, 'image/jpeg', quality));
 }
 
+// DateTimeOriginal, read on its own rather than by extending readEXIF — that
+// parser is dense and load-bearing, and this only needs one more tag. Walks
+// IFD0 for the Exif SubIFD pointer (0x8769), then 0x9003 inside it. Returns ms
+// or null. EXIF has no zone and neither does the stored activity date — both
+// are local wall-clock, and `date` is a timestamptz built from Strava's
+// start_date_local with a +00:00 offset. So this reads as UTC too: two
+// wall-clock times compared in the same frame. Reading it as browser-local
+// instead silently broke matching for everyone outside UTC.
+async function readExifTaken(file) {
+  try {
+    const buf = await file.slice(0, 131072).arrayBuffer();
+    const v = new DataView(buf);
+    if (v.getUint16(0) !== 0xFFD8) return null;               // not a JPEG
+    let o = 2;
+    while (o + 4 < v.byteLength) {
+      if (v.getUint16(o) !== 0xFFE1) {                        // not APP1, skip
+        if ((v.getUint16(o) & 0xFF00) !== 0xFF00) return null;
+        o += 2 + v.getUint16(o + 2);
+        continue;
+      }
+      const base = o + 10;                                     // past "Exif\0\0"
+      if (v.getUint32(o + 4) !== 0x45786966) return null;
+      const le = v.getUint16(base) === 0x4949;
+      const ifd0 = v.getUint32(base + 4, le) + base;
+      const readTag = (dir, want) => {
+        const n = v.getUint16(dir, le);
+        for (let i = 0; i < n; i++) {
+          const e = dir + 2 + i * 12;
+          if (v.getUint16(e, le) === want) return v.getUint32(e + 8, le);
+        }
+        return 0;
+      };
+      const exifDir = readTag(ifd0, 0x8769);
+      if (!exifDir) return null;
+      const n = v.getUint16(exifDir + base, le);
+      for (let i = 0; i < n; i++) {
+        const e = exifDir + base + 2 + i * 12;
+        if (v.getUint16(e, le) !== 0x9003) continue;           // DateTimeOriginal
+        const at = v.getUint32(e + 8, le) + base;
+        let str = '';
+        for (let k = 0; k < 19; k++) str += String.fromCharCode(v.getUint8(at + k));
+        const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(str);
+        if (!m) return null;
+        return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+      }
+      return null;
+    }
+  } catch (e) { return null; }
+  return null;
+}
+
+// Which track in this relic does a photo belong to?
+//
+// Time beats GPS and is tried first: a photo taken during an activity belongs
+// to it, full stop, and DateTimeOriginal survives when location tagging is off
+// — which it often is. GPS is the fallback, matching the nearest point on any
+// of the relic's tracks. Returns { memId, how } or null when neither signal
+// places it, so the caller can say so rather than guessing.
+function assignPhotoToRelic(story, taken, lat, lng) {
+  const mems = (story.momentIds || []).map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin);
+  if (!mems.length) return null;
+
+  if (taken) {
+    const SLACK = 30 * 60e3;   // a photo just before the start or after the stop
+    let best = null, bestGap = Infinity;
+    mems.forEach(m => {
+      const t0 = Date.parse(m.date || '');
+      if (isNaN(t0)) return;
+      const t1 = t0 + (m.duration || 0) * 1000;
+      const gap = taken < t0 ? t0 - taken : taken > t1 ? taken - t1 : 0;
+      if (gap < bestGap) { bestGap = gap; best = m; }
+    });
+    if (best && bestGap <= SLACK) return { memId: best.id, how: 'time' };
+  }
+
+  if (lat != null && lng != null) {
+    let best = null, bestKm = Infinity;
+    mems.forEach(m => {
+      const c = getCoords(m);
+      if (!c) return;
+      // every 4th point is plenty to find the nearest track at this tolerance
+      for (let i = 0; i < c.length; i += 4) {
+        const d = glyKm(c[i], [lng, lat]);
+        if (d < bestKm) { bestKm = d; best = m; }
+      }
+    });
+    if (best && bestKm <= 1.5) return { memId: best.id, how: 'place' };
+  }
+  return null;
+}
+
+// One file onto one Moment. Both the Moment's own photo grid and a relic's
+// upload go through here, so storage layout, row shape and the local db update
+// stay in one place.
+async function uploadPhotoToMoment(memId, file, geo) {
+  const { lat, lng } = geo || await readEXIF(file);
+  const blob = await resizeImageToJpeg(file, 1600, 0.82);
+  const path = `${currentUser.id}/${memId}/${crypto.randomUUID()}.jpg`;
+  const up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
+  if (up.error) throw up.error;
+  const { data: row, error: insErr } = await sb.from('activity_photos').insert({
+    user_id: currentUser.id, activity_id: memId, storage_path: path,
+    lat: lat ?? null, lng: lng ?? null, sort_order: (db[memId].photos || []).length,
+  }).select().single();
+  if (insErr) throw insErr;
+  const { data: signed } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
+  const photo = { dataUrl: signed?.signedUrl || '', lat, lng, caption: '', _id: row.id, _path: path };
+  (db[memId].photos ||= []).push(photo);
+  if (lat && lng) addPhotoMarker(lat, lng, photo.dataUrl, db[memId].photos.length - 1);
+  return photo;
+}
+
 async function handlePhotoUpload(input) {
   if (!selectedId) return;
   const memId = selectedId;
@@ -4466,20 +4678,7 @@ async function handlePhotoUpload(input) {
   input.value = '';
   for (const file of files) {
     try {
-      const { lat, lng } = await readEXIF(file);
-      const blob = await resizeImageToJpeg(file, 1600, 0.82);
-      const path = `${currentUser.id}/${memId}/${crypto.randomUUID()}.jpg`;
-      const up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
-      if (up.error) throw up.error;
-      const { data: row, error: insErr } = await sb.from('activity_photos').insert({
-        user_id: currentUser.id, activity_id: memId, storage_path: path,
-        lat: lat ?? null, lng: lng ?? null, sort_order: (db[memId].photos || []).length,
-      }).select().single();
-      if (insErr) throw insErr;
-      const { data: signed } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
-      const photo = { dataUrl: signed?.signedUrl || '', lat, lng, caption: '', _id: row.id, _path: path };
-      (db[memId].photos ||= []).push(photo);
-      if (lat && lng) addPhotoMarker(lat, lng, photo.dataUrl, db[memId].photos.length - 1);
+      await uploadPhotoToMoment(memId, file);
       if (selectedId === memId) renderPhotos(memId);
     } catch (e) {
       console.error('Photo upload failed', e);
@@ -5736,11 +5935,36 @@ const Social = {
     return data || [];
   },
   // Shared stories (story_public). Empty — not an error — before the migration.
-  async stories(authorIds, limit) {
+  // Keyset pagination on (date_end, story_id). date_end is a *date*, so a
+  // plain `.lt(date_end, cursor)` permanently skips every other relic that
+  // ends on the same day as a page boundary.
+  async stories(authorIds, limit, cursor) {
     if (_socialOff.stories || !authorIds.length) return [];
-    const { data, error } = await sb.from('story_public').select('*').in('user_id', authorIds).order('date_end', { ascending: false }).limit(limit || 20);
+    let q = sb.from('story_public').select('*').in('user_id', authorIds)
+      .order('date_end', { ascending: false, nullsFirst: false })
+      .order('story_id', { ascending: false })
+      .limit(limit || 20);
+    if (cursor && cursor.d) {
+      // Ids go into a PostgREST filter string, so only take the compound
+      // branch when the id can't break out of it.
+      q = /^[\w.-]+$/.test(cursor.id || '')
+        ? q.or(`date_end.lt.${cursor.d},and(date_end.eq.${cursor.d},story_id.lt.${cursor.id})`)
+        : q.lt('date_end', cursor.d);
+    }
+    const { data, error } = await q;
     if (error) { if (isMissingTable(error)) _socialOff.stories = true; else console.warn('story feed failed', error); return []; }
     return data || [];
+  },
+  // { story_id: [signedUrl, …] } from the paths the snapshot carries, so a
+  // follower sees a relic's photos without reading the owner's photo rows.
+  async storyPhotos(rows) {
+    const out = {};
+    const paths = [...new Set(rows.flatMap(r => r.photos || []))].slice(0, 120);
+    if (!paths.length) return out;
+    const { data: signed } = await sb.storage.from('photos').createSignedUrls(paths, SIGNED_URL_TTL);
+    const byPath = {}; (signed || []).forEach(s => { if (s.signedUrl) byPath[s.path] = s.signedUrl; });
+    rows.forEach(r => { out[r.story_id] = (r.photos || []).map(p => byPath[p]).filter(Boolean); });
+    return out;
   },
   // { key: [signedUrl, …] } for public activities' photos
   async photos(rows) {
@@ -5900,6 +6124,17 @@ const DemoSocial = (() => {
     date_start: kaiRides[kaiRides.length - 1].date.slice(0, 10), date_end: kaiRides[0].date.slice(0, 10),
     moment_count: kaiRides.length, distance: kaiRides.reduce((a, r) => a + r.distance, 0), duration: kaiRides.reduce((a, r) => a + r.duration, 0),
     elevation: 0, type_counts: { Ride: kaiRides.length }, polylines: kaiRides.flatMap(r => r.polylines), colors: kaiRides.map(() => '#2563eb'),
+    // The fields a shared relic carries since the glyph migration — without
+    // these the demo feed renders a relic card with no glyph and no photos,
+    // which is exactly what a real one must never look like.
+    // literal, not GLYPH_DEFAULT_INK: this fixture is built during boot and
+    // that const is declared further down the file, so naming it here throws
+    // on the temporal dead zone and takes the whole demo seed with it
+    glyph_style: 'accurate', glyph_colour: 'shade', glyph_ink: '#2A3324',
+    glyph_tracks: kaiRides.map(r => ({ p: r.polylines, c: '#2196F3', k: 'Ride' })),
+    photos: [1, 2, 3].map(n => 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="hsl(' +
+      (n * 74 % 360) + ',48%,62%)"/></svg>')),
   }];
   const state = {
     following: new Set(['u_ines', 'u_kai', 'u_maya']),
@@ -5937,11 +6172,22 @@ const DemoSocial = (() => {
         .sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, limit || 15));
     },
     async userActivities(userId) { return wait(allRows().filter(r => r.user_id === userId).sort((a, b) => (a.date < b.date ? 1 : -1))); },
-    async stories(authorIds) {
+    async stories(authorIds, limit, cursor) {
       const own = getStories().filter(st => st.isPublic).map(buildStorySnapshotRow);
-      return wait(demoStories.concat(own).filter(r => authorIds.includes(r.user_id)).sort((a, b) => (a.date_end < b.date_end ? 1 : -1)));
+      const key = r => (r.date_end || '') + '\u0000' + (r.story_id || '');
+      let all = demoStories.concat(own).filter(r => authorIds.includes(r.user_id))
+        .sort((a, b) => (key(a) < key(b) ? 1 : -1));
+      if (cursor && cursor.d) all = all.filter(r => key(r) < cursor.d + '\u0000' + (cursor.id || ''));
+      return wait(all.slice(0, limit || 20));
     },
     async photos() { return {}; },
+    // Demo photos are inline data URLs, not storage paths, so hand them back
+    // as-is rather than trying to sign them.
+    async storyPhotos(rows) {
+      const out = {};
+      rows.forEach(r => { out[r.story_id] = (r.photos || []).filter(u => /^(data|blob|https?):/.test(u)); });
+      return wait(out);
+    },
     async kudos(keys) {
       const out = new Map();
       keys.forEach(k => { const l = state.kudos.get(k) || []; if (l.length) out.set(k, { count: l.length, mine: l.some(x => x.user_id === currentUser.id), users: l.map(x => x.user_id) }); });
@@ -5991,7 +6237,7 @@ if (DEMO) Object.assign(Social, DemoSocial);
 // FEED — "Following" (people you follow) and "You" (your own archive)
 // ════════════════════════════════════════
 let feedTab = 'following';
-let _feedCursor = null, _feedLoading = false, _feedDone = false, _feedToken = 0, _feedStories = [];
+let _feedCursor = null, _feedLoading = false, _feedDone = false, _feedToken = 0;
 const _canvasJobs = [];
 
 // ── Top of the feed: getting-started checklist + "On this day" ──
@@ -6169,25 +6415,20 @@ async function hydrateSocialCounts(container, keys) {
 function buildOwnFeed() {
   const container = document.getElementById('feed-container');
   document.getElementById('feed-more').innerHTML = '';
-  const mems = getMoments().sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1));
+  // Relics only, same as the Following tab. Individual activities live in the
+  // Activities view; the feed is the curated layer on both tabs.
   const stories = getStories();
-  if (!mems.length && !stories.length) {
-    container.innerHTML = emptyBlock('map', 'Nothing here yet', 'Your activities, trips and relics will show up here as you add them.',
-      `<button class="btn-primary" onclick="openAddModal()"><svg class="ic"><use href="#i-plus"/></svg>Add to your map</button><button class="btn-ghost" onclick="switchView('settings')">Connect Strava</button>`);
+  if (!stories.length) {
+    container.innerHTML = emptyBlock('book', 'Make your first relic',
+      'A trip, a season, a route — group your activities into one.',
+      `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button><button class="btn-ghost" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button>`);
     return;
   }
-  const items = [];
-  mems.slice(0, 60).forEach(m => items.push({ t: 'm', o: m, d: m.date || '' }));
-  stories.forEach(s => { computeStoryStats(s); items.push({ t: 's', o: s, d: s.dateEnd || s.createdAt || '' }); });
-  items.sort((a, b) => (b.d > a.d ? 1 : -1));
+  stories.forEach(s => computeStoryStats(s));
+  stories.sort((a, b) => ((b.dateEnd || b.createdAt || '') > (a.dateEnd || a.createdAt || '') ? 1 : -1));
   container.innerHTML = '';
-  items.forEach(it => {
-    if (it.t === 's') renderFeedStoryCard(container, it.o, loadProfile());
-    else container.insertAdjacentHTML('beforeend', renderActivityCard(itemFromMoment(it.o)));
-  });
+  stories.forEach(s => renderFeedStoryCard(container, s, loadProfile()));
   flushCanvasJobs();
-  requestAnimationFrame(() => stories.forEach(s => drawFeedStoryMap(s)));
-  hydrateSocialCounts(container, mems.slice(0, 60).filter(m => m.isPublic).map(m => socialKey(currentUser.id, m.id)));
 }
 // Kept for the _r() registry / older callers.
 function renderFeedMomentCard(container, mem) {
@@ -6210,42 +6451,36 @@ async function buildFollowingFeed(reset) {
     const authors = [...myFollowingIds].filter(id => !myBlockedIds.has(id));
     if (!authors.length) {
       c.innerHTML = emptyBlock('users', 'Your feed is waiting for friends',
-        'Follow people to see their runs, rides, trips and relics here. Or invite friends who aren\'t on Relic yet.',
-        `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Invite friends</button>`);
+        'Follow people to see their relics here. Or make your first.',
+        // Both roads out of an empty feed, same pair as the other two states.
+        // Inviting friends is a third-order action and already lives in the
+        // getting-started checklist, so it doesn't take a slot here.
+        `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>`);
       return;
     }
-    const [rows, stories] = await Promise.all([
-      Social.feed({ authorIds: authors, before: _feedCursor, limit: 15 }),
-      reset ? Social.stories(authors, 20) : Promise.resolve(null),
-    ]);
+    // Relics only. A public activity stays public — it shows on its owner's
+    // profile and map — but it is not a post. The feed is the curated layer.
+    const pageStories = await Social.stories(authors, 10, _feedCursor);
     if (token !== _feedToken) return;
-    if (stories) _feedStories = stories;
-    // Interleave shared stories by date: take the ones at least as new as
-    // this page's oldest activity (or all that remain on the last page).
-    const pageDone = rows.length < 15;
-    const floor = rows.length ? (rows[rows.length - 1].date || '').slice(0, 10) : '';
-    const pageStories = _feedStories.filter(st => pageDone || (st.date_end || '') >= floor);
-    _feedStories = _feedStories.filter(st => !pageStories.includes(st));
-    if (reset && !rows.length && !pageStories.length) {
+    const pageDone = pageStories.length < 10;
+    if (reset && !pageStories.length) {
       c.innerHTML = emptyBlock('home', 'Quiet out there',
-        'The people you follow haven\'t shared anything public yet. Check back soon, or find a few more people to follow.',
-        `<button class="btn-primary" onclick="switchView('people')">Find people</button>`);
+        'Nobody you follow has shared a relic yet.',
+        `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>`);
       return;
     }
-    const [profs, photos, kudos, ccounts] = await Promise.all([
-      Social.profiles(rows.map(r => r.user_id).concat(pageStories.map(st => st.user_id))), Social.photos(rows),
-      Social.kudos(rows.map(r => socialKey(r.user_id, r.activity_id))),
-      Social.commentCounts(rows.map(r => socialKey(r.user_id, r.activity_id))),
+    const [profs, storyPhotoUrls] = await Promise.all([
+      Social.profiles(pageStories.map(st => st.user_id)),
+      Social.storyPhotos(pageStories),
     ]);
     if (token !== _feedToken) return;
     const byId = Object.fromEntries(profs.map(p => [p.id, p]));
     if (reset) c.innerHTML = '';
-    const merged = rows.map(r => ({ d: r.date || '', html: () => renderActivityCard(itemFromPublicRow(r, byId[r.user_id], photos, kudos, ccounts)) }))
-      .concat(pageStories.map(st => ({ d: (st.date_end || '') + 'T23:59:59', html: () => renderPublicStoryCard(st, byId[st.user_id]) })))
-      .sort((a, b) => (a.d < b.d ? 1 : -1));
-    c.insertAdjacentHTML('beforeend', merged.map(m => m.html()).join(''));
+    c.insertAdjacentHTML('beforeend',
+      pageStories.map(st => renderPublicStoryCard(st, byId[st.user_id], storyPhotoUrls[st.story_id])).join(''));
     flushCanvasJobs();
-    _feedCursor = rows.length ? rows[rows.length - 1].date : _feedCursor;
+    const last = pageStories[pageStories.length - 1];
+    if (last) _feedCursor = { d: last.date_end, id: last.story_id };
     _feedDone = pageDone;
     more.innerHTML = _feedDone
       ? `<div class="people-empty" style="text-align:center">You're all caught up ✓</div>`
@@ -6364,6 +6599,7 @@ function renderFeedStoryCard(container, story, profile) {
       <div class="fc-user"><button class="fc-username" onclick="switchView('profile')">${escapeHtml(profile.name || 'You')}</button><div class="fc-date"><span>${escapeHtml(dateRange)}</span><span class="fc-vis" title="${story.isPublic ? 'Shared with followers' : 'Only you'}"><svg class="ic"><use href="#i-${story.isPublic ? 'globe' : 'lock'}"/></svg></span></div></div>
       <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Relic</span>
     </header>
+    <div class="fc-glyph" onclick="${open}" title="Open this relic">${storyGlyphSvg(story)}</div>
     <div class="fc-name" onclick="${open}">${escapeHtml(story.title || 'Untitled relic')}</div>`;
   if (story.narrative) h += `<div class="fc-note">${escapeHtml(story.narrative)}</div>`;
   if (typeKeys.length) h += `<div class="fc-story-types">${typeKeys.map(k => `<span class="fc-story-type-pill" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}">${escapeHtml(TYPE_CONFIG[k]?.label || k)} · ${story._typeBreakdown[k] || 0}</span>`).join('')}</div>`;
@@ -6371,9 +6607,13 @@ function renderFeedStoryCard(container, story, profile) {
       <div class="fc-stat"><div class="fc-stat-val">${story._totalDistance > 0 ? fmtKm(story._totalDistance) : '—'}</div><div class="fc-stat-label">Distance</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${story._totalDuration > 0 ? formatDur(story._totalDuration) : '—'}</div><div class="fc-stat-label">Time</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${story._totalElevation > 0 ? fmtElev(story._totalElevation) : '—'}</div><div class="fc-stat-label">Elevation</div></div>
-      <div class="fc-stat"><div class="fc-stat-val">${story._momentCount || 0}</div><div class="fc-stat-label">Moments</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${story._momentCount || 0}</div><div class="fc-stat-label">Activities</div></div>
     </div>
-    <div class="fc-map" onclick="${open}"><canvas id="fc-smap-${escapeHtml(story.id)}" width="640" height="260"></canvas>${staticStoryMapImg(story, 640, 260)}</div>`;
+`;
+  // Same as the shared card: the glyph leads and the map lives in the relic.
+  const ph = storyPhotos(story).slice(0, 6);
+  if (ph.length) h += `<div class="fc-photos">${ph.map(p =>
+    `<button class="fc-photo" onclick="openLightboxUrl(${jsAttr(p.url)})"><img src="${escapeHtml(p.url)}" alt="" loading="lazy"></button>`).join('')}</div>`;
   if (mood) h += `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>`;
   h += `<footer class="fc-actions">${story.isPublic ? '' : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span><button class="fc-act" onclick="shareStoryImage(${jsAttr(story.id)})" title="Share as image" aria-label="Share as image"><svg class="ic"><use href="#i-image"/></svg></button>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View relic</button></footer></article>`;
   container.insertAdjacentHTML('beforeend', h);
@@ -6396,6 +6636,658 @@ function _wrapText(ctx, text, maxW, maxLines) {
   if (lines.length === maxLines && words.join(' ') !== lines.join(' ')) lines[maxLines - 1] = lines[maxLines - 1].replace(/\s*\S*$/, '') + '…';
   return lines;
 }
+
+// ════════════════════════════════════════
+// RELIC GLYPH — a story's tracks as one line drawing
+// ════════════════════════════════════════
+// Each track is scaled on its own to a common size and stacked on a shared
+// anchor, so the result is a mark rather than a map. Tracks are NEVER rotated:
+// north stays up, so the glyph still carries true cardinal direction, and a
+// straight track stays straight at its real bearing.
+//
+// Flights are the one exception to drawing real geometry. Most flight data has
+// no usable trace — Strava/GPX imports never populate endLat/endPlace and
+// manual entry draws a straight two-point line — so a flight is redrawn as a
+// fixed-size, fixed-bow arc turned to its real bearing. Every flight is then
+// the same mark differing only in heading, which is what makes a curve read as
+// "flight" at thumbnail size.
+//
+// Style + colour are the user's choice and are stored per story in
+// localStorage (see GLYPH_KEY). Promoting them to columns on `stories` and
+// into the story_public snapshot — so followers see the owner's chosen glyph
+// rather than the default — is the follow-up; nothing here needs a migration.
+const GLYPH_KEY = 'relic_glyph_v1';
+const GLYPH_DEFAULT_INK = '#2A3324';
+// comp: how tracks are stacked. ang: size of the angle vocabulary each segment
+// heading snaps to (0 = free). This is what separates a glyph from a scribble.
+// One axis: how abstract. Accurate keeps the real shape, Geometric rewrites
+// it into eight directions, Runic into six bold ones. `ink` is a large segment
+// budget spent on fidelity; `det` scales the small default budget into a
+// handful of strokes instead. maxSeg stops one long activity eating the
+// budget.
+//
+// Accurate is not a nicety: simplification destroys lap sports. An alpine day
+// is the same corridor ridden up and down a dozen times, and RDP keeps only
+// the extremes, so a simplified ski relic collapses to a line traced back and
+// forth. Rendered faithfully it is a legible comb of laps.
+// Ordered as the picker shows them: the two faithful ones first, then the
+// three abstractions. Accurate and Survey differ in composition, not fidelity
+// — Survey keeps true geography instead of stacking each track on a shared
+// start, so it suits a relic that happened in one place and scatters one that
+// didn't.
+// Shipping two — Accurate and Runic, the two ends of the abstraction axis, so
+// the choice reads immediately. The rest are tuned and working; `wip: true`
+// just keeps them out of the picker. Delete that flag to release one, which
+// is the whole cost of adding a style. Notes on the held-back three:
+//   geometric — the natural third, sits between the two shipped ones.
+//   weave     — least differentiated; at 64px it reads as busier Geometric.
+//   survey    — true geography, so a relic whose tracks are spread over a
+//               region collapses: the longest track dominates the shared
+//               bounds and the rest knot up. Only good for a relic that
+//               happened in one place; needs that solving before release.
+const GLYPH_STYLES = {
+  accurate:  { label: 'Accurate',  comp: 'radial',    ang: 0, ink: 700, minSeg: 40, maxSeg: 220, w: 1.5, op: 0.70, cap: 'round',  join: 'round', term: false },
+  runic:     { label: 'Runic',     comp: 'radial',    ang: 6, det: 0.75, maxSeg: 6, w: 3.1, op: 0.90, cap: 'square', join: 'miter', term: false },
+  geometric: { label: 'Geometric', comp: 'radial',    ang: 8, det: 1.0,  maxSeg: 7, w: 2.6, op: 0.85, cap: 'butt',   join: 'miter', term: true,  wip: true },
+  weave:     { label: 'Weave',     comp: 'intersect', ang: 8, det: 1.0,  maxSeg: 7, w: 2.6, op: 0.80, cap: 'round',  join: 'round', term: false, wip: true },
+  survey:    { label: 'Survey',    comp: 'map',       ang: 0, ink: 700, minSeg: 40, maxSeg: 220, w: 1.4, op: 0.70, cap: 'round',  join: 'round', term: false, wip: true },
+};
+// Styles offered in the picker. A held-back style still renders if a relic is
+// already set to it, so releasing one never strands a choice.
+function glyphStyleKeys() { return Object.keys(GLYPH_STYLES).filter(k => !GLYPH_STYLES[k].wip); }
+// Earlier names, so a relic someone already styled keeps its choice.
+const GLYPH_STYLE_ALIASES = { tracks: 'accurate', trace: 'accurate', compass: 'geometric', rune: 'runic' };
+const GLYPH_DEFAULT_STYLE = 'accurate';
+// Total segments across the whole glyph. A recognisable mark is a handful of
+// deliberate strokes, not a faithful outline — this is the single number that
+// decides whether a relic reads as a figure or as a ball of wire, so it lives
+// on its own. A busier relic spends the same budget thinner rather than
+// drawing more ink.
+function glyphBudget(n) { return Math.max(10, Math.min(28, 9 + n * 2)); }
+const GLYPH_MIN_SEG = 3;
+const GLYPH_INKS = ['#2A3324', '#C1502E', '#1B8A3F', '#2196F3', '#AA47BC', '#FF9100'];
+
+let _glyphPrefs = null;
+function glyphPrefs() {
+  if (_glyphPrefs) return _glyphPrefs;
+  try { _glyphPrefs = JSON.parse(localStorage.getItem(GLYPH_KEY) || '{}'); } catch (e) { _glyphPrefs = {}; }
+  return _glyphPrefs;
+}
+function glyphStyleKey(k) {
+  k = GLYPH_STYLE_ALIASES[k] || k;
+  return GLYPH_STYLES[k] ? k : GLYPH_DEFAULT_STYLE;
+}
+// The relic row is the source of truth; localStorage is only read as a
+// fallback, for choices made before these columns existed and for a relic
+// still being built (GLYPH_NEW), which has no row yet. Merged per field, so a
+// half-migrated relic doesn't lose the settings it hasn't saved.
+function glyphPrefFor(storyId) {
+  const st = db[storyId], ls = glyphPrefs()[storyId] || {};
+  const own = st && isStory(st) ? st : null;
+  const style = (own && own.glyphStyle) || ls.style;
+  const colour = (own && own.glyphColour) || ls.colour || (ls.mono ? 'one' : null);
+  const ink = (own && own.glyphInk) || ls.ink;
+  return {
+    style: glyphStyleKey(style),
+    colour: ['track', 'shade', 'one'].indexOf(colour) >= 0 ? colour : 'track',
+    ink: /^#[0-9a-f]{6}$/i.test(ink || '') ? ink : GLYPH_DEFAULT_INK,
+  };
+}
+function setGlyphPref(storyId, patch) {
+  const st = db[storyId];
+  if (st && isStory(st)) {
+    if (patch.style != null) st.glyphStyle = patch.style;
+    if (patch.colour != null) st.glyphColour = patch.colour;
+    if (patch.ink != null) st.glyphInk = patch.ink;
+    st.lastModified = new Date().toISOString();
+    markDirty(st.id);
+    // A shared relic's snapshot carries the look, so followers see the
+    // owner's choice rather than the default.
+    if (st.isPublic) refreshStorySnapshot(st.id);
+    return;
+  }
+  // No row yet (a relic still being built) — stage it locally.
+  const p = glyphPrefs();
+  p[storyId] = Object.assign({}, p[storyId], patch);
+  try { localStorage.setItem(GLYPH_KEY, JSON.stringify(p)); } catch (e) {}
+}
+// Re-push the public snapshot after a look change. Quiet on failure: the
+// relic itself is already saved, and the snapshot rebuilds on the next
+// visibility toggle or edit.
+async function refreshStorySnapshot(storyId) {
+  const st = db[storyId];
+  if (!st || !st.isPublic || DEMO) return;
+  try {
+    const { error } = await sb.from('story_public').upsert(buildStorySnapshotRow(st), { onConflict: 'user_id,story_id' });
+    if (error) throw error;
+  } catch (e) { console.warn('Relic snapshot refresh failed', e); }
+}
+
+// ── geometry (all prefixed gly* — this file is one big global scope) ──
+function glyBbox(p) {
+  let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
+  p.forEach(q => { a = Math.min(a, q[0]); b = Math.max(b, q[0]); c = Math.min(c, q[1]); d = Math.max(d, q[1]); });
+  return { minX: a, maxX: b, minY: c, maxY: d, w: (b - a) || 1e-9, h: (d - c) || 1e-9 };
+}
+// Raw lat/lng stretches horizontally away from the equator, so a round loop in
+// Oslo would come out an ellipse. Scale longitude by cos(latitude) first.
+function glyProject(coords) {
+  let m = 0; coords.forEach(c => { m += c[1]; }); m /= coords.length;
+  const f = Math.cos(m * Math.PI / 180);
+  return coords.map(c => [c[0] * f, c[1]]);
+}
+function glyPerp(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+  if (!L) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  return Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / L;
+}
+function glyRdp(p, eps) {
+  if (p.length < 3) return p.slice();
+  let dm = 0, idx = 0; const a = p[0], b = p[p.length - 1];
+  for (let i = 1; i < p.length - 1; i++) { const d = glyPerp(p[i], a, b); if (d > dm) { dm = d; idx = i; } }
+  if (dm > eps) return glyRdp(p.slice(0, idx + 1), eps).slice(0, -1).concat(glyRdp(p.slice(idx), eps));
+  return [a, b];
+}
+// Simplify to a target number of segments rather than a fixed tolerance: the
+// glyph gets a fixed ink budget, so a busier story spends it thinner instead
+// of collapsing into a hairball.
+function glySimplifyTo(p, target) {
+  if (p.length - 1 <= target) return p.slice();
+  const b = glyBbox(p), span = Math.max(b.w, b.h);
+  let lo = 0, hi = span * 0.6, best = null;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2, r = glyRdp(p, mid);
+    if (r.length - 1 > target) lo = mid; else { hi = mid; best = r; }
+  }
+  return best || glyRdp(p, hi);
+}
+function glyResample(p, n) {
+  const d = [0]; let t = 0;
+  for (let i = 1; i < p.length; i++) { t += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); d.push(t); }
+  if (!t) return p.slice();
+  const out = []; let j = 0;
+  for (let k = 0; k <= n; k++) {
+    const s = k / n * t;
+    while (j < d.length - 2 && d[j + 1] < s) j++;
+    const f = (s - d[j]) / ((d[j + 1] - d[j]) || 1);
+    out.push([p[j][0] + (p[j + 1][0] - p[j][0]) * f, p[j][1] + (p[j + 1][1] - p[j][1]) * f]);
+  }
+  return out;
+}
+// Keep each segment's length, snap its heading to one of n directions. This is
+// the step that turns a GPS wiggle into a few deliberate strokes.
+function glyQuantAngles(p, n) {
+  if (n < 3 || p.length < 2) return p.slice();
+  const step = 2 * Math.PI / n, out = [p[0].slice()];
+  for (let i = 1; i < p.length; i++) {
+    const dx = p[i][0] - p[i - 1][0], dy = p[i][1] - p[i - 1][1];
+    const L = Math.hypot(dx, dy), a = Math.round(Math.atan2(dy, dx) / step) * step;
+    const q = out[out.length - 1];
+    out.push([q[0] + Math.cos(a) * L, q[1] + Math.sin(a) * L]);
+  }
+  // Snapping every heading drifts the endpoint, which leaves loops visibly
+  // unclosed. Spread that error back along the path.
+  const m = out.length - 1;
+  if (m < 1) return out;
+  const ex = (out[m][0] - out[0][0]) - (p[p.length - 1][0] - p[0][0]);
+  const ey = (out[m][1] - out[0][1]) - (p[p.length - 1][1] - p[0][1]);
+  return out.map((q, i) => [q[0] - ex * i / m, q[1] - ey * i / m]);
+}
+// Rough km between two [lng,lat] points — enough to decide whether one day's
+// finish is the next day's start.
+function glyKm(a, b) {
+  const dy = (b[1] - a[1]) * 111;
+  const dx = (b[0] - a[0]) * 111 * Math.cos((a[1] + b[1]) / 2 * Math.PI / 180);
+  return Math.hypot(dx, dy);
+}
+function glySpanKm(coords) {
+  const b = glyBbox(coords), mid = (b.minY + b.maxY) / 2;
+  return Math.hypot(b.w * 111 * Math.cos(mid * Math.PI / 180), b.h * 111);
+}
+// A multi-day route arrives as one Moment per day, each starting where the
+// last finished. Normalising each separately pins every day's start at the
+// centre and destroys the route, so days that join up are grouped into a
+// chain: the chain shares one transform, and each day keeps its own colour.
+// Flights never chain — their geometry is replaced by a synthetic arc, so
+// there is no real endpoint for the next leg to meet.
+function glyChainIds(tracks) {
+  const ids = new Array(tracks.length);
+  let chain = -1, prevEnd = null, prevSpan = 0;
+  tracks.forEach((t, i) => {
+    const c = t.coords, span = glySpanKm(c);
+    if (!t.flight && prevEnd) {
+      // tolerance scales with the legs themselves, with a floor and a ceiling
+      const tol = Math.min(8, Math.max(0.3, 0.12 * Math.min(span, prevSpan)));
+      if (glyKm(prevEnd, c[0]) <= tol) { ids[i] = chain; prevEnd = c[c.length - 1]; prevSpan = span; return; }
+    }
+    ids[i] = ++chain;
+    prevEnd = t.flight ? null : c[c.length - 1];
+    prevSpan = span;
+  });
+  return ids;
+}
+// The fitters take a list of point-sets so a chain is scaled and anchored as
+// one figure. A chain of one behaves exactly as a lone track did.
+function glyFitOriginMulti(sets, size, pad) {
+  const o = sets[0][0];
+  let R = 0;
+  sets.forEach(p => p.forEach(q => { R = Math.max(R, Math.hypot(q[0] - o[0], q[1] - o[1])); }));
+  const sc = ((size - pad * 2) / 2) / (R || 1e-9);
+  return sets.map(p => p.map(q => [size / 2 + (q[0] - o[0]) * sc, size / 2 - (q[1] - o[1]) * sc]));
+}
+function glyFitIntersectMulti(sets, size, pad) {
+  let all = [];
+  sets.forEach(p => { all = all.concat(p); });
+  const b = glyBbox(all), S = size - pad * 2, sc = S / Math.max(b.w, b.h);
+  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+  return sets.map(p => p.map(q => [size / 2 + (q[0] - cx) * sc, size / 2 - (q[1] - cy) * sc]));
+}
+function glyFitIntersect(p, size, pad) {
+  const b = glyBbox(p), S = size - pad * 2, sc = S / Math.max(b.w, b.h);
+  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+  return p.map(q => [size / 2 + (q[0] - cx) * sc, size / 2 - (q[1] - cy) * sc]);
+}
+// Pinning the start and fitting the bounding box would let an out-and-back
+// (which returns near its origin) render far smaller than a point-to-point, so
+// scale by max radius from the start instead — every track reaches the same
+// distance out.
+function glyFitOrigin(p, size, pad) {
+  const o = p[0]; let R = 0;
+  p.forEach(q => { R = Math.max(R, Math.hypot(q[0] - o[0], q[1] - o[1])); });
+  const sc = ((size - pad * 2) / 2) / (R || 1e-9);
+  return p.map(q => [size / 2 + (q[0] - o[0]) * sc, size / 2 - (q[1] - o[1]) * sc]);
+}
+function glyBearing(coords) {
+  const a = coords[0], b = coords[coords.length - 1];
+  const toRad = d => d * Math.PI / 180;
+  const y = Math.sin(toRad(b[0] - a[0])) * Math.cos(toRad(b[1]));
+  const x = Math.cos(toRad(a[1])) * Math.sin(toRad(b[1])) - Math.sin(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.cos(toRad(b[0] - a[0]));
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function glyFlightArc(brg, size, pad, mode, bow) {
+  const S = size - pad * 2, L = (mode === 'radial' ? S / 2 : S * 0.92), n = 48, pts = [];
+  const cx = L / 2, cy = -2 * (bow == null ? 0.26 : bow) * L;
+  for (let i = 0; i <= n; i++) { const t = i / n, mt = 1 - t; pts.push([2 * mt * t * cx + t * t * L, 2 * mt * t * cy]); }
+  // bearing 0 = north = up, so local +x rotates to (sin, -cos)
+  const a = (brg - 90) * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+  const rot = pts.map(q => [q[0] * ca - q[1] * sa, q[0] * sa + q[1] * ca]);
+  let ax = 0, ay = 0;
+  if (mode !== 'radial') { const b = glyBbox(rot); ax = (b.minX + b.maxX) / 2; ay = (b.minY + b.maxY) / 2; }
+  return rot.map(q => [size / 2 + q[0] - ax, size / 2 + q[1] - ay]);
+}
+function glyPathD(p) {
+  return p.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(2) + ' ' + q[1].toFixed(2)).join(' ');
+}
+// Users may recolour any type; a pale one (Gravel's #C6D22E) would vanish on
+// the light card the glyph sits on, so floor its luminance.
+function glyInk(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return GLYPH_DEFAULT_INK;
+  const v = parseInt(m[1], 16), r = v >> 16 & 255, g = v >> 8 & 255, b = v & 255;
+  const L = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  if (L <= 0.62) return '#' + m[1];
+  const k = 0.62 / L, c = x => Math.round(Math.max(0, Math.min(255, x * k)));
+  return '#' + ((1 << 24) + (c(r) << 16) + (c(g) << 8) + c(b)).toString(16).slice(1);
+}
+
+function glyHexToHsl(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return [0, 0, 0.2];
+  const v = parseInt(m[1], 16), r = (v >> 16 & 255) / 255, g = (v >> 8 & 255) / 255, b = (v & 255) / 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  let h = 0, sat = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    sat = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h /= 6;
+  }
+  return [h, sat, l];
+}
+function glyHslToHex(h, sat, l) {
+  const f = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p; };
+  let r, g, b;
+  if (!sat) { r = g = b = l; }
+  else { const q = l < 0.5 ? l * (1 + sat) : l + sat - l * sat, p = 2 * l - q;
+    r = f(p, q, h + 1 / 3); g = f(p, q, h); b = f(p, q, h - 1 / 3); }
+  const c = x => Math.round(Math.max(0, Math.min(255, x * 255)));
+  return '#' + ((1 << 24) + (c(r) << 16) + (c(g) << 8) + c(b)).toString(16).slice(1);
+}
+// Shift lightness while keeping the hue, so a shaded track still reads as the
+// sport's colour. Capped at 0.70 because anything paler disappears on the
+// light card the glyph sits on.
+function glyShade(hex, f) {
+  const [h, sat, l] = glyHexToHsl(hex);
+  const nl = f < 0 ? l * (1 + f * 0.55) : l + (1 - l) * f * 0.45;
+  return glyHslToHex(h, sat, Math.max(0.14, Math.min(0.70, nl)));
+}
+// Tracks of the same sport share a colour, so a relic of five runs is five
+// identical red lines. Spread lightness across each colour group — different
+// sports keep their own hue, same-sport tracks separate within it.
+function glyShadeColours(tracks) {
+  const base = tracks.map(t => glyInk(t.color)), out = base.slice(), groups = {};
+  base.forEach((c, i) => { (groups[c] = groups[c] || []).push(i); });
+  Object.keys(groups).forEach(c => {
+    const idx = groups[c];
+    if (idx.length < 2) return;
+    idx.forEach((i, k) => { out[i] = glyShade(c, -0.85 + 1.7 * (k / (idx.length - 1))); });
+  });
+  return out;
+}
+
+// Pins carry no line and a story can't contain them anyway (the picker reads
+// getMoments(), which excludes them) — but a start-only manual entry is a real
+// Moment with no polyline, so guard on coords.
+function storyGlyphTracks(story) {
+  const out = [];
+  (story.momentIds || []).forEach(id => {
+    const m = db[id];
+    if (!m || isStory(m) || m.isPin) return;
+    const c = getCoords(m);
+    if (!c || c.length < 2) return;
+    out.push({ coords: c, date: m.date || '', color: m.customColor || getColor(m.type),
+               flight: getGroup(m.type) === 'Flight' });
+  });
+  // Chaining only means anything in the order the days were walked.
+  out.sort((a, b) => (a.date || '') > (b.date || '') ? 1 : (a.date || '') < (b.date || '') ? -1 : 0);
+  return out;
+}
+
+// colour: 'track' (each track's sport colour) | 'shade' (same, lightness
+// spread so same-sport tracks separate) | 'one' (a single chosen colour).
+// true/false are still accepted as the old mono flag.
+function renderGlyph(tracks, style, colour, ink) {
+  const cmode = colour === true ? 'one' : (colour === false || !colour) ? 'track' : colour;
+  const st = GLYPH_STYLES[style] || GLYPH_STYLES[GLYPH_DEFAULT_STYLE];
+  const n = tracks.length;
+  if (!n) return '';
+  const SZ = 100, pad = 10;
+  // One track has nothing to radiate from, so it centres instead. A derived
+  // parameter, not a different style.
+  const mode = n === 1 ? 'intersect' : st.comp;
+  const budget = st.ink || glyphBudget(n) * st.det;
+  const target = Math.max(st.minSeg || GLYPH_MIN_SEG, Math.min(st.maxSeg, Math.round(budget / n)));
+  const w = st.w * (n >= 10 ? 0.85 : 1);
+
+  const chainIds = glyChainIds(tracks);
+  const prepped = tracks.map((t, i) => {
+    if (t.flight) return { arc: true, t: t, chain: chainIds[i] };
+    let p = glyProject(t.coords);
+    p = glySimplifyTo(p, target);
+    if (st.ang >= 3) p = glyQuantAngles(p, st.ang);
+    return { arc: false, p: p, t: t, chain: chainIds[i] };
+  });
+
+  // Survey keeps true geography, so every track shares one transform.
+  let survey = null;
+  if (mode === 'map') {
+    let all = [];
+    prepped.forEach(x => { if (!x.arc) all = all.concat(x.p); });
+    if (all.length) {
+      const gb = glyBbox(all), S = SZ - pad * 2, sc = S / Math.max(gb.w, gb.h);
+      const cx = (gb.minX + gb.maxX) / 2, cy = (gb.minY + gb.maxY) / 2;
+      survey = q => q.map(v => [SZ / 2 + (v[0] - cx) * sc, SZ / 2 - (v[1] - cy) * sc]);
+    }
+  }
+
+  // Fit a chain at a time, so a multi-day route stays continuous instead of
+  // having every day's start dragged onto the anchor. Arcs and Survey place
+  // themselves and are left out of it.
+  const byChain = {}, fitted = {};
+  prepped.forEach((x, i) => { if (!x.arc && !survey) (byChain[x.chain] = byChain[x.chain] || []).push(i); });
+  Object.keys(byChain).forEach(k => {
+    const idx = byChain[k], sets = idx.map(i => prepped[i].p);
+    const out = mode === 'radial' ? glyFitOriginMulti(sets, SZ, pad) : glyFitIntersectMulti(sets, SZ, pad);
+    idx.forEach((i, j) => { fitted[i] = out[j]; });
+  });
+
+  let laid = prepped.map((x, i) => {
+    let pts;
+    if (x.arc) {
+      pts = glyFlightArc(glyBearing(x.t.coords), SZ, pad, mode === 'radial' ? 'radial' : 'intersect');
+      // Facet the arc with the same vocabulary, or a smooth curve sits alien
+      // among angular strokes.
+      if (st.ang >= 3) pts = glyQuantAngles(glyResample(pts, st.ang >= 10 ? 9 : 6), st.ang);
+    } else if (survey) {
+      pts = survey(x.p);
+    } else {
+      pts = fitted[i];
+    }
+    return { pts: pts || [], t: x.t };
+  }).filter(x => x.pts.length >= 2);
+
+  // Anchoring pins each track at a point, not in the middle of the frame: a
+  // story whose tracks all head the same way lands in one corner. Fit the
+  // finished composition to the box as a whole — one uniform scale and a
+  // translate, so every relative size and position survives.
+  if (laid.length) {
+    let all = [];
+    laid.forEach(x => { all = all.concat(x.pts); });
+    const u = glyBbox(all), S = SZ - pad * 2;
+    const sc = Math.min(S / u.w, S / u.h);
+    const cx = (u.minX + u.maxX) / 2, cy = (u.minY + u.maxY) / 2;
+    laid = laid.map(x => ({ t: x.t, pts: x.pts.map(q => [SZ / 2 + (q[0] - cx) * sc, SZ / 2 + (q[1] - cy) * sc]) }));
+  }
+
+  const shaded = cmode === 'shade' ? glyShadeColours(laid.map(x => x.t)) : null;
+
+  const parts = [];
+  laid.forEach((x, i) => {
+    const pts = x.pts;
+    const col = cmode === 'one' ? glyInk(ink || GLYPH_DEFAULT_INK)
+              : shaded ? shaded[i]
+              : glyInk(x.t.color);
+    parts.push('<path d="' + glyPathD(pts) + '" fill="none" stroke="' + col + '" stroke-width="' + w.toFixed(2) +
+      '" stroke-opacity="' + st.op + '" stroke-linecap="' + st.cap + '" stroke-linejoin="' + st.join +
+      '" style="mix-blend-mode:multiply"/>');
+    if (st.term && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) >= SZ * 0.04) {
+      [pts[0], pts[pts.length - 1]].forEach(q => {
+        parts.push('<circle cx="' + q[0].toFixed(2) + '" cy="' + q[1].toFixed(2) + '" r="' + (w * 0.95).toFixed(2) +
+          '" fill="' + col + '" fill-opacity="' + st.op + '" style="mix-blend-mode:multiply"/>');
+      });
+    }
+  });
+  return '<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' + parts.join('') + '</svg>';
+}
+
+// A shared relic as its owner drew it. glyph_tracks is one entry per
+// activity, so the segments a privacy trim split apart are rejoined before
+// the track is normalised — otherwise a follower's glyph would be built from
+// fragments and look nothing like the owner's.
+function publicGlyphSvg(r) {
+  const tracks = (r.glyph_tracks || []).map(t => {
+    let coords = [];
+    (t.p || []).forEach(enc => { try { coords = coords.concat(decodePolyline(enc)); } catch (e) {} });
+    return { coords: coords, color: t.c || GLYPH_DEFAULT_INK, flight: t.k === 'Flight' };
+  }).filter(t => t.coords.length >= 2);
+  if (!tracks.length) return '';
+  return renderGlyph(tracks, glyphStyleKey(r.glyph_style),
+    ['track', 'shade', 'one'].indexOf(r.glyph_colour) >= 0 ? r.glyph_colour : 'track',
+    /^#[0-9a-f]{6}$/i.test(r.glyph_ink || '') ? r.glyph_ink : GLYPH_DEFAULT_INK);
+}
+
+function storyGlyphSvg(story) {
+  const g = glyphPrefFor(story.id);
+  return renderGlyph(storyGlyphTracks(story), g.style, g.colour, g.ink);
+}
+
+function glyphControlsHtml(storyId) {
+  const g = glyphPrefFor(storyId);
+  const chip = (on, label, fn) =>
+    '<button class="chip' + (on ? ' on' : '') + '" onclick="' + fn + '">' + escapeHtml(label) + '</button>';
+  let html =
+    '<select class="modal-select glyph-select" aria-label="Glyph style" onchange="setStoryGlyphStyle(' +
+      jsAttr(storyId) + ',this.value)">' +
+      // a relic already set to a held-back style keeps it listed, so the
+      // picker never silently changes what it is showing
+      (glyphStyleKeys().includes(g.style) ? glyphStyleKeys() : glyphStyleKeys().concat(g.style)).map(k =>
+        '<option value="' + k + '"' + (k === g.style ? ' selected' : '') + '>' +
+        escapeHtml(GLYPH_STYLES[k].label) + '</option>').join('') +
+    '</select>' +
+    '<div class="glyph-row">' +
+      chip(g.colour === 'track', 'Track colours', 'setStoryGlyphColour(' + jsAttr(storyId) + ",'track')") +
+      chip(g.colour === 'shade', 'Shaded',        'setStoryGlyphColour(' + jsAttr(storyId) + ",'shade')") +
+      chip(g.colour === 'one',   'One colour',    'setStoryGlyphColour(' + jsAttr(storyId) + ",'one')") +
+    '</div>';
+  if (g.colour === 'one') {
+    html += '<div class="glyph-swatches">' + GLYPH_INKS.map(c =>
+      '<button class="glyph-sw' + (c.toLowerCase() === g.ink.toLowerCase() ? ' on' : '') + '" style="background:' + c +
+      '" title="' + c + '" onclick="setStoryGlyphInk(' + jsAttr(storyId) + ',' + jsAttr(c) + ')"></button>'
+    ).join('') +
+    '<input type="color" class="glyph-sw-custom" value="' + g.ink + '" title="Custom colour"' +
+    ' onchange="setStoryGlyphInk(' + jsAttr(storyId) + ',this.value)"></div>';
+  }
+  return html;
+}
+// A relic being built has no id yet, so its glyph choices are staged under
+// this key and committed in saveStory() once the real id exists.
+const GLYPH_NEW = '__new';
+function glyphStoryById(id) {
+  if (db[id] && isStory(db[id])) return db[id];
+  if (id === GLYPH_NEW) return { id: GLYPH_NEW, momentIds: [...storySelectedIds] };
+  return null;
+}
+// [artElementId, controlsElementId] for every place the glyph is shown.
+const GLYPH_MOUNTS = [['sd-glyph-art', null], ['sm-glyph-art', 'sm-glyph-controls'], ['rs-preview', 'rs-controls']];
+function glyphRefresh(storyId) {
+  const story = glyphStoryById(storyId);
+  GLYPH_MOUNTS.forEach(function(m) {
+    const art = document.getElementById(m[0]);
+    if (art && story) art.innerHTML = storyGlyphSvg(story) || '<div class="glyph-empty">No GPS tracks yet.</div>';
+    const ctl = m[1] && document.getElementById(m[1]);
+    if (ctl) ctl.innerHTML = glyphControlsHtml(storyId);
+  });
+  // Only when the grid is actually on screen: this runs per keystroke of the
+  // relic title, and re-rendering it rebuilds every glyph on the profile.
+  const grid = document.getElementById('profile-stories-grid');
+  if (grid && grid.offsetParent !== null) renderProfileStories();
+}
+function setStoryGlyphStyle(storyId, style) { setGlyphPref(storyId, { style: style }); glyphRefresh(storyId); }
+// Every photo on every track in the relic, in the order the days happened.
+function storyPhotos(story) {
+  const out = [];
+  (story.momentIds || []).map(id => db[id])
+    .filter(m => m && !isStory(m) && !m.isPin)
+    .sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1)
+    .forEach(m => (m.photos || []).forEach((p, i) => {
+      if (p.dataUrl) out.push({ url: p.dataUrl, memId: m.id, idx: i, name: m.name });
+    }));
+  return out;
+}
+function renderStoryPhotos(storyId) {
+  const story = db[storyId], grid = document.getElementById('sd-photo-grid');
+  if (!story || !grid) return;
+  const photos = storyPhotos(story);
+  grid.innerHTML = photos.map(p =>
+    '<button class="sd-photo" title="' + escapeHtml(p.name || '') + '" onclick="openLightboxUrl(' +
+    jsAttr(p.url) + ')"><img src="' + escapeHtml(p.url) + '" alt="" loading="lazy"></button>').join('') +
+    '<button class="sd-photo sd-photo-add" onclick="document.getElementById(\'relic-photo-input\').click()">' +
+    '<span>+</span><span class="sd-photo-add-label">Add</span></button>';
+  const cap = document.getElementById('sd-photo-caption');
+  if (cap) cap.textContent = photos.length
+    ? photos.length + (photos.length === 1 ? ' photo from this relic\'s activities' : ' photos from this relic\'s activities')
+    : 'No photos yet.';
+}
+// Photos dropped on the relic are filed onto the track they were taken on.
+async function handleRelicPhotoUpload(input) {
+  const storyId = _relicPhotoStoryId, story = db[storyId];
+  const files = Array.from(input.files);
+  input.value = '';
+  if (!story || !files.length) return;
+  let placed = 0, unplaced = 0;
+  const dismiss = toast('Adding ' + files.length + (files.length === 1 ? ' photo…' : ' photos…'), { duration: 60000 });
+  for (const file of files) {
+    try {
+      const geo = await readEXIF(file);
+      const taken = await readExifTaken(file);
+      const hit = assignPhotoToRelic(story, taken, geo.lat, geo.lng);
+      if (!hit) { unplaced++; continue; }
+      await uploadPhotoToMoment(hit.memId, file, geo);
+      placed++;
+    } catch (e) {
+      console.error('Relic photo upload failed', e);
+      unplaced++;
+    }
+  }
+  dismiss();
+  renderStoryPhotos(storyId);
+  if (selectedId && db[selectedId] && !isStory(db[selectedId])) renderPhotos(selectedId);
+  // Don't narrate the matching — it either worked or it didn't.
+  if (placed) toast(placed + (placed === 1 ? ' photo added' : ' photos added'), { icon: 'check' });
+  if (unplaced) toast(unplaced === 1
+    ? "One photo didn't match an activity — add it from the activity itself"
+    : unplaced + " photos didn't match an activity — add them from the activity itself", { error: true });
+}
+let _relicPhotoStoryId = null;
+
+let _rsStoryId = null;
+function openRelicShare(storyId) {
+  const story = db[storyId];
+  if (!story || !isStory(story)) return;
+  _rsStoryId = storyId;
+  computeStoryStats(story);
+  document.getElementById('rs-sub').textContent =
+    (story.title || 'Untitled') + ' · ' + (story._momentCount || 0) + ' activities';
+  glyphRefresh(storyId);
+  document.getElementById('relic-share-modal').classList.add('open');
+}
+function closeRelicShare() {
+  document.getElementById('relic-share-modal').classList.remove('open');
+  _rsStoryId = null;
+}
+// The glyph is inline SVG, so rasterise it through an image rather than
+// redrawing it on a canvas — one source of truth for the artwork.
+async function glyphToBlob(svg, size) {
+  const px = size || 1024;
+  const url = URL.createObjectURL(new Blob(
+    ['<svg xmlns="http://www.w3.org/2000/svg" width="' + px + '" height="' + px + '" viewBox="0 0 100 100">' +
+     svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + '</svg>'], { type: 'image/svg+xml' }));
+  try {
+    const img = await _loadImg(url);
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = px;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#FBF9F5'; ctx.fillRect(0, 0, px, px);
+    ctx.drawImage(img, 0, 0, px, px);
+    return await new Promise(res => cv.toBlob(res, 'image/png'));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function rsSaveGlyph() {
+  const story = db[_rsStoryId];
+  if (!story) return;
+  const svg = storyGlyphSvg(story);
+  if (!svg) { toast('This relic has no GPS tracks to draw', { error: true }); return; }
+  const dismiss = toast('Making your image…', { duration: 20000 });
+  let blob;
+  try { blob = await glyphToBlob(svg, 1024); } catch (e) { console.error(e); }
+  dismiss();
+  if (!blob) { toast('Couldn\'t create the image', { error: true }); return; }
+  const name = (story.title || 'relic').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 40) + '-glyph.png';
+  const file = new File([blob], name, { type: 'image/png' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ files: [file], title: story.title }); return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('Glyph saved', { icon: 'check' });
+}
+function rsShareCard() { const id = _rsStoryId; closeRelicShare(); shareStoryImage(id); }
+function rsShareLink() {
+  const story = db[_rsStoryId];
+  if (!story) return;
+  if (!story.isPublic) toast('This relic is private — only you can open that link', { icon: 'lock' });
+  shareStory(currentUser.id, story.id, story.title);
+}
+function setStoryGlyphColour(storyId, mode) { setGlyphPref(storyId, { colour: mode }); glyphRefresh(storyId); }
+function setStoryGlyphInk(storyId, ink) { setGlyphPref(storyId, { ink: ink }); glyphRefresh(storyId); }
+
 async function renderShareCard(o) {
   const W = 1080, H = 1350, MAP_H = 820;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -6495,7 +7387,7 @@ function shareStoryImage(storyId) {
   shareAsImage({
     kicker: 'Relic · ' + (snap.date_start === snap.date_end ? fmt(snap.date_end) : fmt(snap.date_start) + ' – ' + fmt(snap.date_end)),
     title: st.title, polylines: snap.polylines, colors: snap.colors,
-    stats: [['Distance', snap.distance ? fmtKm(snap.distance) : ''], ['Moments', String(snap.moment_count || '')], ['Time', snap.duration ? formatDur(snap.duration) : '']],
+    stats: [['Distance', snap.distance ? fmtKm(snap.distance) : ''], ['Activities', String(snap.moment_count || '')], ['Time', snap.duration ? formatDur(snap.duration) : '']],
     author: _profile.name || '',
   });
 }
@@ -6507,6 +7399,10 @@ function shareStoryImage(storyId) {
 // moment's privacy radius (500 m when it has none) before it leaves.
 function buildStorySnapshotRow(story) {
   computeStoryStats(story);
+  const g = glyphPrefFor(story.id);
+  const mems = (story.momentIds || []).map(id => db[id])
+    .filter(m => m && !isStory(m) && !m.isPin && getCoords(m))
+    .sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1);
   const polylines = [], colors = [];
   (story.momentIds || []).map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin).forEach(m => {
     const c = getCoords(m); if (!c) return;
@@ -6519,6 +7415,20 @@ function buildStorySnapshotRow(story) {
     moment_count: story._momentCount || 0, distance: story._totalDistance || 0,
     duration: story._totalDuration || 0, elevation: story._totalElevation || 0,
     type_counts: story._typeBreakdown || {}, polylines, colors,
+    // The look, so a follower sees the owner's glyph rather than the default.
+    glyph_style: g.style, glyph_colour: g.colour, glyph_ink: g.ink,
+    // `polylines` is flat and redaction splits one track into several
+    // segments, so it can't be regrouped into tracks. The glyph needs tracks,
+    // so it gets its own structure: one entry per activity, in date order,
+    // with the type group a follower needs to know a flight from a run.
+    glyph_tracks: mems.map(m => ({
+      p: redactTrackForPrivacy(getCoords(m) || [], m.privacyRadiusM || 500),
+      c: m.customColor || getColor(m.type),
+      k: getGroup(m.type),
+    })).filter(t => t.p.length),
+    // Storage paths, not URLs — the reader signs them, so nothing long-lived
+    // ends up sitting in the snapshot.
+    photos: mems.flatMap(m => (m.photos || []).map(ph => DEMO ? ph.dataUrl : ph._path).filter(Boolean)),
   };
 }
 async function setStoryVisibility(storyId, makePublic) {
@@ -6526,7 +7436,7 @@ async function setStoryVisibility(storyId, makePublic) {
   if (!!story.isPublic === makePublic) return;
   if (makePublic && !(await uiConfirm({
     title: 'Share this relic?',
-    body: 'Your followers will see it in their feed and on your profile — its title, narrative, stats and a map of its tracks. The first and last 500 m of each track are hidden (or your own privacy radius, if you set one). The individual activities keep their own privacy setting.',
+    body: 'Your followers will see it in their feed and on your profile — its title, narrative, stats, photos, glyph and a map of its tracks. The first and last 500 m of each track are hidden (or your own privacy radius, if you set one). The individual activities keep their own privacy setting.',
     ok: 'Share relic',
   }))) { renderStoryShareSection(storyId); return; }
   story.isPublic = makePublic;
@@ -6561,7 +7471,7 @@ function storyLink(userId, storyId) { return profileLink(userId) + '&s=' + encod
 function shareStory(userId, storyId, title) { shareLink(storyLink(userId, storyId), title || 'A relic on Relic', (title || 'A trip') + ' — on Relic'); }
 
 // Someone else's (or your own, as others see it) shared story.
-function renderPublicStoryCard(r, prof) {
+function renderPublicStoryCard(r, prof, photoUrls) {
   const isOwn = r.user_id === currentUser.id;
   const authorClick = isOwn ? `switchView('profile')` : `openPublicProfile(${jsAttr(r.user_id)})`;
   const open = isOwn && db[r.story_id] ? `viewStoryOnMap(${jsAttr(r.story_id)})` : `openPublicProfile(${jsAttr(r.user_id)},null,${jsAttr(r.story_id)})`;
@@ -6569,28 +7479,24 @@ function renderPublicStoryCard(r, prof) {
   const range = r.date_start && r.date_end ? (r.date_start === r.date_end ? fmt(r.date_end, true) : fmt(r.date_start) + ' – ' + fmt(r.date_end, true)) : '';
   const types = Object.entries(r.type_counts || {});
   const mood = MOODS.find(m => m.id === r.mood);
-  const overlays = []; let budget = 7400;
-  (r.polylines || []).forEach((p, i) => {
-    const seg = pathOv(p, ((r.colors || [])[i] || '#C1502E').replace('#', ''), 3, 0.9);
-    if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
-  });
-  const cid = 'fcs-' + Math.random().toString(36).slice(2, 9);
-  if (r.polylines && r.polylines.length) _canvasJobs.push({ id: cid, polylines: r.polylines, color: (r.colors || [])[0] || '#C1502E' });
+  // The glyph leads the card now; the map lives in the relic itself.
   return `<article class="feed-card story-card-feed" data-story="${escapeHtml(socialKey(r.user_id, r.story_id))}">
     <header class="fc-header">
       <div class="fc-avatar" onclick="${authorClick}">${avatarHtml(prof?.avatarUrl, prof?.name, 'av-44', r.user_id)}</div>
       <div class="fc-user"><button class="fc-username" onclick="${authorClick}">${escapeHtml(prof?.name || 'Someone')}</button><div class="fc-date">${escapeHtml(range)}</div></div>
       <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Relic</span>
     </header>
+    <div class="fc-glyph" onclick="${open}" title="Open this relic">${publicGlyphSvg(r)}</div>
     <div class="fc-name" onclick="${open}">${escapeHtml(r.title || 'Untitled relic')}</div>
     ${r.narrative ? `<div class="fc-note">${escapeHtml(r.narrative)}</div>` : ''}
     ${types.length ? `<div class="fc-story-types">${types.map(([k, n]) => `<span class="fc-story-type-pill" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}">${escapeHtml(TYPE_CONFIG[k]?.label || k)} · ${n}</span>`).join('')}</div>` : ''}
     <div class="fc-stats">
       <div class="fc-stat"><div class="fc-stat-val">${r.distance > 0 ? fmtKm(r.distance) : '—'}</div><div class="fc-stat-label">Distance</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${r.duration > 0 ? formatDur(r.duration) : '—'}</div><div class="fc-stat-label">Time</div></div>
-      <div class="fc-stat"><div class="fc-stat-val">${r.moment_count || 0}</div><div class="fc-stat-label">Moments</div></div>
+      <div class="fc-stat"><div class="fc-stat-val">${r.moment_count || 0}</div><div class="fc-stat-label">Activities</div></div>
     </div>
-    ${overlays.length || (r.polylines || []).length ? `<div class="fc-map" onclick="${open}"><canvas id="${cid}" width="640" height="260"></canvas>${mapboxStaticImg(overlays, 640, 260)}</div>` : ''}
+    ${(photoUrls || []).length ? `<div class="fc-photos">${photoUrls.slice(0, 6).map(u =>
+      `<button class="fc-photo" onclick="openLightboxUrl(${jsAttr(u)})"><img src="${escapeHtml(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
     ${mood ? `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>` : ''}
     <footer class="fc-actions"><span class="fc-spacer"></span>
       <button class="fc-act" onclick="shareStory(${jsAttr(r.user_id)},${jsAttr(r.story_id)},${jsAttr(r.title)})" title="Share" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>
@@ -6901,7 +7807,7 @@ async function buildProfile() {
   const mems = getMoments();
   const totalDist = mems.reduce((s, m) => s + (m.distance || 0), 0) / 1000;
   const statsHtml = (fl, fr) => [
-    { val: mems.length.toLocaleString(), label: 'Moments' },
+    { val: mems.length.toLocaleString(), label: 'Activities' },
     { val: fmtDist(totalDist * 1000, 0), label: 'Distance' },
     { val: fr, label: 'Followers', onclick: "openConnections('followers')" },
     { val: fl, label: 'Following', onclick: "openConnections('following')" },
@@ -7487,14 +8393,16 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
     `<div><div class="pp-stat-val">${counts.following}</div><div class="pp-stat-label">Following</div></div>`;
   renderPpFollowButton();
   renderPublicCover(acts);
+  // Without these the relic cards here render no photos, though the feed's do.
+  const ppPhotos = await Social.storyPhotos(stories).catch(() => ({}));
 
   // Profile only shows Stories — their individual activities live behind the
   // map hero above (tap it → #profile-map-modal), same as your own profile.
   const own = userId === currentUser.id;
   document.getElementById('pp-body').innerHTML = stories.length
-    ? stories.map(st => renderPublicStoryCard(st, profile)).join('')
+    ? stories.map(st => renderPublicStoryCard(st, profile, ppPhotos[st.story_id])).join('')
     : emptyBlock('book', own ? 'No relics yet' : `${(profile.name || 'They').split(' ')[0]} hasn't posted a relic yet`,
-        own ? 'This is how other people see your profile. Turn a moment — or a few — into a Relic to post it here.' : 'Relics are how people here share their trips and chapters.',
+        own ? 'This is how other people see your profile. Group a few activities into a relic to post it here.' : 'Relics are how people here share their trips and chapters.',
         own ? `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>` : '');
   flushCanvasJobs();
   if (focusStoryId) {
@@ -7797,8 +8705,11 @@ function renderProfileStories() {
     const card = document.createElement('div');
     card.className = 'story-card';
 
-    let mapHtml = '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>' + staticStoryMapImg(story, 440, 200);
-    mapHtml += '<div class="story-card-badge">' + (story._momentCount || 0) + ' moments</div></div>';
+    const glyph = storyGlyphSvg(story);
+    let mapHtml = glyph
+      ? '<div class="story-card-map is-glyph">' + glyph
+      : '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>' + staticStoryMapImg(story, 440, 200);
+    mapHtml += '<div class="story-card-badge">' + (story._momentCount || 0) + ' activities</div></div>';
 
     card.innerHTML = mapHtml +
       '<div class="story-card-body">' +
@@ -7820,8 +8731,8 @@ function renderProfileStories() {
     card.onclick = function() { viewStoryOnMap(story.id); };
     grid.appendChild(card);
 
-    // Draw multi-track mini map
-    requestAnimationFrame(function() { drawStoryCardMap(story); });
+    // Only the fallback needs painting; the glyph is inline SVG.
+    if (!glyph) requestAnimationFrame(function() { drawStoryCardMap(story); });
   });
 }
 
@@ -7920,7 +8831,7 @@ function viewStoryOnMap(storyId) {
 }
 
 async function deleteStory(storyId) {
-  if (!(await uiConfirm({ title: 'Delete this relic?', body: 'The moments inside it are not affected.', ok: 'Delete relic', danger: true }))) return;
+  if (!(await uiConfirm({ title: 'Delete this relic?', body: 'The activities inside it are not affected.', ok: 'Delete relic', danger: true }))) return;
   delete db[storyId];
   allStories = getStories();
   if (document.getElementById('profile-view')?.classList.contains('active')) buildProfile();
@@ -8079,7 +8990,14 @@ let storyTypeFilters = new Set(Object.keys(TYPE_CONFIG));
 let storySort = 'recent';
 let editingStoryId = null; // null = new story, string = editing existing
 
+function clearStagedGlyphPref() {
+  const p = glyphPrefs();
+  if (!p[GLYPH_NEW]) return;
+  delete p[GLYPH_NEW];
+  try { localStorage.setItem(GLYPH_KEY, JSON.stringify(p)); } catch (e) {}
+}
 function openStoryModal(existingId) {
+  clearStagedGlyphPref();
   editingStoryId = existingId || null;
   storySelectedIds = new Set();
   storyTypeFilters = new Set(Object.keys(TYPE_CONFIG));
@@ -8228,6 +9146,7 @@ function removeStoryMoment(id) {
 }
 
 function updateStoryPreview() {
+  glyphRefresh(editingStoryId || GLYPH_NEW);
   // Selected chips
   const chipList = document.getElementById('sm-selected-list');
   chipList.innerHTML = '';
@@ -8257,7 +9176,7 @@ function updateStoryPreview() {
 async function saveStory() {
   const title = document.getElementById('sm-title').value.trim();
   if (!title) { document.getElementById('sm-status').textContent = 'Please enter a title.'; return; }
-  if (storySelectedIds.size === 0) { document.getElementById('sm-status').textContent = 'Select at least one moment.'; return; }
+  if (storySelectedIds.size === 0) { document.getElementById('sm-status').textContent = 'Select at least one activity.'; return; }
 
   const btn = document.getElementById('sm-save-btn');
   btn.disabled = true;
@@ -8265,19 +9184,31 @@ async function saveStory() {
 
   const id = editingStoryId || stableStoryId(title);
   const now = new Date().toISOString();
+  // This rebuilds the relic object from the form, so anything not restated
+  // here is silently dropped on every save — which is how the glyph columns
+  // and isPublic were being reset. A new relic's glyph choices are staged
+  // under GLYPH_NEW (it had no row to write to); they go straight onto the
+  // object rather than through setGlyphPref, which would take its
+  // localStorage branch because db[id] does not exist yet.
+  const prev = (editingStoryId && db[editingStoryId]) ? db[editingStoryId] : null;
+  const staged = !editingStoryId ? (glyphPrefs()[GLYPH_NEW] || {}) : {};
 
   const story = {
     id: id,
     type: 'story',
     title: title,
     subtitle: '',
-    coverPhoto: (editingStoryId && db[editingStoryId]) ? db[editingStoryId].coverPhoto || null : null,
+    coverPhoto: prev ? prev.coverPhoto || null : null,
+    isPublic: prev ? !!prev.isPublic : false,
+    glyphStyle: prev ? prev.glyphStyle || null : staged.style || null,
+    glyphColour: prev ? prev.glyphColour || null : staged.colour || null,
+    glyphInk: prev ? prev.glyphInk || null : staged.ink || null,
     momentIds: [...storySelectedIds],
     narrative: document.getElementById('sm-narrative').value,
     mood: _storyMood,
     tags: [],
     published: false,
-    createdAt: (editingStoryId && db[editingStoryId]) ? db[editingStoryId].createdAt || now : now,
+    createdAt: prev ? prev.createdAt || now : now,
     lastModified: now,
     _totalDistance: 0,
     _totalElevation: 0,
@@ -8288,6 +9219,9 @@ async function saveStory() {
 
   computeStoryStats(story);
   db[id] = story;
+  // The staging slot is per-app, not per-relic — leave it set and the next new
+  // relic inherits this one's look.
+  if (!editingStoryId) clearStagedGlyphPref();
 
   const { error } = await sb.from('stories').upsert(storyToRow(story));
   if (error) {
@@ -8777,6 +9711,7 @@ _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
 _r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
 _r('computeStoryStats',computeStoryStats);_r('stableStoryId',stableStoryId);
 _r('openStoryModal',openStoryModal);_r('closeStoryModal',closeStoryModal);
+_r('setStoryGlyphStyle',setStoryGlyphStyle);_r('setStoryGlyphColour',setStoryGlyphColour);_r('handleRelicPhotoUpload',handleRelicPhotoUpload);_r('openRelicShare',openRelicShare);_r('closeRelicShare',closeRelicShare);_r('rsSaveGlyph',rsSaveGlyph);_r('rsShareCard',rsShareCard);_r('rsShareLink',rsShareLink);_r('setStoryGlyphInk',setStoryGlyphInk);
 _r('renderStoryMomentList',renderStoryMomentList);_r('toggleStoryMoment',toggleStoryMoment);
 _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeStoryMoment);
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
@@ -8784,7 +9719,7 @@ _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
 _r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
-_r('showStoryDetail',showStoryDetail);_r('setStoryDetailMood',setStoryDetailMood);
+_r('showStoryDetail',showStoryDetail);
 _r('renderFeedMomentCard',renderFeedMomentCard);_r('renderFeedStoryCard',renderFeedStoryCard);
 _r('drawFeedStoryMap',drawFeedStoryMap);
 _r('getStravaToken',getStravaToken);_r('fetchStravaStreams',fetchStravaStreams);
