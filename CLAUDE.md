@@ -169,19 +169,28 @@ copy says Relic. Don't rename the model.
   fixed tolerance) → `glyQuantAngles` → fit → whole-composition fit. Quantising
   every heading drifts the endpoint and leaves loops visibly unclosed, so the
   error is spread back along the path — don't "fix" that by removing it.
-- **`glyphBudget(n)` is the single most important number**: total segments
-  across the whole glyph, scaled per style by `det`. It decides whether a relic
-  reads as a figure or a ball of wire. It was originally ~3× higher and real
-  relics came out as scribble — if glyphs look busy, lower this before
-  anything else. `maxSeg` caps one long activity from eating the budget.
+- **Two families of style, and the difference is the segment budget.** The
+  faithful ones (Tracks, Survey) set `ink` — a large budget spent on keeping
+  the real shape. The geometric ones scale the small `glyphBudget(n)` by `det`
+  into a handful of bold strokes. `maxSeg` stops one long activity eating the
+  budget. If geometric glyphs look busy, lower `glyphBudget` before anything
+  else; it was once ~3× higher and real relics came out as scribble.
+- **Simplification destroys lap sports, so the default is faithful.** An
+  alpine day is the same corridor ridden up and down a dozen times; RDP keeps
+  only the extremes, so an over-simplified ski relic collapses to a line
+  traced back and forth — a real user relic looked like this. Rendered
+  faithfully the same relic is a legible comb of laps. The user's standing
+  preference is that **glyphs should look like the tracks**, so `tracks` is
+  `GLYPH_DEFAULT_STYLE`; the geometric styles are the alternative, not the
+  norm.
 - **Flights ignore their geometry.** Most flight data has no usable trace
   (Strava/GPX never populate `endLat`/`endPlace`; manual entry draws a straight
   line), so a flight is redrawn as a fixed-bow arc at its real bearing via
   `glyFlightArc` — every flight is the same mark differing only in heading,
   which is what makes a curve read as "flight" at 64px.
-- **Five styles** in `GLYPH_STYLES`, user-picked, not inferred: Compass
-  (default), Rune, Weave, Survey (true geography), Tracks (`ang: 0`, high
-  `det` — deliberately looks like the real GPS). **The default is constant.**
+- **Five styles** in `GLYPH_STYLES`, user-picked, not inferred: Tracks
+  (default), Survey (true geography), Compass, Rune, Weave. **The default is
+  constant.**
   Deriving it from the tracks was tried and measured worse: an unchosen relic
   recomputes on every render, so its mark changed *kind* as the relic grew.
   A glyph is an identity; keep the default constant.
