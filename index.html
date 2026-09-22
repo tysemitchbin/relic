@@ -4219,7 +4219,7 @@ function showStoryDetail(storyId) {
   document.getElementById('d-delete-row').style.display = 'none';
 
   // Remove any previous story detail elements
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
 
   const body = document.getElementById('detail-body');
 
@@ -4336,7 +4336,7 @@ function closeDetail() {
   renderList();
   updateTrackHighlight(null);
   // Clean up any story-injected elements from detail body
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
@@ -6370,22 +6370,44 @@ const GLYPH_KEY = 'relic_glyph_v1';
 const GLYPH_DEFAULT_INK = '#2A3324';
 // comp: how tracks are stacked. ang: size of the angle vocabulary each segment
 // heading snaps to (0 = free). This is what separates a glyph from a scribble.
-// Two families. The faithful ones set `ink` — a large segment budget spent on
-// keeping the real shape, because the glyph is meant to look like the tracks.
-// That matters most for lap sports: an alpine day is the same corridor ridden
-// up and down a dozen times, and simplification keeps only the extremes, so
-// an over-simplified ski relic collapses to a line traced back and forth.
-// The geometric ones scale the small default budget by `det` instead: a
-// handful of deliberate strokes. maxSeg caps any single track so one long
-// activity can't eat the whole budget.
+// One axis: how abstract. Accurate keeps the real shape, Geometric rewrites
+// it into eight directions, Runic into six bold ones. `ink` is a large segment
+// budget spent on fidelity; `det` scales the small default budget into a
+// handful of strokes instead. maxSeg stops one long activity eating the
+// budget.
+//
+// Accurate is not a nicety: simplification destroys lap sports. An alpine day
+// is the same corridor ridden up and down a dozen times, and RDP keeps only
+// the extremes, so a simplified ski relic collapses to a line traced back and
+// forth. Rendered faithfully it is a legible comb of laps.
+// Ordered as the picker shows them: the two faithful ones first, then the
+// three abstractions. Accurate and Survey differ in composition, not fidelity
+// — Survey keeps true geography instead of stacking each track on a shared
+// start, so it suits a relic that happened in one place and scatters one that
+// didn't.
+// Shipping two — Accurate and Runic, the two ends of the abstraction axis, so
+// the choice reads immediately. The rest are tuned and working; `wip: true`
+// just keeps them out of the picker. Delete that flag to release one, which
+// is the whole cost of adding a style. Notes on the held-back three:
+//   geometric — the natural third, sits between the two shipped ones.
+//   weave     — least differentiated; at 64px it reads as busier Geometric.
+//   survey    — true geography, so a relic whose tracks are spread over a
+//               region collapses: the longest track dominates the shared
+//               bounds and the rest knot up. Only good for a relic that
+//               happened in one place; needs that solving before release.
 const GLYPH_STYLES = {
-  tracks:  { label: 'Tracks',   comp: 'radial',    ang: 0, ink: 700, minSeg: 40, maxSeg: 220, w: 1.5, op: 0.70, cap: 'round',  join: 'round', term: false },
-  survey:  { label: 'Survey',   comp: 'map',       ang: 0, ink: 700, minSeg: 40, maxSeg: 220, w: 1.4, op: 0.70, cap: 'round',  join: 'round', term: false },
-  compass: { label: 'Compass',  comp: 'radial',    ang: 8, det: 1.0, maxSeg: 7,  w: 2.6, op: 0.85, cap: 'butt',   join: 'miter', term: true  },
-  rune:    { label: 'Rune',     comp: 'radial',    ang: 6, det: 0.75, maxSeg: 6, w: 3.1, op: 0.90, cap: 'square', join: 'miter', term: false },
-  weave:   { label: 'Weave',    comp: 'intersect', ang: 8, det: 1.0, maxSeg: 7,  w: 2.6, op: 0.80, cap: 'round',  join: 'round', term: false },
+  accurate:  { label: 'Accurate',  comp: 'radial',    ang: 0, ink: 700, minSeg: 40, maxSeg: 220, w: 1.5, op: 0.70, cap: 'round',  join: 'round', term: false },
+  runic:     { label: 'Runic',     comp: 'radial',    ang: 6, det: 0.75, maxSeg: 6, w: 3.1, op: 0.90, cap: 'square', join: 'miter', term: false },
+  geometric: { label: 'Geometric', comp: 'radial',    ang: 8, det: 1.0,  maxSeg: 7, w: 2.6, op: 0.85, cap: 'butt',   join: 'miter', term: true,  wip: true },
+  weave:     { label: 'Weave',     comp: 'intersect', ang: 8, det: 1.0,  maxSeg: 7, w: 2.6, op: 0.80, cap: 'round',  join: 'round', term: false, wip: true },
+  survey:    { label: 'Survey',    comp: 'map',       ang: 0, ink: 700, minSeg: 40, maxSeg: 220, w: 1.4, op: 0.70, cap: 'round',  join: 'round', term: false, wip: true },
 };
-const GLYPH_DEFAULT_STYLE = 'tracks';
+// Styles offered in the picker. A held-back style still renders if a relic is
+// already set to it, so releasing one never strands a choice.
+function glyphStyleKeys() { return Object.keys(GLYPH_STYLES).filter(k => !GLYPH_STYLES[k].wip); }
+// Earlier names, so a relic someone already styled keeps its choice.
+const GLYPH_STYLE_ALIASES = { tracks: 'accurate', trace: 'accurate', compass: 'geometric', rune: 'runic' };
+const GLYPH_DEFAULT_STYLE = 'accurate';
 // Total segments across the whole glyph. A recognisable mark is a handful of
 // deliberate strokes, not a faithful outline — this is the single number that
 // decides whether a relic reads as a figure or as a ball of wire, so it lives
@@ -6401,10 +6423,14 @@ function glyphPrefs() {
   try { _glyphPrefs = JSON.parse(localStorage.getItem(GLYPH_KEY) || '{}'); } catch (e) { _glyphPrefs = {}; }
   return _glyphPrefs;
 }
+function glyphStyleKey(k) {
+  k = GLYPH_STYLE_ALIASES[k] || k;
+  return GLYPH_STYLES[k] ? k : GLYPH_DEFAULT_STYLE;
+}
 function glyphPrefFor(storyId) {
   const p = glyphPrefs()[storyId] || {};
   return {
-    style: GLYPH_STYLES[p.style] ? p.style : GLYPH_DEFAULT_STYLE,
+    style: glyphStyleKey(p.style),
     mono: !!p.mono,
     ink: /^#[0-9a-f]{6}$/i.test(p.ink || '') ? p.ink : GLYPH_DEFAULT_INK,
   };
@@ -6637,7 +6663,9 @@ function glyphControlsHtml(storyId) {
   let html =
     '<select class="modal-select glyph-select" aria-label="Glyph style" onchange="setStoryGlyphStyle(' +
       jsAttr(storyId) + ',this.value)">' +
-      Object.keys(GLYPH_STYLES).map(k =>
+      // a relic already set to a held-back style keeps it listed, so the
+      // picker never silently changes what it is showing
+      (glyphStyleKeys().includes(g.style) ? glyphStyleKeys() : glyphStyleKeys().concat(g.style)).map(k =>
         '<option value="' + k + '"' + (k === g.style ? ' selected' : '') + '>' +
         escapeHtml(GLYPH_STYLES[k].label) + '</option>').join('') +
     '</select>' +

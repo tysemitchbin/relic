@@ -188,9 +188,16 @@ copy says Relic. Don't rename the model.
   line), so a flight is redrawn as a fixed-bow arc at its real bearing via
   `glyFlightArc` — every flight is the same mark differing only in heading,
   which is what makes a curve read as "flight" at 64px.
-- **Five styles** in `GLYPH_STYLES`, user-picked, not inferred: Tracks
-  (default), Survey (true geography), Compass, Rune, Weave. **The default is
-  constant.**
+- **Styles are user-picked, not inferred.** `GLYPH_STYLES` holds five, all
+  tuned and working, but only those without `wip: true` reach the picker
+  (`glyphStyleKeys()`). Shipping two — **Accurate** (default) and **Runic**,
+  the two ends of the abstraction axis — and releasing another is just
+  deleting its flag. Held back, with reasons: `geometric` (the natural third),
+  `weave` (least differentiated; reads as busier Geometric at 64px), `survey`
+  (true geography, so a relic spread over a region collapses — the longest
+  track dominates the shared bounds). A relic already set to a held-back style
+  still renders and still lists it, so releasing one never strands a choice.
+  `GLYPH_STYLE_ALIASES` maps earlier names. **The default is constant.**
   Deriving it from the tracks was tried and measured worse: an unchosen relic
   recomputes on every render, so its mark changed *kind* as the relic grew.
   A glyph is an identity; keep the default constant.
