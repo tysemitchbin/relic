@@ -244,6 +244,31 @@ copy says Relic. Don't rename the model.
   than redrawing on canvas, so the shared PNG and the on-screen glyph cannot
   drift apart.
 
+## Relic photos (`relic-glyph`, 2026-09-22)
+
+A relic shows every photo taken on its tracks (`storyPhotos()` gathers
+`m.photos` across `momentIds`, in date order), and photos added *to the relic*
+are filed onto the track they belong to rather than the relic itself — there is
+no relic-level photo store, and adding one would duplicate `activity_photos`.
+
+- **`assignPhotoToRelic(story, taken, lat, lng)` decides where a photo goes.**
+  **Time is tried first and beats GPS**: a photo taken during an activity
+  belongs to it, and `DateTimeOriginal` survives when location tagging is off,
+  which it often is. A photo within 30 min either side of the activity window
+  counts. GPS is the fallback, nearest point on any of the relic's tracks
+  within 1.5 km. Neither → returns null and the caller *says so* rather than
+  guessing a track.
+- **`readExifTaken()` is deliberately separate from `readEXIF()`.** The latter
+  is dense, load-bearing GPS-parsing code; this only needed one more tag
+  (IFD0 → Exif SubIFD `0x8769` → `0x9003`), so it walks its own copy rather
+  than risking that parser. EXIF timestamps carry no zone, so it is read as
+  local time — which is what a camera writes and what an activity's local
+  start time is stored as.
+- `uploadPhotoToMoment(memId, file, geo)` is the single place storage layout,
+  the `activity_photos` row and the local `db` update happen; the Moment's own
+  grid and the relic upload both call it. `geo` is passed in when the caller
+  already read EXIF, so a file isn't parsed twice.
+
 ## Filters + Activities view (merged from `map-filters`, 2026-09-04)
 
 `retrospective-entry` originally branched off `main` *before* the separate

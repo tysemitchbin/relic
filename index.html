@@ -1178,6 +1178,12 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card-map canvas { width: 100%; height: 100%; }
 .story-card-map.is-glyph { display: flex; align-items: center; justify-content: center; background: var(--surface); }
 .story-card-map.is-glyph svg { width: 100%; height: 100%; padding: 10px; }
+.sd-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin-top: 8px; }
+.sd-photo { padding: 0; border: 0; border-radius: var(--r-sm, 8px); overflow: hidden; aspect-ratio: 1; cursor: pointer; background: var(--paper2); }
+.sd-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sd-photo-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: 1px dashed var(--border); color: var(--text-3); font: 600 20px var(--font-ui); background: none; }
+.sd-photo-add-label { font-size: 11px; font-weight: 600; }
 .sd-narrative-read { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text-2); white-space: pre-wrap; }
 .sd-mood-read { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); }
 .sd-mood-read span { font-weight: 600; color: var(--ink); }
@@ -2429,6 +2435,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 </div>
 
 <!-- STORY MODAL -->
+<input type="file" id="relic-photo-input" accept="image/*" multiple hidden onchange="handleRelicPhotoUpload(this)">
+
 <div class="modal-overlay" id="relic-share-modal" onclick="if(event.target===this)closeRelicShare()">
   <div class="modal">
     <div class="modal-title">Share relic</div>
@@ -4155,7 +4163,7 @@ function showDetail(memId) {
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
   // Restore detail body to moment layout (in case it was showing a story)
-  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(el => el.remove());
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(el => el.remove());
   document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
   document.getElementById('d-rows').style.display='';
   document.getElementById('d-strava-link').style.display='';
@@ -4255,7 +4263,7 @@ function showStoryDetail(storyId) {
   document.getElementById('d-delete-row').style.display = 'none';
 
   // Remove any previous story detail elements
-  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
 
   const body = document.getElementById('detail-body');
 
@@ -4300,6 +4308,17 @@ function showStoryDetail(storyId) {
   if (glyphEl) glyphEl.insertAdjacentElement('afterend', mapDiv);
   else body.insertBefore(mapDiv, narrativeDiv || document.getElementById('d-rows'));
   requestAnimationFrame(function() { drawFeedStoryMap(story, 'sd-map-' + story.id); });
+
+  // Photos — everything shot on the relic's tracks, plus a way to add more.
+  var photoDiv = document.createElement('div');
+  photoDiv.className = 'detail-section sd-photos';
+  photoDiv.innerHTML =
+    '<div class="detail-section-title">Photos</div>' +
+    '<div class="detail-section-sub" id="sd-photo-caption"></div>' +
+    '<div class="sd-photo-grid" id="sd-photo-grid"></div>';
+  body.insertBefore(photoDiv, document.getElementById('d-rows'));
+  _relicPhotoStoryId = storyId;
+  renderStoryPhotos(storyId);
 
   // Mood — read-only, and only when there is one. Setting it lives in Edit,
   // same as the glyph; an unset mood was rendering an empty five-button row on
@@ -4368,7 +4387,7 @@ function closeDetail() {
   renderList();
   updateTrackHighlight(null);
   // Clean up any story-injected elements from detail body
-  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
@@ -4441,6 +4460,115 @@ async function resizeImageToJpeg(file, maxDim, quality) {
   return new Promise(res => c.toBlob(res, 'image/jpeg', quality));
 }
 
+// DateTimeOriginal, read on its own rather than by extending readEXIF — that
+// parser is dense and load-bearing, and this only needs one more tag. Walks
+// IFD0 for the Exif SubIFD pointer (0x8769), then 0x9003 inside it. Returns ms
+// or null. The timestamp has no zone, so it is read as local time, which is
+// what a camera writes and what an activity's local start time is stored as.
+async function readExifTaken(file) {
+  try {
+    const buf = await file.slice(0, 131072).arrayBuffer();
+    const v = new DataView(buf);
+    if (v.getUint16(0) !== 0xFFD8) return null;               // not a JPEG
+    let o = 2;
+    while (o + 4 < v.byteLength) {
+      if (v.getUint16(o) !== 0xFFE1) {                        // not APP1, skip
+        if ((v.getUint16(o) & 0xFF00) !== 0xFF00) return null;
+        o += 2 + v.getUint16(o + 2);
+        continue;
+      }
+      const base = o + 10;                                     // past "Exif\0\0"
+      if (v.getUint32(o + 4) !== 0x45786966) return null;
+      const le = v.getUint16(base) === 0x4949;
+      const ifd0 = v.getUint32(base + 4, le) + base;
+      const readTag = (dir, want) => {
+        const n = v.getUint16(dir, le);
+        for (let i = 0; i < n; i++) {
+          const e = dir + 2 + i * 12;
+          if (v.getUint16(e, le) === want) return v.getUint32(e + 8, le);
+        }
+        return 0;
+      };
+      const exifDir = readTag(ifd0, 0x8769);
+      if (!exifDir) return null;
+      const n = v.getUint16(exifDir + base, le);
+      for (let i = 0; i < n; i++) {
+        const e = exifDir + base + 2 + i * 12;
+        if (v.getUint16(e, le) !== 0x9003) continue;           // DateTimeOriginal
+        const at = v.getUint32(e + 8, le) + base;
+        let str = '';
+        for (let k = 0; k < 19; k++) str += String.fromCharCode(v.getUint8(at + k));
+        const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(str);
+        if (!m) return null;
+        return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+      }
+      return null;
+    }
+  } catch (e) { return null; }
+  return null;
+}
+
+// Which track in this relic does a photo belong to?
+//
+// Time beats GPS and is tried first: a photo taken during an activity belongs
+// to it, full stop, and DateTimeOriginal survives when location tagging is off
+// — which it often is. GPS is the fallback, matching the nearest point on any
+// of the relic's tracks. Returns { memId, how } or null when neither signal
+// places it, so the caller can say so rather than guessing.
+function assignPhotoToRelic(story, taken, lat, lng) {
+  const mems = (story.momentIds || []).map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin);
+  if (!mems.length) return null;
+
+  if (taken) {
+    const SLACK = 30 * 60e3;   // a photo just before the start or after the stop
+    let best = null, bestGap = Infinity;
+    mems.forEach(m => {
+      const t0 = Date.parse(m.date || '');
+      if (isNaN(t0)) return;
+      const t1 = t0 + (m.duration || 0) * 1000;
+      const gap = taken < t0 ? t0 - taken : taken > t1 ? taken - t1 : 0;
+      if (gap < bestGap) { bestGap = gap; best = m; }
+    });
+    if (best && bestGap <= SLACK) return { memId: best.id, how: 'time' };
+  }
+
+  if (lat != null && lng != null) {
+    let best = null, bestKm = Infinity;
+    mems.forEach(m => {
+      const c = getCoords(m);
+      if (!c) return;
+      // every 4th point is plenty to find the nearest track at this tolerance
+      for (let i = 0; i < c.length; i += 4) {
+        const d = glyKm(c[i], [lng, lat]);
+        if (d < bestKm) { bestKm = d; best = m; }
+      }
+    });
+    if (best && bestKm <= 1.5) return { memId: best.id, how: 'place' };
+  }
+  return null;
+}
+
+// One file onto one Moment. Both the Moment's own photo grid and a relic's
+// upload go through here, so storage layout, row shape and the local db update
+// stay in one place.
+async function uploadPhotoToMoment(memId, file, geo) {
+  const { lat, lng } = geo || await readEXIF(file);
+  const blob = await resizeImageToJpeg(file, 1600, 0.82);
+  const path = `${currentUser.id}/${memId}/${crypto.randomUUID()}.jpg`;
+  const up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
+  if (up.error) throw up.error;
+  const { data: row, error: insErr } = await sb.from('activity_photos').insert({
+    user_id: currentUser.id, activity_id: memId, storage_path: path,
+    lat: lat ?? null, lng: lng ?? null, sort_order: (db[memId].photos || []).length,
+  }).select().single();
+  if (insErr) throw insErr;
+  const { data: signed } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
+  const photo = { dataUrl: signed?.signedUrl || '', lat, lng, caption: '', _id: row.id, _path: path };
+  (db[memId].photos ||= []).push(photo);
+  if (lat && lng) addPhotoMarker(lat, lng, photo.dataUrl, db[memId].photos.length - 1);
+  return photo;
+}
+
 async function handlePhotoUpload(input) {
   if (!selectedId) return;
   const memId = selectedId;
@@ -4448,20 +4576,7 @@ async function handlePhotoUpload(input) {
   input.value = '';
   for (const file of files) {
     try {
-      const { lat, lng } = await readEXIF(file);
-      const blob = await resizeImageToJpeg(file, 1600, 0.82);
-      const path = `${currentUser.id}/${memId}/${crypto.randomUUID()}.jpg`;
-      const up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
-      if (up.error) throw up.error;
-      const { data: row, error: insErr } = await sb.from('activity_photos').insert({
-        user_id: currentUser.id, activity_id: memId, storage_path: path,
-        lat: lat ?? null, lng: lng ?? null, sort_order: (db[memId].photos || []).length,
-      }).select().single();
-      if (insErr) throw insErr;
-      const { data: signed } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
-      const photo = { dataUrl: signed?.signedUrl || '', lat, lng, caption: '', _id: row.id, _path: path };
-      (db[memId].photos ||= []).push(photo);
-      if (lat && lng) addPhotoMarker(lat, lng, photo.dataUrl, db[memId].photos.length - 1);
+      await uploadPhotoToMoment(memId, file);
       if (selectedId === memId) renderPhotos(memId);
     } catch (e) {
       console.error('Photo upload failed', e);
@@ -6859,6 +6974,64 @@ function glyphRefresh(storyId) {
   if (document.getElementById('profile-stories-grid')) renderProfileStories();
 }
 function setStoryGlyphStyle(storyId, style) { setGlyphPref(storyId, { style: style }); glyphRefresh(storyId); }
+// Every photo on every track in the relic, in the order the days happened.
+function storyPhotos(story) {
+  const out = [];
+  (story.momentIds || []).map(id => db[id])
+    .filter(m => m && !isStory(m) && !m.isPin)
+    .sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1)
+    .forEach(m => (m.photos || []).forEach((p, i) => {
+      if (p.dataUrl) out.push({ url: p.dataUrl, memId: m.id, idx: i, name: m.name });
+    }));
+  return out;
+}
+function renderStoryPhotos(storyId) {
+  const story = db[storyId], grid = document.getElementById('sd-photo-grid');
+  if (!story || !grid) return;
+  const photos = storyPhotos(story);
+  grid.innerHTML = photos.map(p =>
+    '<button class="sd-photo" title="' + escapeHtml(p.name || '') + '" onclick="openLightboxUrl(' +
+    jsAttr(p.url) + ')"><img src="' + escapeHtml(p.url) + '" alt="" loading="lazy"></button>').join('') +
+    '<button class="sd-photo sd-photo-add" onclick="document.getElementById(\'relic-photo-input\').click()">' +
+    '<span>+</span><span class="sd-photo-add-label">Add</span></button>';
+  const cap = document.getElementById('sd-photo-caption');
+  if (cap) cap.textContent = photos.length
+    ? photos.length + (photos.length === 1 ? ' photo from this relic\'s tracks' : ' photos from this relic\'s tracks')
+    : 'No photos yet. Added photos are matched to the right track.';
+}
+// Photos dropped on the relic are filed onto the track they were taken on.
+async function handleRelicPhotoUpload(input) {
+  const storyId = _relicPhotoStoryId, story = db[storyId];
+  const files = Array.from(input.files);
+  input.value = '';
+  if (!story || !files.length) return;
+  let placed = 0, byTime = 0, unplaced = 0;
+  const dismiss = toast('Adding ' + files.length + (files.length === 1 ? ' photo…' : ' photos…'), { duration: 60000 });
+  for (const file of files) {
+    try {
+      const geo = await readEXIF(file);
+      const taken = await readExifTaken(file);
+      const hit = assignPhotoToRelic(story, taken, geo.lat, geo.lng);
+      if (!hit) { unplaced++; continue; }
+      await uploadPhotoToMoment(hit.memId, file, geo);
+      placed++;
+      if (hit.how === 'time') byTime++;
+    } catch (e) {
+      console.error('Relic photo upload failed', e);
+      unplaced++;
+    }
+  }
+  dismiss();
+  renderStoryPhotos(storyId);
+  if (selectedId && db[selectedId] && !isStory(db[selectedId])) renderPhotos(selectedId);
+  if (placed) toast(placed + ' photo' + (placed === 1 ? '' : 's') + ' matched to ' +
+    (byTime === placed ? 'their tracks by time' : byTime ? 'their tracks by time and place' : 'their tracks by location'),
+    { icon: 'check' });
+  if (unplaced) toast(unplaced + ' photo' + (unplaced === 1 ? " couldn't be matched to a track" : "s couldn't be matched to a track") +
+    ' — add them from the activity instead', { error: true });
+}
+let _relicPhotoStoryId = null;
+
 let _rsStoryId = null;
 function openRelicShare(storyId) {
   const story = db[storyId];
@@ -9346,7 +9519,7 @@ _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
 _r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
 _r('computeStoryStats',computeStoryStats);_r('stableStoryId',stableStoryId);
 _r('openStoryModal',openStoryModal);_r('closeStoryModal',closeStoryModal);
-_r('setStoryGlyphStyle',setStoryGlyphStyle);_r('setStoryGlyphColour',setStoryGlyphColour);_r('openRelicShare',openRelicShare);_r('closeRelicShare',closeRelicShare);_r('rsSaveGlyph',rsSaveGlyph);_r('rsShareCard',rsShareCard);_r('rsShareLink',rsShareLink);_r('setStoryGlyphInk',setStoryGlyphInk);
+_r('setStoryGlyphStyle',setStoryGlyphStyle);_r('setStoryGlyphColour',setStoryGlyphColour);_r('handleRelicPhotoUpload',handleRelicPhotoUpload);_r('openRelicShare',openRelicShare);_r('closeRelicShare',closeRelicShare);_r('rsSaveGlyph',rsSaveGlyph);_r('rsShareCard',rsShareCard);_r('rsShareLink',rsShareLink);_r('setStoryGlyphInk',setStoryGlyphInk);
 _r('renderStoryMomentList',renderStoryMomentList);_r('toggleStoryMoment',toggleStoryMoment);
 _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeStoryMoment);
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
