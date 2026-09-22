@@ -6544,6 +6544,55 @@ function glyQuantAngles(p, n) {
   const ey = (out[m][1] - out[0][1]) - (p[p.length - 1][1] - p[0][1]);
   return out.map((q, i) => [q[0] - ex * i / m, q[1] - ey * i / m]);
 }
+// Rough km between two [lng,lat] points — enough to decide whether one day's
+// finish is the next day's start.
+function glyKm(a, b) {
+  const dy = (b[1] - a[1]) * 111;
+  const dx = (b[0] - a[0]) * 111 * Math.cos((a[1] + b[1]) / 2 * Math.PI / 180);
+  return Math.hypot(dx, dy);
+}
+function glySpanKm(coords) {
+  const b = glyBbox(coords), mid = (b.minY + b.maxY) / 2;
+  return Math.hypot(b.w * 111 * Math.cos(mid * Math.PI / 180), b.h * 111);
+}
+// A multi-day route arrives as one Moment per day, each starting where the
+// last finished. Normalising each separately pins every day's start at the
+// centre and destroys the route, so days that join up are grouped into a
+// chain: the chain shares one transform, and each day keeps its own colour.
+// Flights never chain — their geometry is replaced by a synthetic arc, so
+// there is no real endpoint for the next leg to meet.
+function glyChainIds(tracks) {
+  const ids = new Array(tracks.length);
+  let chain = -1, prevEnd = null, prevSpan = 0;
+  tracks.forEach((t, i) => {
+    const c = t.coords, span = glySpanKm(c);
+    if (!t.flight && prevEnd) {
+      // tolerance scales with the legs themselves, with a floor and a ceiling
+      const tol = Math.min(8, Math.max(0.3, 0.12 * Math.min(span, prevSpan)));
+      if (glyKm(prevEnd, c[0]) <= tol) { ids[i] = chain; prevEnd = c[c.length - 1]; prevSpan = span; return; }
+    }
+    ids[i] = ++chain;
+    prevEnd = t.flight ? null : c[c.length - 1];
+    prevSpan = span;
+  });
+  return ids;
+}
+// The fitters take a list of point-sets so a chain is scaled and anchored as
+// one figure. A chain of one behaves exactly as a lone track did.
+function glyFitOriginMulti(sets, size, pad) {
+  const o = sets[0][0];
+  let R = 0;
+  sets.forEach(p => p.forEach(q => { R = Math.max(R, Math.hypot(q[0] - o[0], q[1] - o[1])); }));
+  const sc = ((size - pad * 2) / 2) / (R || 1e-9);
+  return sets.map(p => p.map(q => [size / 2 + (q[0] - o[0]) * sc, size / 2 - (q[1] - o[1]) * sc]));
+}
+function glyFitIntersectMulti(sets, size, pad) {
+  let all = [];
+  sets.forEach(p => { all = all.concat(p); });
+  const b = glyBbox(all), S = size - pad * 2, sc = S / Math.max(b.w, b.h);
+  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+  return sets.map(p => p.map(q => [size / 2 + (q[0] - cx) * sc, size / 2 - (q[1] - cy) * sc]));
+}
 function glyFitIntersect(p, size, pad) {
   const b = glyBbox(p), S = size - pad * 2, sc = S / Math.max(b.w, b.h);
   const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
@@ -6651,8 +6700,11 @@ function storyGlyphTracks(story) {
     if (!m || isStory(m) || m.isPin) return;
     const c = getCoords(m);
     if (!c || c.length < 2) return;
-    out.push({ coords: c, color: m.customColor || getColor(m.type), flight: getGroup(m.type) === 'Flight' });
+    out.push({ coords: c, date: m.date || '', color: m.customColor || getColor(m.type),
+               flight: getGroup(m.type) === 'Flight' });
   });
+  // Chaining only means anything in the order the days were walked.
+  out.sort((a, b) => (a.date || '') > (b.date || '') ? 1 : (a.date || '') < (b.date || '') ? -1 : 0);
   return out;
 }
 
@@ -6672,12 +6724,13 @@ function renderGlyph(tracks, style, colour, ink) {
   const target = Math.max(st.minSeg || GLYPH_MIN_SEG, Math.min(st.maxSeg, Math.round(budget / n)));
   const w = st.w * (n >= 10 ? 0.85 : 1);
 
-  const prepped = tracks.map(t => {
-    if (t.flight) return { arc: true, t: t };
+  const chainIds = glyChainIds(tracks);
+  const prepped = tracks.map((t, i) => {
+    if (t.flight) return { arc: true, t: t, chain: chainIds[i] };
     let p = glyProject(t.coords);
     p = glySimplifyTo(p, target);
     if (st.ang >= 3) p = glyQuantAngles(p, st.ang);
-    return { arc: false, p: p, t: t };
+    return { arc: false, p: p, t: t, chain: chainIds[i] };
   });
 
   // Survey keeps true geography, so every track shares one transform.
@@ -6692,7 +6745,18 @@ function renderGlyph(tracks, style, colour, ink) {
     }
   }
 
-  let laid = prepped.map(x => {
+  // Fit a chain at a time, so a multi-day route stays continuous instead of
+  // having every day's start dragged onto the anchor. Arcs and Survey place
+  // themselves and are left out of it.
+  const byChain = {}, fitted = {};
+  prepped.forEach((x, i) => { if (!x.arc && !survey) (byChain[x.chain] = byChain[x.chain] || []).push(i); });
+  Object.keys(byChain).forEach(k => {
+    const idx = byChain[k], sets = idx.map(i => prepped[i].p);
+    const out = mode === 'radial' ? glyFitOriginMulti(sets, SZ, pad) : glyFitIntersectMulti(sets, SZ, pad);
+    idx.forEach((i, j) => { fitted[i] = out[j]; });
+  });
+
+  let laid = prepped.map((x, i) => {
     let pts;
     if (x.arc) {
       pts = glyFlightArc(glyBearing(x.t.coords), SZ, pad, mode === 'radial' ? 'radial' : 'intersect');
@@ -6702,9 +6766,9 @@ function renderGlyph(tracks, style, colour, ink) {
     } else if (survey) {
       pts = survey(x.p);
     } else {
-      pts = mode === 'radial' ? glyFitOrigin(x.p, SZ, pad) : glyFitIntersect(x.p, SZ, pad);
+      pts = fitted[i];
     }
-    return { pts: pts, t: x.t };
+    return { pts: pts || [], t: x.t };
   }).filter(x => x.pts.length >= 2);
 
   // Anchoring pins each track at a point, not in the middle of the frame: a

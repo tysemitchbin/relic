@@ -159,7 +159,17 @@ the **front-end name for a Story** — the code, table, `type: 'story'`
 discriminator, every identifier and CSS class stay `story`; only user-visible
 copy says Relic. Don't rename the model.
 
-- **Not a map.** Each track is scaled *on its own* to a common size and
+- **Chains, not tracks, are the unit of normalisation.** A multi-day route
+  arrives as one Moment per day, each starting where the last finished;
+  normalising them separately pins every day's start on the anchor and shreds
+  the route. `glyChainIds()` groups days whose endpoints meet (tolerance
+  scaled to the legs, floor 0.3 km, ceiling 8 km) and the chain is fitted as
+  one figure by `glyFitOriginMulti`/`glyFitIntersectMulti`, while each day
+  keeps its own colour. A chain of one behaves exactly as a lone track did.
+  Flights never chain — their geometry is replaced by a synthetic arc, so
+  there is no real endpoint to meet. `storyGlyphTracks()` sorts by date,
+  without which chaining means nothing.
+- **Not a map.** Each chain is scaled *on its own* to a common size and
   stacked on a shared anchor, so the result is a mark. Tracks are **never
   rotated** — north stays up, so a glyph keeps true cardinal direction and a
   straight track stays straight at its real bearing. The user asked for this
