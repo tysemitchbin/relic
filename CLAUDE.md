@@ -188,56 +188,45 @@ sidebar list both mean "this individual Moment has a written note"
   sections show an `emptyBlock()` empty state (not a hidden section) when
   there are none yet, with a "New story" CTA — the point is to nudge people
   toward making one, not to look broken.
-- **The map hero is clickable** (`onclick="openProfileMapModal(...)"`,
+- **The map hero is clickable** (`onclick="viewProfileOnMainMap(...)"`,
   `role="button" tabindex="0"`, same plain-div-as-button pattern as
-  `.profile-stat[onclick]` elsewhere in this file) and opens
-  `#profile-map-modal` — an interactive map (`#pmm-map`, `_pmmMap`,
-  `renderPmmMap(tracks, focusActivityId)`) of every track privacy allows.
-  **Map only, no list of any kind** — an earlier version of this modal also
-  showed a Moments honeycomb grid (own profile) or a feed-card activity list
-  (someone else's); the user explicitly said no activity list anywhere and
-  no honeycomb grid, so both were deleted along with their support code
-  (`renderProfileHoneycomb()`, `drawMiniMap()`, `setProfileSort()`/
-  `profileSort`, the `.hex-*` CSS, `#pmm-body` and its children). Don't
-  resurrect any of that inside this modal — if a browsable list is wanted
-  again, it belongs on its own page, the way Activities does below.
-- **It's a genuine full-screen takeover, not a floating dialog** (user
-  feedback, 2026-09-22, after the first version rendered as a small centered
-  card — "want to open a full map, not just a pop up window"). `#profile-map-
-  modal` and `.profile-map-modal-inner` override the generic `.modal-overlay`/
-  `.modal` centered-card treatment directly (`padding:0`, `width/height:100%`,
-  `max-width/max-height:none`, `border-radius:0`) so it fills the whole
-  viewport — including over the header, since `.modal-overlay`'s z-index
-  (500) already beats `#header`'s (200) — at every screen size, not just
-  the mobile bottom-sheet breakpoint. The mobile media query only adds
-  safe-area padding to `.pmm-head` and drops the bottom-sheet drag-handle
-  `::before` (not a sheet any more). If a future modal ever wants this same
-  full-bleed treatment, copy this pair of overrides rather than fighting the
-  base `.modal` sizing per breakpoint.
-- **The map inside this modal has most of the main map's controls** (user
-  ask, 2026-09-22) — a layers popover (`#pmm-layers-pop`, same `.lp-*` CSS as
-  the main map's) with Standard/Satellite + 3D terrain, a "Show everything"
-  fit button (`fitPmmMap()`), reset-north, zoom, and a bottom-left legend
-  (`pmmBuildLegend()`) of the activity-type colors present, built from
-  `TYPE_CONFIG` (so it reflects any user recoloring) rather than per-track
-  `customColor`. No `cooperativeGestures` on this map (unlike the main map's
-  embed elsewhere) — it's a genuine full-screen takeover per the point above,
-  not a page fighting the map for scroll, so requiring ctrl+scroll to zoom
-  was just friction (user report). The controls/legend markup are DOM
-  siblings of `#pmm-map`, not children of it — `renderPmmMap()` does
-  `el.innerHTML=''` on that container on every (re)open, which would
-  otherwise wipe them. **"Your tracks" comparison overlay**: on someone
-  else's map only (`#pmm-mine-row` hidden when `_pmmIsOwn`), a switch loads
-  every one of *your* Moments as a second line layer (`pmm-mine-lines`,
-  dimmed, `line-opacity:0.32`) added with `beforeId:'pmm-lines'` so their
-  tracks always render on top of yours — lets someone compare their map
-  against a friend's. Because `mapboxgl.Map#setStyle` (the satellite toggle)
-  wipes any source/layer not baked into the style, every `pmm-*` source/layer
-  add is idempotent and funneled through one function (`pmmAddLayers()`,
-  called from both the map's first `style.load` and every subsequent one) —
-  don't add a new pmm layer as a one-off `.on('load', ...)` call the way the
-  original single-layer version did, it'll vanish the moment someone flips
-  Satellite.
+  `.profile-stat[onclick]` elsewhere in this file). **This used to open a
+  dedicated full-screen `#profile-map-modal` with its own lightweight Mapbox
+  instance and a stripped-down clone of the main map's controls — the user
+  reversed that 2026-09-22 ("cleaner to just open the main map"), so that
+  modal, `_pmmMap`, and everything `pmm-`-prefixed is gone.** Clicking the
+  hero now just calls `switchView('map')` — the *real* map, with every real
+  control (filters, satellite, 3D, pins, photos, thickness…) already intact,
+  nothing to reimplement. For your own profile that's the whole story. For
+  someone else's, their tracks are additionally overlaid on top of your own
+  map via a `viewing` source/`viewing-layer` line layer (see
+  `renderViewingLayer()`) — **not** a second map, an overlay on the one you
+  already have; a `viewing-hit` layer gives it the same wide-invisible-line
+  click target and popup pattern as `friends-hit`. Still **map only, no
+  list of any kind** — the honeycomb-grid/activity-list history below
+  predates this change but the rule didn't: if a browsable list of someone
+  else's activities is wanted, it belongs on its own page, the way
+  Activities does for your own.
+- **Exiting "viewing" mode**: a banner (`#viewing-banner`, styled off the
+  same `.mode-banner` used for pin-drop/draw-route but a separate element —
+  deliberately not reusing `#mode-banner` itself, since `cancelActiveMode()`
+  and the `_pinDropMode`/`_drawMode` machinery hard-code text for those two
+  modes only) shows "Viewing {name}'s map" with a × (`exitProfileView()`)
+  and an opacity slider (see below). `switchView()` also calls
+  `exitProfileView()` whenever the target view isn't `'map'`, so navigating
+  away tears it down without needing every nav path to remember to call it.
+  `_viewingProfile` (null when nobody's being viewed) is the flag both of
+  these check.
+- **Track opacity is user-adjustable** (`viewingOpacity`, default 0.85, the
+  slider on `#viewing-banner` — user ask, 2026-09-22, "let the user decide
+  how opaque their tracks are"), persisted per-user in `relic_mapprefs_v1_
+  <uid>` alongside `filters`/`trackWidth`. It's a `line-opacity` on
+  `viewing-layer`, set directly via `map.setPaintProperty` — no restyle
+  involved, since the main map's satellite toggle (unlike the old pmm map's)
+  never calls `setStyle`, it just flips a baked-in `satellite-layer`'s
+  visibility (see `toggleSatellite`), so `viewing-layer` never needs to be
+  re-added after a basemap change the way the old per-modal map's layers
+  did.
 - **Your own individual activities have their own page**: `#activities-view`
   / `renderActivitiesView()` (a sortable table, pre-existing — see "Filters +
   Activities view" below) is reachable from the header nav *and*, since
@@ -247,16 +236,16 @@ sidebar list both mean "this individual Moment has a written note"
   was built. It only ever shows your own Moments; there's no equivalent
   "browse all of someone else's activities" page — a visitor sees another
   person's individual activities only via Stories and the Following feed.
-- **`isOwnContext` (the modal's 3rd argument) must come from the caller, not
-  from `userId === currentUser.id`.** You can land on your *own*
-  public-profile page — a deep link to your own shared activity, or "View on
-  profile" from your own map popup — and that must still use the
+- **`isOwnContext` (`viewProfileOnMainMap`'s 3rd argument) must come from the
+  caller, not from `userId === currentUser.id`.** You can land on your
+  *own* public-profile page — a deep link to your own shared activity, or
+  "View on profile" from your own map popup — and that must still use the
   already-fetched public `acts` (what a visitor would see), not every
   private Moment you have. Only the map hero on your actual `#profile-view`
   passes `true`; the public-profile hero and the internal deep-link call
-  (`openProfileMapModal(userId, focusActivityId)` at the end of
-  `openPublicProfile`) both omit it, so they always take the "public" path
-  even when `userId` happens to be you.
+  (`viewProfileOnMainMap(userId, focusActivityId)` at the end of
+  `openPublicProfile`) both omit it, so they always take the "public"
+  (overlay-on-the-map) path even when `userId` happens to be you.
 - **A Story can be just one moment** (`saveStory()` only requires 1+, back
   to the original rule — a same-session 2+ minimum was tried and reverted:
   the user, on reflection, was fine with a single-activity Relic). Grouping
@@ -482,6 +471,18 @@ bug, this is what replaced them:
   separate from `filters` since Pins aren't tracked Moments and none of the
   distance/duration/HR-style filters apply to them. Track colors moved into
   this same drawer too ("Track colours" section, still `updateTypeColor()`).
+  **"Select all" / "Deselect all"** (2026-09-22, user ask — toggling ~18
+  types or a dozen pin categories one at a time was tedious) sits above the
+  toggle grid in both the "Activity type" and "Pins" sections
+  (`.fd-sec-actions`/`.fd-link`). `setAllFilterTypes(on)` sets
+  `filters.types` to `null` (the same "every type on" convention
+  `_setTypeSet` already collapses to) or `[]` (every type off — an empty
+  array is still truthy, so `matchMoment`'s `!f.types.includes(...)` check
+  correctly excludes everything, and `activeFilterCount()`'s `if
+  (filters.types)` still flags it as an active filter). `setAllPinCategories
+  (on)` just replaces the `activePinCategories` Set wholesale. Neither
+  touches the *other* toggle group — they're independent controls with
+  independent "everything" states, not one global select-all.
   **"Track thickness"** (2026-09-22, added after) is the same idea for line
   width: one `trackWidth` multiplier (0.5–3, slider, default 1), also *not*
   part of `filters`/`matchMoment` — it doesn't hide/show anything, so it's
@@ -513,26 +514,42 @@ bug, this is what replaced them:
   from nav — per `map-filters`' original design, not something this merge
   changed.
 - **Map prefs persist per-user** (`relic_mapprefs_v1_<uid>`): `filters`,
-  `sidebarSort`, `terrainOn`, `satelliteOn`, and last camera position, via
-  `saveMapPrefs()` (debounced) / `loadMapPrefs()` / `applyStoredFilters()`
-  restored before the first render. `relic_colors_v1` stayed a separate key
-  (a planned fold-in never actually shipped in `map-filters` before the
-  merge) — `loadColors()` still reads it directly, unchanged.
+  `sidebarSort`, `terrainOn`, `satelliteOn`, `friendsLayerOn`,
+  `photosLayerOn`, `trackWidth`, `viewingOpacity`, and last camera position,
+  via `saveMapPrefs()` (debounced) / `loadMapPrefs()` /
+  `applyStoredFilters()` restored before the first render. `relic_colors_v1`
+  stayed a separate key (a planned fold-in never actually shipped in
+  `map-filters` before the merge) — `loadColors()` still reads it directly,
+  unchanged.
+- **Geotagged photos as map markers** (`renderPhotoMarkers()`, 2026-09-22 —
+  the app used to drop a one-off DOM marker right after an upload via a
+  since-removed `addPhotoMarker()`, with no way to see them again after a
+  reload or turn them off; this replaces that with a real toggleable layer).
+  "Photos" lives in the layers popover next to Friends' tracks
+  (`photosLayerOn`, `togglePhotosLayer()`). Every Moment's `.photos` array
+  (with `lat`/`lng` from EXIF or manual geocoding) is already in memory from
+  boot (`loadFromSupabase`'s `photosByActivity`), so this needs no fetch —
+  just DOM `mapboxgl.Marker`s, same reasoning as Pins (emoji/bitmap, not a
+  GL symbol layer). Scoped to `filteredMemories`, not every Moment — unlike
+  Pins (which have their own always-on category toggles independent of
+  `filters`), a photo belongs to a Moment, so filtering the map down filters
+  its photos too; `renderPhotoMarkers()` is called from both
+  `initMapLayers()` and `applyFilters()` for that reason.
 - **`?demo` mode** (`DEMO` flag — `main` on `localhost`/no host + `?demo` in
   the URL) boots from synthetic in-memory data via a lightweight
   `makeStubMap()` instead of a real `mapboxgl.Map`, for offline testing
   without Mapbox tiles/tokens. **The stub does not fully support
   `mapboxgl.Marker`** (missing internal methods like `_addMarker`, beyond
   the documented API) — it predates Pins/draw-route/the NL-parser preview
-  map, none of which existed when it was written. `renderPinMarkers()` and
-  `renderDrawMarkers()` wrap their marker creation in try/catch so this
-  degrades to "no visible pin/waypoint markers in demo mode" rather than
-  crashing the whole render chain — don't remove those try/catches thinking
-  they're dead code; they're load-bearing specifically for `?demo`. Real
-  usage always has a genuine `mapboxgl.Map`, so this never affects real
-  users. If `?demo` ever needs to visually exercise pins, the fix is
-  extending `makeStubMap()` (or giving Marker creation its own demo-mode
-  branch), not removing the try/catch.
+  map, none of which existed when it was written. `renderPinMarkers()`,
+  `renderDrawMarkers()`, and `renderPhotoMarkers()` wrap their marker
+  creation in try/catch so this degrades to "no visible pin/waypoint/photo
+  markers in demo mode" rather than crashing the whole render chain — don't
+  remove those try/catches thinking they're dead code; they're load-bearing
+  specifically for `?demo`. Real usage always has a genuine `mapboxgl.Map`,
+  so this never affects real users. If `?demo` ever needs to visually
+  exercise markers, the fix is extending `makeStubMap()` (or giving Marker
+  creation its own demo-mode branch), not removing the try/catch.
 
 ## Data model — Retrospective entry (Pins, manual entry, NL parser, draw-route)
 
@@ -585,8 +602,9 @@ a GL symbol layer with an emoji `text-field`. Mapbox GL's text-field glyph
 pipeline is server-rendered SDF fonts that typically don't cover emoji
 pictograph ranges — an emoji `text-field` risks rendering as blank glyphs.
 A DOM marker uses the browser's own emoji font, matching the pattern this
-file already used for photo pins (`addPhotoMarker`). If pins ever need to be
-GL-filterable/clustered at scale, that's the tradeoff to revisit.
+file also uses for geotagged photos (`renderPhotoMarkers()` — see "Filters +
+Activities view"). If pins ever need to be GL-filterable/clustered at scale,
+that's the tradeoff to revisit.
 
 **Manual entry** (`openManualEntryModal`/`saveManualEntry`) geocodes a start
 (required) and optional end location via the shared `geocodeAddress()`

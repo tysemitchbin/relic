@@ -344,6 +344,13 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   max-width: calc(100vw - 24px); white-space: nowrap;
 }
 #mode-banner-text { overflow: hidden; text-overflow: ellipsis; }
+#viewing-opacity { width: 90px; accent-color: var(--accent); }
+.viewing-banner-close {
+  width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--paper2); color: var(--ink);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0;
+}
+.viewing-banner-close .ic { width: 15px; height: 15px; }
+.viewing-banner-close:hover { background: var(--paper3); }
 
 /* Pin markers — shrink as you zoom out (--pin-scale set from the map's zoom) */
 .pin-wrap { cursor: pointer; }
@@ -356,6 +363,15 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .pin-mk::after { content: ''; position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); border: 5px solid transparent; border-top: 7px solid #fff; }
 .pin-wrap:hover .pin-mk { transform: scale(calc(var(--pin-scale, 1) * 1.12)); }
+
+/* Geotagged photo markers — round thumbnails, same shrink-with-zoom scale as
+   pins so the two marker types read as one family at any zoom level. */
+.photo-mk {
+  width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #fff; background-size: cover; background-position: center;
+  box-shadow: 0 0 0 1px rgba(26,35,24,.28), 0 3px 10px rgba(26,35,24,.35); cursor: pointer;
+  transform: scale(var(--pin-scale, 1)); transition: transform .18s var(--ease);
+}
+.photo-mk:hover { transform: scale(calc(var(--pin-scale, 1) * 1.12)); }
 
 /* Legacy tools panel (superseded by the filter drawer; element kept empty) */
 #tools-panel { display: none; }
@@ -680,8 +696,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .profile-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
 .profile-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(26,35,24,.35), transparent 60%); }
 /* Wraps .profile-cover (own profile) or #pp-cover (a public profile) to make
-   the map hero at the top of Profile clickable — opens #profile-map-modal
-   with every activity privacy allows. Profile itself only shows Stories. */
+   the map hero at the top of Profile clickable — opens the real main map
+   (viewProfileOnMainMap()), every activity privacy allows overlaid on it for
+   someone else. Profile itself only shows Stories. */
 .profile-cover-wrap { position: relative; cursor: pointer; border-radius: var(--r-xl); }
 .profile-cover-wrap .cover-hint {
   position: absolute; right: 14px; bottom: 14px; z-index: 1; display: flex; align-items: center; gap: 6px;
@@ -774,8 +791,8 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
    two also need `display:flex` when shown, so that has to live here (not as
    an inline style on the element) or [hidden] can never override it — an
    inline style always wins over a stylesheet rule, hidden attribute or not. */
-#mode-banner, #pin-nudge { display: flex; }
-#mode-banner[hidden], #pin-nudge[hidden] { display: none; }
+#mode-banner, #pin-nudge, #viewing-banner { display: flex; }
+#mode-banner[hidden], #pin-nudge[hidden], #viewing-banner[hidden] { display: none; }
 #empty-state .empty-inner { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 36px 32px 28px; text-align: center; max-width: min(380px, calc(100vw - 32px)); box-shadow: var(--sh-3); }
 .empty-close { position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border-radius: 50%; background: none; border: none; font-size: 20px; line-height: 1; color: var(--text-3); cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
 .empty-close:hover { color: var(--ink); background: var(--paper2); }
@@ -882,28 +899,6 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .pp-map-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 14px; }
 .pp-activity-card { border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 14px; overflow: hidden; background: var(--surface); }
 
-/* #profile-map-modal — a genuine full-screen map takeover reached from the
-   map hero on Profile / a public profile, not a floating dialog: overrides
-   the generic .modal-overlay/.modal centered-card treatment (padding,
-   capped width/height, rounded corners) so it fills the whole viewport at
-   every size, same as tapping into the main map. Map only — no activity
-   list or honeycomb grid (see #activities-view for that, your own
-   activities' own page off the account menu). */
-#profile-map-modal { padding: 0; }
-.modal.profile-map-modal-inner { width: 100%; height: 100%; max-width: none; max-height: none; padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; }
-.pmm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-.pmm-title { font: 600 17px var(--font-ui); color: var(--ink); }
-.pmm-map { flex: 1; min-height: 0; background: var(--paper2); position: relative; }
-.pmm-map-canvas { position: absolute; inset: 0; }
-/* Controls + legend are siblings of the Mapbox container (#pmm-map), not
-   children of it — renderPmmMap() does el.innerHTML='' on the canvas on
-   every (re)render, which would otherwise wipe them along with the old map. */
-.pmm-tools { position: absolute; top: 14px; right: 14px; z-index: 5; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-.pmm-legend { position: absolute; left: 14px; bottom: 14px; z-index: 5; max-width: 220px; max-height: 40vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--sh-2); padding: 10px 12px; }
-.pmm-legend[hidden] { display: none; }
-.pmm-legend-title { font: 600 12px var(--font-ui); color: var(--text-3); margin-bottom: 6px; }
-.pmm-legend-row { display: flex; align-items: center; gap: 8px; font: 500 13px var(--font-ui); color: var(--ink); padding: 3px 0; }
-.pmm-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .pp-activity-body { padding: 14px 16px; }
 .pp-activity-name { font: 600 18px var(--font-display); color: var(--ink); margin-bottom: 2px; }
 .pp-activity-meta { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
@@ -1384,8 +1379,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   #map-tools { top: 12px; right: calc(12px + var(--safe-r)); }
   .mt-zoom { display: none; } /* pinch instead */
   .coord-bar { display: none; }
-  .pmm-tools { top: 12px; right: calc(12px + var(--safe-r)); }
-  .pmm-legend { left: calc(12px + var(--safe-l)); bottom: calc(12px + var(--safe-b)); }
 
   /* Pages */
   .feed-layout { padding: 16px 12px 32px; }
@@ -1442,11 +1435,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   #add-modal .choice-ic, #draw-picker-modal .choice-ic { width: 38px; height: 38px; border-radius: 11px; }
   .story-modal { width: 100vw; padding: 0; height: calc(100% - 12px - var(--safe-t)); max-height: none; }
   .story-modal::before { margin: 8px auto 0; }
-  /* Already full-bleed at every size (base rule above) — no bottom-sheet
-     drag handle since this isn't a sheet, just safe-area padding for the
-     notch. */
-  .profile-map-modal-inner::before { display: none; }
-  .pmm-head { padding: calc(10px + var(--safe-t)) 16px 12px; }
   .story-modal-header { padding: 12px 18px 12px; }
   .story-modal-footer { padding-bottom: calc(12px + var(--safe-b)); }
   .modal-actions { position: sticky; bottom: calc(-18px - var(--safe-b)); background: var(--surface); padding: 12px 0 calc(4px + var(--safe-b)); margin-top: 12px; }
@@ -1585,6 +1573,10 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .fd-range-sep { font-size: 13px; color: var(--text-3); flex-shrink: 0; }
 .fd-hint { font-size: 12px; color: var(--text-3); margin-top: 6px; line-height: 1.5; }
 
+.fd-sec-actions { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px; font-size: 12px; }
+.fd-link { border: none; background: none; padding: 0; color: var(--text-3); font: 600 12px var(--font-ui); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.fd-link:hover { color: var(--accent); text-decoration: underline; }
+.fd-sec-actions-sep { color: var(--border); }
 .fd-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .fd-chip {
   padding: 7px 13px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-pill);
@@ -1878,6 +1870,16 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <button class="btn-ghost btn-sm" onclick="cancelActiveMode()">Cancel</button>
       </div>
 
+      <!-- Viewing someone else's map: their tracks overlaid on YOUR main map
+           (not a separate modal — reuses every real map control: filters,
+           satellite, 3D, etc). viewProfileOnMainMap() opens this;
+           exitProfileView() (the × here, or navigating away) tears it down. -->
+      <div id="viewing-banner" class="mode-banner" hidden>
+        <span id="viewing-banner-text"></span>
+        <input type="range" id="viewing-opacity" min="0.15" max="1" step="0.05" value="0.85" oninput="setViewingOpacity(this.value)" title="Track opacity" aria-label="Their track opacity">
+        <button class="viewing-banner-close" onclick="exitProfileView()" aria-label="Stop viewing their map" title="Stop viewing"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+
       <!-- First-connect reveal: import counter, then fly the archive onto the map -->
       <div id="reveal" hidden>
         <div class="reveal-inner">
@@ -1983,6 +1985,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           </div>
           <div class="lp-row"><div>3D terrain<small>Tilt to see the mountains</small></div><button class="switch" id="terrain-btn" onclick="toggleTerrain()" aria-label="3D terrain"></button></div>
           <div class="lp-row" style="border-top:none;padding-top:10px"><div>Friends' tracks<small>Where people you follow have been</small></div><button class="switch" id="friends-btn" onclick="toggleFriendsLayer()" aria-label="Friends' tracks"></button></div>
+          <div class="lp-row" style="border-top:none;padding-top:10px"><div>Photos<small>Geotagged photos as pins</small></div><button class="switch" id="photos-btn" onclick="togglePhotosLayer()" aria-label="Photos"></button></div>
         </div>
         <div class="mt-group">
           <button class="mt-btn" onclick="fitArchive()" title="Show everything" aria-label="Show everything"><svg class="ic"><use href="#i-maximize"/></svg></button>
@@ -2061,7 +2064,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <!-- PROFILE VIEW (your own) -->
     <div class="view" id="profile-view">
       <div class="profile-wrap">
-        <div class="profile-cover-wrap" onclick="openProfileMapModal(currentUser.id,null,true)" onkeydown="if(event.key==='Enter')openProfileMapModal(currentUser.id,null,true)" role="button" tabindex="0" aria-label="View your full map and every activity">
+        <div class="profile-cover-wrap" onclick="viewProfileOnMainMap(currentUser.id,null,true)" onkeydown="if(event.key==='Enter')viewProfileOnMainMap(currentUser.id,null,true)" role="button" tabindex="0" aria-label="View your full map and every activity">
           <div class="profile-cover" id="profile-cover"></div>
           <div class="cover-hint"><svg class="ic"><use href="#i-map"/></svg>View full map</div>
         </div>
@@ -2297,7 +2300,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             </div>
           </div>
         </div>
-        <div class="profile-cover-wrap" id="pp-cover-wrap" onclick="openProfileMapModal(ppViewingUserId)" onkeydown="if(event.key==='Enter')openProfileMapModal(ppViewingUserId)" role="button" tabindex="0" aria-label="View full map and every public activity">
+        <div class="profile-cover-wrap" id="pp-cover-wrap" onclick="viewProfileOnMainMap(ppViewingUserId)" onkeydown="if(event.key==='Enter')viewProfileOnMainMap(ppViewingUserId)" role="button" tabindex="0" aria-label="View full map and every public activity">
           <div class="profile-cover" id="pp-cover"></div>
           <div class="cover-hint"><svg class="ic"><use href="#i-map"/></svg>View full map</div>
         </div>
@@ -2556,47 +2559,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="story-modal-footer">
       <button class="btn-ghost" onclick="closeStoryModal()">Cancel</button>
       <button class="btn-primary" id="sm-save-btn" onclick="saveStory()">Create Relic</button>
-    </div>
-  </div>
-</div>
-
-<!-- PROFILE MAP MODAL — tapping the map at the top of Profile (yours or a
-     public profile) opens this: just a bigger, interactive version of that
-     same map (every track privacy allows — all of yours; only their public
-     ones for someone else). No activity list, no honeycomb grid — Stories
-     stay curated on the profile page, and your own individual activities
-     have their own page (account menu → "Your activities", #activities-view). -->
-<div class="modal-overlay" id="profile-map-modal" onclick="if(event.target===this)closeProfileMapModal()">
-  <div class="modal profile-map-modal-inner">
-    <div class="pmm-head">
-      <div class="pmm-title" id="pmm-title">Map</div>
-      <button class="fd-close" onclick="closeProfileMapModal()" aria-label="Close">&times;</button>
-    </div>
-    <div class="pmm-map">
-      <div class="pmm-map-canvas" id="pmm-map"></div>
-      <div class="pmm-tools" id="pmm-tools">
-        <div class="mt-group">
-          <button class="mt-btn" id="pmm-layers-btn" onclick="togglePmmLayersPop(event)" title="Map style" aria-label="Map style"><svg class="ic"><use href="#i-layers"/></svg></button>
-        </div>
-        <div class="layers-pop" id="pmm-layers-pop" hidden>
-          <div class="lp-title">Map style</div>
-          <div class="lp-grid">
-            <button class="lp-opt active" id="pmm-standard-btn" onclick="setPmmBasemap(false)"><span class="lp-swatch std"></span>Standard</button>
-            <button class="lp-opt" id="pmm-satellite-btn" onclick="setPmmBasemap(true)"><span class="lp-swatch sat"></span>Satellite</button>
-          </div>
-          <div class="lp-row"><div>3D terrain<small>Tilt to see the mountains</small></div><button class="switch" id="pmm-terrain-btn" onclick="togglePmmTerrain()" aria-label="3D terrain"></button></div>
-          <div class="lp-row" id="pmm-mine-row" hidden><div>Your tracks<small>Compare against your own, dimmed underneath</small></div><button class="switch" id="pmm-mine-btn" onclick="togglePmmMine()" aria-label="Your tracks"></button></div>
-        </div>
-        <div class="mt-group">
-          <button class="mt-btn" onclick="fitPmmMap()" title="Show everything" aria-label="Show everything"><svg class="ic"><use href="#i-maximize"/></svg></button>
-          <button class="mt-btn" onclick="_pmmMap && _pmmMap.easeTo({pitch:0,bearing:0,duration:800})" title="Reset north" aria-label="Reset north"><svg class="ic"><use href="#i-compass"/></svg></button>
-        </div>
-        <div class="mt-group mt-zoom">
-          <button class="mt-btn" onclick="_pmmMap && _pmmMap.zoomIn()" title="Zoom in" aria-label="Zoom in">+</button>
-          <button class="mt-btn" onclick="_pmmMap && _pmmMap.zoomOut()" title="Zoom out" aria-label="Zoom out">−</button>
-        </div>
-      </div>
-      <div class="pmm-legend" id="pmm-legend" hidden></div>
     </div>
   </div>
 </div>
@@ -2901,7 +2863,7 @@ function saveMapPrefs() {
     const k = _prefsKey(); if (!k) return;
     try {
       localStorage.setItem(k, JSON.stringify({
-        v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, trackWidth, camera: _lastCamera,
+        v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, photosLayerOn, trackWidth, viewingOpacity, camera: _lastCamera,
       }));
     } catch (e) { /* quota — prefs just won't persist */ }
   }, 400);
@@ -2923,6 +2885,7 @@ function applyStoredFilters(p) {
   }
   if (p.sidebarSort) sidebarSort = p.sidebarSort;
   if (typeof p.trackWidth === 'number' && p.trackWidth >= 0.5 && p.trackWidth <= 3) trackWidth = p.trackWidth;
+  if (typeof p.viewingOpacity === 'number' && p.viewingOpacity >= 0.15 && p.viewingOpacity <= 1) viewingOpacity = p.viewingOpacity;
 }
 function restoreBasemap(p) {
   if (_basemapRestored || !p || DEMO) return;
@@ -2930,6 +2893,7 @@ function restoreBasemap(p) {
   try { if (p.terrainOn && !terrainOn) toggleTerrain(); } catch (e) {}
   try { if (p.satelliteOn && !satelliteOn) toggleSatellite(); } catch (e) {}
   try { if (p.friendsLayerOn && !friendsLayerOn) toggleFriendsLayer(); } catch (e) {}
+  try { if (p.photosLayerOn && !photosLayerOn) togglePhotosLayer(); } catch (e) {}
 }
 let sidebarSort = 'recent';
 let _profile = { name:'', bio:'', avatarPath:null, photo:null };
@@ -3647,7 +3611,8 @@ function buildTracksGeoJSON(memories) {
 // GL's text-field glyph pipeline is server-rendered SDF fonts that typically
 // don't cover emoji pictograph ranges, so an emoji text-field can render as
 // blank glyphs. A DOM marker uses the browser's own emoji font and is the
-// same pattern this file already uses for photo pins (addPhotoMarker).
+// same pattern this file already uses for geotagged photos (renderPhotoMarkers,
+// below).
 let _pinMarkers = [];
 function renderPinMarkers() {
   // Defensive: mapboxgl.Marker touches internal map methods beyond the
@@ -3684,6 +3649,39 @@ function renderPinMarkers() {
   });
 }
 
+// Geotagged photos as round DOM markers (same reasoning as pins above: a
+// browser-rendered marker, not a GL symbol layer, since these need an actual
+// bitmap not a glyph). Toggleable ("Photos" in the layers popover,
+// photosLayerOn) and — unlike pins, which have their own always-on category
+// toggles — scoped to filteredMemories, so filtering the map down also
+// filters which photos show: a photo on a Moment the filters hide shouldn't
+// still be sitting on the map. Every Moment's photos (with lat/lng) are
+// already in memory from boot (loadFromSupabase), so this needs no fetch.
+let _photoMarkers = [], photosLayerOn = false;
+function renderPhotoMarkers() {
+  _photoMarkers.forEach(m => { try { m.remove(); } catch (e) {} });
+  _photoMarkers = [];
+  if (!photosLayerOn) return;
+  filteredMemories.forEach(m => {
+    (m.photos || []).forEach(p => {
+      if (p.lat == null || p.lng == null || !p.dataUrl) return;
+      const el = document.createElement('div');
+      el.className = 'photo-mk';
+      el.style.backgroundImage = `url(${p.dataUrl})`;
+      el.title = m.name || '';
+      el.addEventListener('click', e => { e.stopPropagation(); if (_pinDropMode || _drawMode) return; showDetail(m.id); });
+      try { _photoMarkers.push(new mapboxgl.Marker({ element: el, anchor: 'center' }).setLngLat([p.lng, p.lat]).addTo(map)); }
+      catch (e) { console.warn('Photo marker failed', e); }
+    });
+  });
+}
+function togglePhotosLayer() {
+  photosLayerOn = !photosLayerOn;
+  updateLayersUI();
+  saveMapPrefs();
+  renderPhotoMarkers();
+}
+
 // The base zoom-responsive width for tracks-layer, scaled by the user's
 // Track thickness setting (trackWidth) — used both at layer creation and
 // whenever updateTrackHighlight() clears the highlight.
@@ -3707,6 +3705,7 @@ function initMapLayers() {
     map.on('mouseleave','tracks-hit',()=>map.getCanvas().style.cursor='');
   }
   renderPinMarkers();
+  renderPhotoMarkers();
   if(!map.getSource('draw-route')) {
     map.addSource('draw-route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
     map.addLayer({id:'draw-route-layer',type:'line',source:'draw-route',layout:{'line-join':'round','line-cap':'round'},
@@ -3779,6 +3778,7 @@ function applyFilters() {
   else if(sidebarSort==='type') filteredMemories.sort((a,b)=>getGroup(a.type).localeCompare(getGroup(b.type)));
 
   if(map && map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
+  renderPhotoMarkers();
   const countEl = document.getElementById('result-count');
   if (countEl) countEl.textContent = `${filteredMemories.length} of ${allMemories.length} moments`;
   const pillCount = document.getElementById('list-toggle-count');
@@ -3855,7 +3855,7 @@ function buildFilterDrawer() {
   const usedGroups = new Set(getMoments().map(m => getGroup(m.type)));
   const typeEntries = Object.entries(TYPE_CONFIG).filter(([k]) => usedGroups.has(k));
   const typesHtml = !typeEntries.length ? '<div class="fd-hint">No activities yet.</div>'
-    : '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
+    : '<div class="fd-sec-actions"><button class="fd-link" onclick="setAllFilterTypes(true)">Select all</button><span class="fd-sec-actions-sep">·</span><button class="fd-link" onclick="setAllFilterTypes(false)">Deselect all</button></div><div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
     const on = !filters.types || filters.types.includes(k);
     return `<div class="tp-type-row" onclick="toggleFilterType('${k}')">
       <div class="tp-type-dot" style="background:${c.color}"></div>
@@ -3915,7 +3915,7 @@ function buildFilterDrawer() {
   // distance/duration/HR filters make no sense for a point pin), so this
   // section drives activePinCategories + PIN_CATEGORIES colors directly,
   // same as the rest of the app's pin-visibility toggle.
-  const pinsHtml = '<div class="tp-type-grid">' + Object.entries(PIN_CATEGORIES).map(([k,c]) => {
+  const pinsHtml = '<div class="fd-sec-actions"><button class="fd-link" onclick="setAllPinCategories(true)">Select all</button><span class="fd-sec-actions-sep">·</span><button class="fd-link" onclick="setAllPinCategories(false)">Deselect all</button></div><div class="tp-type-grid">' + Object.entries(PIN_CATEGORIES).map(([k,c]) => {
     const on = activePinCategories.has(k);
     return `<div class="tp-type-row">
       <div class="tp-color-swatch" id="pin-swatch-${k}" style="background:${c.color};width:16px;height:16px;margin-right:8px">
@@ -3947,6 +3947,13 @@ function _setTypeSet(field, allKeys, key) {
 }
 function toggleFilterType(k) {
   _setTypeSet('types', Object.keys(TYPE_CONFIG), k);
+  buildFilterDrawer(); applyFilters();
+}
+// null = every type on (the same "all" convention _setTypeSet collapses to);
+// [] = every type off, since matchMoment's `!f.types.includes(...)` check
+// then never matches anything.
+function setAllFilterTypes(on) {
+  filters.types = on ? null : [];
   buildFilterDrawer(); applyFilters();
 }
 function toggleFilterSource(s) {
@@ -4123,6 +4130,11 @@ function togglePinCategory(key) {
   document.getElementById(`pin-toggle-${key}`)?.classList.toggle('on');
   renderPinMarkers();
 }
+function setAllPinCategories(on) {
+  activePinCategories = on ? new Set(Object.keys(PIN_CATEGORIES)) : new Set();
+  buildFilterDrawer();
+  renderPinMarkers();
+}
 
 function updatePinCategoryColor(key, color) {
   PIN_CATEGORIES[key].color = color;
@@ -4211,7 +4223,8 @@ function updateLayersUI() {
   document.getElementById('satellite-btn')?.classList.toggle('active', satelliteOn);
   document.getElementById('lp-standard')?.classList.toggle('active', !satelliteOn);
   document.getElementById('friends-btn')?.classList.toggle('active', friendsLayerOn);
-  document.getElementById('layers-btn')?.classList.toggle('active', satelliteOn || terrainOn || friendsLayerOn);
+  document.getElementById('photos-btn')?.classList.toggle('active', photosLayerOn);
+  document.getElementById('layers-btn')?.classList.toggle('active', satelliteOn || terrainOn || friendsLayerOn || photosLayerOn);
 }
 function setBasemap(satellite) { if (!!satellite !== satelliteOn) toggleSatellite(); }
 function toggleLayersPop(e) {
@@ -4704,7 +4717,7 @@ async function uploadPhotoToMoment(memId, file, geo) {
   const { data: signed } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
   const photo = { dataUrl: signed?.signedUrl || '', lat, lng, caption: '', _id: row.id, _path: path };
   (db[memId].photos ||= []).push(photo);
-  if (lat && lng) addPhotoMarker(lat, lng, photo.dataUrl, db[memId].photos.length - 1);
+  if (photosLayerOn) renderPhotoMarkers();
   return photo;
 }
 
@@ -4739,7 +4752,6 @@ async function readEXIF(file){return new Promise(resolve=>{const r=new FileReade
 function parseGPSFromEXIF(v,s){try{const le=v.getUint16(s)===0x4949;const io=v.getUint32(s+4,le)+s;const n=v.getUint16(io,le);for(let i=0;i<n;i++){const eo=io+2+i*12;if(v.getUint16(eo,le)===0x8825){return extractGPSCoords(v,v.getUint32(eo+8,le)+s,le,s);}}}catch(e){}return{lat:null,lng:null};}
 function extractGPSCoords(v,go,le,base){try{const n=v.getUint16(go,le);let latR,latV,lngR,lngV;for(let i=0;i<n;i++){const e=go+2+i*12;const t=v.getUint16(e,le);if(t===1)latR=String.fromCharCode(v.getUint8(e+8));if(t===2)latV=readRationals(v,base+v.getUint32(e+8,le),3,le);if(t===3)lngR=String.fromCharCode(v.getUint8(e+8));if(t===4)lngV=readRationals(v,base+v.getUint32(e+8,le),3,le);}if(latV&&lngV){let lat=latV[0]+latV[1]/60+latV[2]/3600;let lng=lngV[0]+lngV[1]/60+lngV[2]/3600;if(latR==='S')lat=-lat;if(lngR==='W')lng=-lng;return{lat,lng};}}catch(e){}return{lat:null,lng:null};}
 function readRationals(v,o,c,le){const vals=[];for(let i=0;i<c;i++){const n=v.getUint32(o+i*8,le);const d=v.getUint32(o+i*8+4,le);vals.push(d?n/d:0);}return vals;}
-function addPhotoMarker(lat,lng,dataUrl,idx){const el=document.createElement('div');el.style.cssText=`width:28px;height:28px;border-radius:50%;border:2px solid white;background:url(${dataUrl}) center/cover;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.3)`;el.onclick=()=>openLightbox(idx);new mapboxgl.Marker(el).setLngLat([lng,lat]).addTo(map);}
 function openLightbox(idx){if(!selectedId)return;const p=db[selectedId].photos[idx];document.getElementById('lightbox-img').src=p.dataUrl;document.getElementById('lightbox-caption').textContent=p.lat?`${p.lat.toFixed(4)}°N  ${p.lng.toFixed(4)}°E`:'';document.getElementById('lightbox').classList.add('open');}
 function openLightboxUrl(url){document.getElementById('lightbox-img').src=url;document.getElementById('lightbox-caption').textContent='';document.getElementById('lightbox').classList.add('open');}
 function closeLightbox(){document.getElementById('lightbox').classList.remove('open');}
@@ -8434,7 +8446,8 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   const ppPhotos = await Social.storyPhotos(stories).catch(() => ({}));
 
   // Profile only shows Stories — their individual activities live behind the
-  // map hero above (tap it → #profile-map-modal), same as your own profile.
+  // map hero above (tap it → their tracks overlaid on the main map), same as
+  // your own profile.
   const own = userId === currentUser.id;
   document.getElementById('pp-body').innerHTML = stories.length
     ? stories.map(st => renderPublicStoryCard(st, profile, ppPhotos[st.story_id])).join('')
@@ -8448,9 +8461,10 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
     if (sc) setTimeout(() => { sc.scrollIntoView({ behavior: 'smooth', block: 'center' }); sc.style.boxShadow = '0 0 0 3px var(--accent)'; setTimeout(() => sc.style.boxShadow = '', 2400); }, 350);
   }
   // Photos/kudos/comments and the activity cards themselves are only built
-  // when #profile-map-modal actually opens (see openProfileMapModal) — the
-  // profile page itself only needs the cover image and the stats above.
-  if (focusActivityId) openProfileMapModal(userId, focusActivityId);
+  // when their tracks actually get loaded onto the main map (see
+  // viewProfileOnMainMap) — the profile page itself only needs the cover
+  // image and the stats above.
+  if (focusActivityId) viewProfileOnMainMap(userId, focusActivityId);
 }
 // A cover band made of their public tracks — same idea as renderProfileCover,
 // just built from Social.userActivities() rows instead of local Moments.
@@ -8466,194 +8480,90 @@ function renderPublicCover(acts) {
 }
 
 // ════════════════════════════════════════
-// FULL MAP / ALL-ACTIVITIES MODAL — reached by tapping the map hero on
-// Profile (yours) or a public profile. Own case: every Moment, no privacy
-// filtering (you're the owner). Someone else's: whatever openPublicProfile
-// already fetched via Social.userActivities() — their privacy settings,
-// already applied.
+// VIEW A PROFILE'S MAP — reached by tapping the map hero on Profile (yours)
+// or a public profile. Used to open a dedicated full-screen modal with its
+// own stripped-down map controls; the user asked for the real thing instead
+// (2026-09-22): "cleaner to just open the main map" — so this just switches
+// to the actual Map view, with all of its real functionality (filters,
+// satellite, 3D, pins, photos…) intact, and for someone else, overlays
+// their tracks on top of it via the `viewing` source/layer.
 // ════════════════════════════════════════
-let _pmmMap = null, _pmmFeats = [], _pmmSatellite = false, _pmmTerrain = false, _pmmIsOwn = false, _pmmMineOn = false, _pmmMineFeats = null, _pmmFirstLoad = false;
+let _viewingProfile = null, _viewingFeats = [], viewingOpacity = 0.85;
 // isOwnContext must come from the caller, not from userId === currentUser.id:
 // you can land on YOUR OWN public-profile page (deep link to your own shared
 // activity, or "View on profile" from your own map popup), and that must
 // still use the already-fetched public acts, not every private Moment you
 // have. Only the map hero on your actual Profile page opts into full access.
-// Map only, on purpose — no activity list, no honeycomb grid. Your own
-// individual activities have their own page (#activities-view, account
-// menu → "Your activities"); someone else's stay behind their Stories/Feed.
-async function openProfileMapModal(userId, focusActivityId, isOwnContext) {
+async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
   if (!userId) return;
-  const isOwn = !!isOwnContext;
-  _pmmIsOwn = isOwn;
-  document.getElementById('pmm-title').textContent = isOwn ? 'Your map' : `${(_ppProfile?.name || 'Their').split(' ')[0]}'s map`;
-  document.getElementById('profile-map-modal').classList.add('open');
-
-  let tracks;
-  if (isOwn) {
-    tracks = [];
-    getMoments().forEach(m => { const c = getCoords(m); if (c && c.length >= 2) tracks.push({ id: m.id, type: m.type, color: m.customColor || getColor(m.type), coords: c }); });
-  } else {
-    let acts = (ppViewingUserId === userId) ? _ppActs : [];
-    if (!acts.length && ppViewingUserId !== userId) { try { acts = await Social.userActivities(userId); } catch (e) { acts = []; } }
-    tracks = [];
-    acts.forEach(a => (a.polylines || []).forEach(p => { let c; try { c = decodePolyline(p); } catch (e) { return; } if (c.length > 1) tracks.push({ id: a.activity_id, type: a.type, color: a.custom_color || getColor(a.type), coords: c }); }));
+  if (isOwnContext) {
+    // It's already your own map — nothing to overlay, just go look at it.
+    switchView('map');
+    if (focusActivityId && db[focusActivityId]) { showDetail(focusActivityId); flyToTrack(db[focusActivityId]); }
+    return;
   }
-  renderPmmMap(tracks, focusActivityId);
-}
-function closeProfileMapModal() {
-  document.getElementById('profile-map-modal').classList.remove('open');
-  if (_pmmMap) { try { _pmmMap.remove(); } catch (e) {} _pmmMap = null; }
-}
-// The modal's own map — every track it was given, on one interactive map
-// (static image fallback if WebGL/Mapbox isn't available). Shared by the
-// own-Moments path and the public-activities path above; `tracks` is
-// normalized to {id, type, color, coords} either way. No click-through —
-// there's nothing to click through to any more, just pan/zoom.
-// No cooperativeGestures: this is a genuine full-screen takeover (see the
-// CSS above), not an embedded map fighting the page for scroll — a two-finger/
-// ctrl+scroll requirement here is just friction (2026-09-22 user report).
-function renderPmmMap(tracks, focusActivityId) {
-  const el = document.getElementById('pmm-map');
-  if (_pmmMap) { try { _pmmMap.remove(); } catch (e) {} _pmmMap = null; }
-  el.innerHTML = '';
-  _pmmFeats = []; _pmmSatellite = false; _pmmTerrain = false; _pmmMineOn = false; _pmmMineFeats = null; _pmmFirstLoad = false;
-  document.getElementById('pmm-layers-pop').hidden = true;
-  const mineRow = document.getElementById('pmm-mine-row');
-  if (mineRow) mineRow.hidden = _pmmIsOwn;
-  updatePmmLayersUI();
-  document.getElementById('pmm-tools').hidden = !tracks.length;
-  if (!tracks.length) { el.innerHTML = '<div class="pp-map-empty">Nothing to show on the map yet</div>'; document.getElementById('pmm-legend').hidden = true; return; }
-  pmmBuildLegend(tracks);
-  const feats = tracks.map(t => ({ type: 'Feature', properties: { id: t.id, color: t.color }, geometry: { type: 'LineString', coordinates: t.coords } }));
-  _pmmFeats = feats;
+  let acts = (ppViewingUserId === userId) ? _ppActs : [];
+  if (!acts.length && ppViewingUserId !== userId) { try { acts = await Social.userActivities(userId); } catch (e) { acts = []; } }
+  const feats = [];
+  acts.forEach(a => (a.polylines || []).forEach(p => {
+    let c; try { c = decodePolyline(p); } catch (e) { return; }
+    if (c.length > 1) feats.push({ type: 'Feature', properties: { id: a.activity_id, name: a.name || 'Untitled', date: a.date || '', color: a.custom_color || getColor(a.type) }, geometry: { type: 'LineString', coordinates: c } });
+  }));
+  if (!feats.length) { toast('Nothing to show on their map yet', { icon: 'map' }); return; }
+  _viewingProfile = { userId, name: _ppProfile?.name || 'Their' };
+  _viewingFeats = feats;
+  switchView('map');
+  renderViewingLayer();
   const b = new mapboxgl.LngLatBounds();
   feats.forEach(f => f.geometry.coordinates.forEach(c => b.extend(c)));
-  try {
-    _pmmMap = new mapboxgl.Map({ container: el, style: 'mapbox://styles/mapbox/outdoors-v12', bounds: b, fitBoundsOptions: { padding: 40, maxZoom: 13 }, attributionControl: false });
-    _pmmMap.on('style.load', () => {
-      pmmAddLayers();
-      if (!_pmmFirstLoad) {
-        _pmmFirstLoad = true;
-        if (focusActivityId) {
-          const fb = new mapboxgl.LngLatBounds(); let any = false;
-          feats.filter(f => f.properties.id === focusActivityId).forEach(f => f.geometry.coordinates.forEach(c => { fb.extend(c); any = true; }));
-          if (any) _pmmMap.fitBounds(fb, { padding: 50, maxZoom: 14, duration: 900 });
-        }
-      }
+  try { map.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 }); } catch (e) {}
+  document.getElementById('viewing-banner-text').textContent = `Viewing ${_viewingProfile.name.split(' ')[0]}'s map`;
+  document.getElementById('viewing-opacity').value = viewingOpacity;
+  document.getElementById('viewing-banner').hidden = false;
+}
+// (Re-)adds the `viewing` source/layer for whoever's currently being viewed.
+// Unlike the old modal's own map, the main map never calls setStyle() (its
+// satellite toggle swaps a baked-in layer's visibility instead — see
+// toggleSatellite), so this only ever needs to run once per viewProfileOnMainMap
+// call, not after every restyle.
+function renderViewingLayer() {
+  if (!map) return;
+  const data = { type: 'FeatureCollection', features: _viewingFeats };
+  if (map.getSource('viewing')) { map.getSource('viewing').setData(data); }
+  else {
+    map.addSource('viewing', { type: 'geojson', data });
+    map.addLayer({ id: 'viewing-layer', type: 'line', source: 'viewing', layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 1.5 * trackWidth, 10, 2.8 * trackWidth, 14, 4 * trackWidth], 'line-opacity': viewingOpacity } });
+    map.addLayer({ id: 'viewing-hit', type: 'line', source: 'viewing', paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 16 } });
+    map.on('click', 'viewing-hit', e => {
+      if (_pinDropMode || _drawMode) return;
+      const f = e.features[0].properties;
+      new mapboxgl.Popup({ closeButton: true, maxWidth: '260px', className: 'friend-pop' }).setLngLat(e.lngLat)
+        .setHTML(`<div class="fp-who">${escapeHtml(_viewingProfile?.name || '')}</div><div class="fp-name">${escapeHtml(f.name)}</div><div class="fp-date">${escapeHtml(activityWhen(f.date))}</div>`).addTo(map);
     });
-  } catch (e) {
-    console.warn('Interactive activities map unavailable, using static image', e);
-    const overlays = []; let budget = 7000;
-    tracks.forEach(t => {
-      const seg = pathOv(encodePolyline(t.coords), String(t.color || '#C1502E').replace('#', ''), 3, 0.9);
-      if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
-    });
-    el.innerHTML = mapboxStaticImg(overlays, 880, 400) || '<div class="pp-map-empty">Map unavailable</div>';
+    map.on('mouseenter', 'viewing-hit', () => { if (!_pinDropMode && !_drawMode) map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'viewing-hit', () => map.getCanvas().style.cursor = '');
   }
+  map.setLayoutProperty('viewing-layer', 'visibility', 'visible');
+  map.setLayoutProperty('viewing-hit', 'visibility', 'visible');
 }
-// (Re-)adds every pmm-* source/layer to the current style — called on the
-// map's first load AND after every setStyle() (satellite toggle wipes
-// anything not baked into the style), so all of this needs to be
-// idempotent/re-runnable rather than assumed to happen once.
-function pmmAddLayers() {
-  if (!_pmmMap) return;
-  if (_pmmMap.getSource('pmm')) _pmmMap.getSource('pmm').setData({ type: 'FeatureCollection', features: _pmmFeats });
-  else _pmmMap.addSource('pmm', { type: 'geojson', data: { type: 'FeatureCollection', features: _pmmFeats } });
-  if (!_pmmMap.getLayer('pmm-lines')) {
-    _pmmMap.addLayer({ id: 'pmm-lines', type: 'line', source: 'pmm', layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.5, 12, 3.5], 'line-opacity': 0.9 } });
-  }
-  pmmAddMineLayer();
-  if (!_pmmMap.getSource('mapbox-dem')) _pmmMap.addSource('mapbox-dem', { type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize: 512, maxzoom: 14 });
-  if (!_pmmMap.getLayer('pmm-sky')) _pmmMap.addLayer({ id: 'pmm-sky', type: 'sky', paint: { 'sky-type': 'atmosphere', 'sky-atmosphere-sun': [0.0, 90.0], 'sky-atmosphere-sun-intensity': 15 } });
-  if (_pmmTerrain) _pmmMap.setTerrain({ source: 'mapbox-dem', exaggeration: 1.5 });
+// User-adjustable opacity for whoever's tracks are currently overlaid (user
+// request, 2026-09-22 — "let the user decide how opaque their tracks are").
+function setViewingOpacity(v) {
+  viewingOpacity = +v;
+  saveMapPrefs();
+  try { map.setPaintProperty('viewing-layer', 'line-opacity', viewingOpacity); } catch (e) {}
 }
-// "Your tracks" overlay (someone else's map only) — every one of your own
-// Moments, dimmed, added BELOW pmm-lines (beforeId) so their tracks always
-// read on top of yours. Fetched once per modal-open and cached in
-// _pmmMineFeats since it never changes mid-session; re-run after a
-// satellite restyle to restore it (see pmmAddLayers above).
-function pmmAddMineLayer() {
-  if (!_pmmMap || !_pmmMineFeats) return;
-  const data = { type: 'FeatureCollection', features: _pmmMineFeats };
-  if (_pmmMap.getSource('pmm-mine')) _pmmMap.getSource('pmm-mine').setData(data);
-  else _pmmMap.addSource('pmm-mine', { type: 'geojson', data });
-  if (!_pmmMap.getLayer('pmm-mine-lines')) {
-    _pmmMap.addLayer({ id: 'pmm-mine-lines', type: 'line', source: 'pmm-mine', layout: { 'line-join': 'round', 'line-cap': 'round', visibility: _pmmMineOn ? 'visible' : 'none' },
-      paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1, 12, 2.5], 'line-opacity': 0.32 } }, _pmmMap.getLayer('pmm-lines') ? 'pmm-lines' : undefined);
-  } else {
-    _pmmMap.setLayoutProperty('pmm-mine-lines', 'visibility', _pmmMineOn ? 'visible' : 'none');
-  }
-}
-async function togglePmmMine() {
-  if (!_pmmMap || _pmmIsOwn) return;
-  _pmmMineOn = !_pmmMineOn;
-  updatePmmLayersUI();
-  if (_pmmMineOn && !_pmmMineFeats) {
-    _pmmMineFeats = [];
-    getMoments().forEach(m => { const c = getCoords(m); if (c && c.length >= 2) _pmmMineFeats.push({ type: 'Feature', properties: { color: m.customColor || getColor(m.type) }, geometry: { type: 'LineString', coordinates: c } }); });
-    if (!_pmmMineFeats.length) { toast('You don\'t have any tracks of your own yet', { icon: 'map' }); _pmmMineOn = false; updatePmmLayersUI(); return; }
-  }
-  pmmAddMineLayer();
-}
-function setPmmBasemap(satellite) {
-  if (!_pmmMap || !!satellite === _pmmSatellite) return;
-  _pmmSatellite = satellite;
-  updatePmmLayersUI();
-  _pmmMap.setStyle(satellite ? 'mapbox://styles/mapbox/satellite-streets-v12' : 'mapbox://styles/mapbox/outdoors-v12');
-}
-function togglePmmTerrain() {
-  if (!_pmmMap) return;
-  _pmmTerrain = !_pmmTerrain;
-  updatePmmLayersUI();
-  try { _pmmMap.setTerrain(_pmmTerrain ? { source: 'mapbox-dem', exaggeration: 1.5 } : null); } catch (e) {}
-  _pmmMap.easeTo({ pitch: _pmmTerrain ? 50 : 0, bearing: _pmmTerrain ? -10 : 0, duration: 800 });
-}
-function togglePmmLayersPop(e) {
-  if (e) e.stopPropagation();
-  const pop = document.getElementById('pmm-layers-pop');
-  pop.hidden = !pop.hidden;
-  if (!pop.hidden) updatePmmLayersUI();
-}
-document.addEventListener('click', e => {
-  const pop = document.getElementById('pmm-layers-pop');
-  if (pop && !pop.hidden && !pop.contains(e.target) && e.target.id !== 'pmm-layers-btn') pop.hidden = true;
-});
-function updatePmmLayersUI() {
-  document.getElementById('pmm-terrain-btn')?.classList.toggle('active', _pmmTerrain);
-  document.getElementById('pmm-satellite-btn')?.classList.toggle('active', _pmmSatellite);
-  document.getElementById('pmm-standard-btn')?.classList.toggle('active', !_pmmSatellite);
-  document.getElementById('pmm-mine-btn')?.classList.toggle('active', _pmmMineOn);
-  document.getElementById('pmm-layers-btn')?.classList.toggle('active', _pmmSatellite || _pmmTerrain || _pmmMineOn);
-}
-function fitPmmMap() {
-  if (!_pmmMap) return;
-  const b = new mapboxgl.LngLatBounds(); let any = false;
-  _pmmFeats.forEach(f => f.geometry.coordinates.forEach(c => { b.extend(c); any = true; }));
-  if (_pmmMineOn && _pmmMineFeats) _pmmMineFeats.forEach(f => f.geometry.coordinates.forEach(c => { b.extend(c); any = true; }));
-  if (any) _pmmMap.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 });
-}
-// One legend row per activity-type group present, using that group's
-// canonical color (TYPE_CONFIG, which already reflects any user
-// recoloring via loadColors()) — not a per-track customColor, so it
-// matches the "Track colours" legend a user would see in the main map's
-// filter drawer.
-function pmmBuildLegend(tracks) {
-  const legend = document.getElementById('pmm-legend');
-  if (!legend) return;
-  const seen = new Map();
-  tracks.forEach(t => { const g = getGroup(t.type); if (!seen.has(g)) seen.set(g, TYPE_CONFIG[g]?.color || t.color); });
-  if (!seen.size) { legend.hidden = true; legend.innerHTML = ''; return; }
-  const rows = [...seen.entries()]
-    .sort((a, b) => (TYPE_CONFIG[a[0]]?.label || a[0]).localeCompare(TYPE_CONFIG[b[0]]?.label || b[0]))
-    .map(([g, color]) => `<div class="pmm-legend-row"><span class="pmm-legend-dot" style="background:${escapeHtml(color)}"></span>${escapeHtml(TYPE_CONFIG[g]?.label || g)}</div>`).join('');
-  legend.innerHTML = `<div class="pmm-legend-title">Activities</div>${rows}`;
-  legend.hidden = false;
+// The × on the banner, or navigating away from Map view (see switchView).
+function exitProfileView() {
+  if (!_viewingProfile) return;
+  _viewingProfile = null; _viewingFeats = [];
+  document.getElementById('viewing-banner').hidden = true;
+  try { map.setLayoutProperty('viewing-layer', 'visibility', 'none'); map.setLayoutProperty('viewing-hit', 'visibility', 'none'); } catch (e) {}
 }
 function closePublicProfile() {
   if (currentView !== 'public-profile') return;
   ppViewingUserId = null;
-  closeProfileMapModal();
   switchView(_ppReturnView && _ppReturnView !== 'public-profile' ? _ppReturnView : 'people');
 }
 function sharePublicProfile() {
@@ -9639,7 +9549,7 @@ function goToActivity(id) {
 
 let currentView = 'map';
 function switchView(view) {
-  if (view !== 'public-profile' && view !== 'profile') closeProfileMapModal();
+  if (view !== 'map') exitProfileView();
   currentView = view;
   closeAccountMenu();
   const lp = document.getElementById('layers-pop'); if (lp) lp.hidden = true;
@@ -9824,13 +9734,13 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
 });
 
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
-window.addEventListener('resize', () => { if (map) map.resize(); if (_pmmMap) _pmmMap.resize(); });
+window.addEventListener('resize', () => { if (map) map.resize(); });
 
 // Register all functions
 const _fns={};
 function _r(n,f){_fns[n]=f;window[n]=f;}
 _r('toggleTerrain',toggleTerrain);_r('toggleSatellite',toggleSatellite);_r('toggleSidebar',toggleSidebar);
-_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openBulkEditor',openBulkEditor);_r('closeBulkEditor',closeBulkEditor);_r('beSet',beSet);_r('beToggleType',beToggleType);_r('beToggle',beToggle);_r('beSelectAll',beSelectAll);_r('beClearSel',beClearSel);_r('beAction',beAction);_r('beMoreMenu',beMoreMenu);_r('uiForm',uiForm);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
+_r('setBasemap',setBasemap);_r('toggleFriendsLayer',toggleFriendsLayer);_r('togglePhotosLayer',togglePhotosLayer);_r('shareMomentImage',shareMomentImage);_r('setUnits',setUnits);_r('openBulkEditor',openBulkEditor);_r('closeBulkEditor',closeBulkEditor);_r('beSet',beSet);_r('beToggleType',beToggleType);_r('beToggle',beToggle);_r('beSelectAll',beSelectAll);_r('beClearSel',beClearSel);_r('beAction',beAction);_r('beMoreMenu',beMoreMenu);_r('uiForm',uiForm);_r('openLightboxUrl',openLightboxUrl);_r('shareStoryImage',shareStoryImage);_r('toggleLayersPop',toggleLayersPop);_r('fitArchive',fitArchive);
 _r('switchView',switchView);_r('closeDetail',closeDetail);_r('openImport',openImport);_r('closeImport',closeImport);
 _r('openFeedback',openFeedback);_r('closeFeedback',closeFeedback);_r('sendFeedback',sendFeedback);_r('handleFeedbackScreenshot',handleFeedbackScreenshot);_r('removeFeedbackScreenshot',removeFeedbackScreenshot);
 _r('handleGPXSelect',handleGPXSelect);_r('doImport',doImport);_r('signOut',signOut);_r('handlePhotoUpload',handlePhotoUpload);
@@ -9845,13 +9755,12 @@ _r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
 _r('handleProfilePhoto',handleProfilePhoto);_r('saveProfile',saveProfile);
 _r('onPeopleSearchInput',onPeopleSearchInput);_r('toggleFollow',toggleFollow);
 _r('openPublicProfile',openPublicProfile);_r('closePublicProfile',closePublicProfile);
-_r('openProfileMapModal',openProfileMapModal);_r('closeProfileMapModal',closeProfileMapModal);
-_r('togglePmmLayersPop',togglePmmLayersPop);_r('setPmmBasemap',setPmmBasemap);_r('togglePmmTerrain',togglePmmTerrain);_r('togglePmmMine',togglePmmMine);_r('fitPmmMap',fitPmmMap);
+_r('viewProfileOnMainMap',viewProfileOnMainMap);_r('exitProfileView',exitProfileView);_r('setViewingOpacity',setViewingOpacity);
 _r('togglePublicProfileFollow',togglePublicProfileFollow);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
 _r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
-_r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);
+_r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);_r('setAllFilterTypes',setAllFilterTypes);
 _r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);_r('setTrackWidth',setTrackWidth);
 _r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
 _r('renderActivitiesView',renderActivitiesView);_r('buildFilterDrawer',buildFilterDrawer);
@@ -9892,7 +9801,7 @@ _r('setCoverPhoto',setCoverPhoto);
 _r('openAddModal',openAddModal);_r('closeAddModal',closeAddModal);
 _r('togglePinDropMode',togglePinDropMode);_r('openPinModal',openPinModal);_r('closePinModal',closePinModal);
 _r('geocodePinAddress',geocodePinAddress);_r('savePin',savePin);_r('dismissPinNudge',dismissPinNudge);
-_r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);
+_r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);_r('setAllPinCategories',setAllPinCategories);
 _r('openManualEntryModal',openManualEntryModal);_r('closeManualEntryModal',closeManualEntryModal);_r('saveManualEntry',saveManualEntry);
 _r('openNLParserModal',openNLParserModal);_r('closeNLParserModal',closeNLParserModal);
 _r('previewParsedRoute',previewParsedRoute);_r('saveParsedRoute',saveParsedRoute);_r('closeRoutePreviewMap',closeRoutePreviewMap);
