@@ -201,10 +201,16 @@ copy says Relic. Don't rename the model.
   Deriving it from the tracks was tried and measured worse: an unchosen relic
   recomputes on every render, so its mark changed *kind* as the relic grew.
   A glyph is an identity; keep the default constant.
-- **Colour is a separate axis** from style: the user's track colours
-  (`m.customColor || getColor(m.type)`, so `relic_colors_v1` overrides come
-  through) or one colour they pick. `glyInk()` floors luminance because a pale
-  custom colour vanishes on the light card.
+- **Colour is a separate axis** from style, with three modes: `track` (the
+  user's own colours — `m.customColor || getColor(m.type)`, so
+  `relic_colors_v1` overrides come through), `shade`, and `one` (a colour they
+  pick). `shade` exists because same-sport tracks share a colour, so a relic
+  of five runs was five identical red lines: `glyShadeColours()` groups tracks
+  by resolved colour and spreads HSL lightness within each group, so different
+  sports keep their hue and same-sport tracks still separate. `glyInk()`
+  floors luminance and `glyShade()` caps it at 0.70, because a pale colour
+  vanishes on the light card the glyph sits on. The old two-state `mono` flag
+  is migrated in `glyphPrefFor`.
 - **Choices live in `relic_glyph_v1` (localStorage), keyed by story id** — no
   migration. Consequence: followers see the default glyph. Promoting to
   columns on `stories` + `story_public` is the known follow-up.
