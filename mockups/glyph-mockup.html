@@ -123,6 +123,15 @@
     <tbody id="autoGrid"></tbody>
   </table>
 
+  <h2>Print check — flat colour, no overlap shading</h2>
+  <p class="note" style="margin:0 0 12px">Vinyl is one flat colour at 100%; the partial opacity and
+  multiply blending that give the screen version its depth don't exist. Left is the screen glyph,
+  right is the same glyph flattened.</p>
+  <table class="grid">
+    <thead><tr><th>Relic</th><th>Screen — overlaps darken</th><th>Sticker — flat 100%</th></tr></thead>
+    <tbody id="printGrid"></tbody>
+  </table>
+
   <h2>Stability — the same relic, one track at a time</h2>
   <p class="note" style="margin:0 0 12px">A relic gains tracks over months. Each square is its glyph
   after n tracks; <b>d</b> is dispersion. Outlined in rust is where the recipe changed — the relic's
@@ -545,6 +554,17 @@ function render(){
       '<td class="meas">'+f.n+' tracks<br>'+pct(f.flightRatio)+' flights<br>'+pct(f.loopRatio)+' loops<br>'+
         'dispersion '+f.dispersion.toFixed(2)+'<br>sinuosity '+f.sinuosity.toFixed(1)+'</td>'+
       '<td class="rec"><b>'+r.name+'</b>'+r.why+'</td></tr>';}).join('');
+
+  el('printGrid').innerHTML=Object.keys(PRESETS).map(function(name){
+    var tracks=buildTracks(name,seed),r=chooseRecipe(features(tracks));
+    var mk=function(flat){return glyphSVG(tracks,{mode:r.comp==='solo'?'solo':r.comp,ang:r.ang,
+      budget:r.budget,tol:0,grid:0,sm:0,w:r.w,op:flat?1:r.op,cap:r.cap,join:r.join,term:r.term,
+      bow:0.26,mono:true,arcs:true,cos:true,fade:false,wbyd:false});};
+    var cell=function(flat){return '<td><div class="tcell">'+[96,40].map(function(px){
+      return '<div class="box" style="width:'+px+'px;height:'+px+'px">'+mk(flat)+'</div>';
+      }).join('')+'</div></td>';};
+    return '<tr><td class="name">'+name+'<em>'+r.name+'</em></td>'+cell(false)+cell(true)+'</tr>';
+  }).join('');
 
   el('growGrid').innerHTML=Object.keys(PRESETS).filter(function(n){
       return PRESETS[n].t.length>=5;}).map(function(name){
