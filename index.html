@@ -882,11 +882,15 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .pp-map-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 14px; }
 .pp-activity-card { border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 14px; overflow: hidden; background: var(--surface); }
 
-/* #profile-map-modal — a bigger, interactive version of the map hero on
-   Profile / a public profile. Map only, fills the whole modal — no
-   activity list or honeycomb grid (see #activities-view for that, your
-   own activities' own page off the account menu). */
-.profile-map-modal-inner { width: 940px; max-width: 100%; height: 80vh; padding: 0; display: flex; flex-direction: column; max-height: 88vh; overflow: hidden; }
+/* #profile-map-modal — a genuine full-screen map takeover reached from the
+   map hero on Profile / a public profile, not a floating dialog: overrides
+   the generic .modal-overlay/.modal centered-card treatment (padding,
+   capped width/height, rounded corners) so it fills the whole viewport at
+   every size, same as tapping into the main map. Map only — no activity
+   list or honeycomb grid (see #activities-view for that, your own
+   activities' own page off the account menu). */
+#profile-map-modal { padding: 0; }
+.profile-map-modal-inner { width: 100%; height: 100%; max-width: none; max-height: none; padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; }
 .pmm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .pmm-title { font: 600 17px var(--font-ui); color: var(--ink); }
 .pmm-map { flex: 1; min-height: 0; background: var(--paper2); position: relative; }
@@ -1380,11 +1384,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   #add-modal .choice-ic, #draw-picker-modal .choice-ic { width: 38px; height: 38px; border-radius: 11px; }
   .story-modal { width: 100vw; padding: 0; height: calc(100% - 12px - var(--safe-t)); max-height: none; }
   .story-modal::before { margin: 8px auto 0; }
-  /* Same calc(100% - ...) rule as .story-modal above, not 100dvh — see the
-     iOS Safari note on .modal earlier in this block. */
-  .profile-map-modal-inner { width: 100vw; height: calc(100% - 12px - var(--safe-t)); max-height: none; }
-  .profile-map-modal-inner::before { margin: 8px auto 0; }
-  .pmm-head { padding: 10px 16px 12px; }
+  /* Already full-bleed at every size (base rule above) — no bottom-sheet
+     drag handle since this isn't a sheet, just safe-area padding for the
+     notch. */
+  .profile-map-modal-inner::before { display: none; }
+  .pmm-head { padding: calc(10px + var(--safe-t)) 16px 12px; }
   .story-modal-header { padding: 12px 18px 12px; }
   .story-modal-footer { padding-bottom: calc(12px + var(--safe-b)); }
   .modal-actions { position: sticky; bottom: calc(-18px - var(--safe-b)); background: var(--surface); padding: 12px 0 calc(4px + var(--safe-b)); margin-top: 12px; }

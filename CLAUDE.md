@@ -191,17 +191,29 @@ sidebar list both mean "this individual Moment has a written note"
 - **The map hero is clickable** (`onclick="openProfileMapModal(...)"`,
   `role="button" tabindex="0"`, same plain-div-as-button pattern as
   `.profile-stat[onclick]` elsewhere in this file) and opens
-  `#profile-map-modal` — a bigger, interactive version of the same map
-  (`#pmm-map`, `_pmmMap`, `renderPmmMap(tracks, focusActivityId)`), every
-  track privacy allows. **Map only, no list of any kind** — an earlier
-  version of this modal also showed a Moments honeycomb grid (own profile)
-  or a feed-card activity list (someone else's); the user explicitly said no
-  activity list anywhere and no honeycomb grid, so both were deleted along
-  with their support code (`renderProfileHoneycomb()`, `drawMiniMap()`,
-  `setProfileSort()`/`profileSort`, the `.hex-*` CSS, `#pmm-body` and its
-  children). Don't resurrect any of that inside this modal — if a browsable
-  list is wanted again, it belongs on its own page, the way Activities does
-  below.
+  `#profile-map-modal` — an interactive map (`#pmm-map`, `_pmmMap`,
+  `renderPmmMap(tracks, focusActivityId)`) of every track privacy allows.
+  **Map only, no list of any kind** — an earlier version of this modal also
+  showed a Moments honeycomb grid (own profile) or a feed-card activity list
+  (someone else's); the user explicitly said no activity list anywhere and
+  no honeycomb grid, so both were deleted along with their support code
+  (`renderProfileHoneycomb()`, `drawMiniMap()`, `setProfileSort()`/
+  `profileSort`, the `.hex-*` CSS, `#pmm-body` and its children). Don't
+  resurrect any of that inside this modal — if a browsable list is wanted
+  again, it belongs on its own page, the way Activities does below.
+- **It's a genuine full-screen takeover, not a floating dialog** (user
+  feedback, 2026-09-22, after the first version rendered as a small centered
+  card — "want to open a full map, not just a pop up window"). `#profile-map-
+  modal` and `.profile-map-modal-inner` override the generic `.modal-overlay`/
+  `.modal` centered-card treatment directly (`padding:0`, `width/height:100%`,
+  `max-width/max-height:none`, `border-radius:0`) so it fills the whole
+  viewport — including over the header, since `.modal-overlay`'s z-index
+  (500) already beats `#header`'s (200) — at every screen size, not just
+  the mobile bottom-sheet breakpoint. The mobile media query only adds
+  safe-area padding to `.pmm-head` and drops the bottom-sheet drag-handle
+  `::before` (not a sheet any more). If a future modal ever wants this same
+  full-bleed treatment, copy this pair of overrides rather than fighting the
+  base `.modal` sizing per breakpoint.
 - **Your own individual activities have their own page**: `#activities-view`
   / `renderActivitiesView()` (a sortable table, pre-existing — see "Filters +
   Activities view" below) is reachable from the header nav *and*, since
