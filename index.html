@@ -947,6 +947,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
 .modal-overlay.open { display: flex; animation: fadeIn .18s ease; }
+/* Every overlay shares z-index 500, so DOM order decides who wins. These two
+   are opened *from* other modals (bulk editor, relic builder, share sheet),
+   all of which sit later in the document — so without this a confirm or form
+   paints behind the modal that asked for it and can't be clicked. */
+#confirm-modal, #form-modal { z-index: 620; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .modal {
   background: var(--surface); border: none; border-radius: var(--r-xl); box-shadow: var(--sh-3);
@@ -4472,8 +4477,11 @@ async function resizeImageToJpeg(file, maxDim, quality) {
 // DateTimeOriginal, read on its own rather than by extending readEXIF — that
 // parser is dense and load-bearing, and this only needs one more tag. Walks
 // IFD0 for the Exif SubIFD pointer (0x8769), then 0x9003 inside it. Returns ms
-// or null. The timestamp has no zone, so it is read as local time, which is
-// what a camera writes and what an activity's local start time is stored as.
+// or null. EXIF has no zone and neither does the stored activity date — both
+// are local wall-clock, and `date` is a timestamptz built from Strava's
+// start_date_local with a +00:00 offset. So this reads as UTC too: two
+// wall-clock times compared in the same frame. Reading it as browser-local
+// instead silently broke matching for everyone outside UTC.
 async function readExifTaken(file) {
   try {
     const buf = await file.slice(0, 131072).arrayBuffer();
@@ -4509,7 +4517,7 @@ async function readExifTaken(file) {
         for (let k = 0; k < 19; k++) str += String.fromCharCode(v.getUint8(at + k));
         const m = /^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(str);
         if (!m) return null;
-        return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+        return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
       }
       return null;
     }
@@ -5842,10 +5850,22 @@ const Social = {
     return data || [];
   },
   // Shared stories (story_public). Empty — not an error — before the migration.
-  async stories(authorIds, limit, before) {
+  // Keyset pagination on (date_end, story_id). date_end is a *date*, so a
+  // plain `.lt(date_end, cursor)` permanently skips every other relic that
+  // ends on the same day as a page boundary.
+  async stories(authorIds, limit, cursor) {
     if (_socialOff.stories || !authorIds.length) return [];
-    let q = sb.from('story_public').select('*').in('user_id', authorIds).order('date_end', { ascending: false }).limit(limit || 20);
-    if (before) q = q.lt('date_end', before);
+    let q = sb.from('story_public').select('*').in('user_id', authorIds)
+      .order('date_end', { ascending: false, nullsFirst: false })
+      .order('story_id', { ascending: false })
+      .limit(limit || 20);
+    if (cursor && cursor.d) {
+      // Ids go into a PostgREST filter string, so only take the compound
+      // branch when the id can't break out of it.
+      q = /^[\w.-]+$/.test(cursor.id || '')
+        ? q.or(`date_end.lt.${cursor.d},and(date_end.eq.${cursor.d},story_id.lt.${cursor.id})`)
+        : q.lt('date_end', cursor.d);
+    }
     const { data, error } = await q;
     if (error) { if (isMissingTable(error)) _socialOff.stories = true; else console.warn('story feed failed', error); return []; }
     return data || [];
@@ -6067,11 +6087,12 @@ const DemoSocial = (() => {
         .sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, limit || 15));
     },
     async userActivities(userId) { return wait(allRows().filter(r => r.user_id === userId).sort((a, b) => (a.date < b.date ? 1 : -1))); },
-    async stories(authorIds, limit, before) {
+    async stories(authorIds, limit, cursor) {
       const own = getStories().filter(st => st.isPublic).map(buildStorySnapshotRow);
+      const key = r => (r.date_end || '') + '\u0000' + (r.story_id || '');
       let all = demoStories.concat(own).filter(r => authorIds.includes(r.user_id))
-        .sort((a, b) => (a.date_end < b.date_end ? 1 : -1));
-      if (before) all = all.filter(r => (r.date_end || '') < before);
+        .sort((a, b) => (key(a) < key(b) ? 1 : -1));
+      if (cursor && cursor.d) all = all.filter(r => key(r) < cursor.d + '\u0000' + (cursor.id || ''));
       return wait(all.slice(0, limit || 20));
     },
     async photos() { return {}; },
@@ -6131,7 +6152,7 @@ if (DEMO) Object.assign(Social, DemoSocial);
 // FEED — "Following" (people you follow) and "You" (your own archive)
 // ════════════════════════════════════════
 let feedTab = 'following';
-let _feedCursor = null, _feedLoading = false, _feedDone = false, _feedToken = 0, _feedStories = [];
+let _feedCursor = null, _feedLoading = false, _feedDone = false, _feedToken = 0;
 const _canvasJobs = [];
 
 // ── Top of the feed: getting-started checklist + "On this day" ──
@@ -6314,7 +6335,7 @@ function buildOwnFeed() {
   const stories = getStories();
   if (!stories.length) {
     container.innerHTML = emptyBlock('book', 'Make your first relic',
-      'Group your activities into a relic — a trip, a season, a route — and Relic draws them as one glyph. Or follow people to see theirs.',
+      'A trip, a season, a route — group your activities into one.',
       `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button><button class="btn-ghost" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button>`);
     return;
   }
@@ -6345,7 +6366,7 @@ async function buildFollowingFeed(reset) {
     const authors = [...myFollowingIds].filter(id => !myBlockedIds.has(id));
     if (!authors.length) {
       c.innerHTML = emptyBlock('users', 'Your feed is waiting for friends',
-        'Follow people and their relics show up here — a trip, a season, a route, drawn as one glyph. Or make your first relic and start your own.',
+        'Follow people to see their relics here. Or make your first.',
         // Both roads out of an empty feed, same pair as the other two states.
         // Inviting friends is a third-order action and already lives in the
         // getting-started checklist, so it doesn't take a slot here.
@@ -6359,7 +6380,7 @@ async function buildFollowingFeed(reset) {
     const pageDone = pageStories.length < 10;
     if (reset && !pageStories.length) {
       c.innerHTML = emptyBlock('home', 'Quiet out there',
-        'Nobody you follow has shared a relic yet. Follow a few more people, or make one of your own — yours show up under You.',
+        'Nobody you follow has shared a relic yet.',
         `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>`);
       return;
     }
@@ -6373,7 +6394,8 @@ async function buildFollowingFeed(reset) {
     c.insertAdjacentHTML('beforeend',
       pageStories.map(st => renderPublicStoryCard(st, byId[st.user_id], storyPhotoUrls[st.story_id])).join(''));
     flushCanvasJobs();
-    _feedCursor = pageStories.length ? pageStories[pageStories.length - 1].date_end : _feedCursor;
+    const last = pageStories[pageStories.length - 1];
+    if (last) _feedCursor = { d: last.date_end, id: last.story_id };
     _feedDone = pageDone;
     more.innerHTML = _feedDone
       ? `<div class="people-empty" style="text-align:center">You're all caught up ✓</div>`
@@ -6651,7 +6673,7 @@ async function refreshStorySnapshot(storyId) {
   const st = db[storyId];
   if (!st || !st.isPublic || DEMO) return;
   try {
-    const { error } = await sb.from('story_public').upsert(buildStorySnapshotRow(st), { onConflict: 'story_id' });
+    const { error } = await sb.from('story_public').upsert(buildStorySnapshotRow(st), { onConflict: 'user_id,story_id' });
     if (error) throw error;
   } catch (e) { console.warn('Relic snapshot refresh failed', e); }
 }
@@ -7032,7 +7054,7 @@ function glyphControlsHtml(storyId) {
       '" title="' + c + '" onclick="setStoryGlyphInk(' + jsAttr(storyId) + ',' + jsAttr(c) + ')"></button>'
     ).join('') +
     '<input type="color" class="glyph-sw-custom" value="' + g.ink + '" title="Custom colour"' +
-    ' oninput="setStoryGlyphInk(' + jsAttr(storyId) + ',this.value)"></div>';
+    ' onchange="setStoryGlyphInk(' + jsAttr(storyId) + ',this.value)"></div>';
   }
   return html;
 }
@@ -7054,7 +7076,10 @@ function glyphRefresh(storyId) {
     const ctl = m[1] && document.getElementById(m[1]);
     if (ctl) ctl.innerHTML = glyphControlsHtml(storyId);
   });
-  if (document.getElementById('profile-stories-grid')) renderProfileStories();
+  // Only when the grid is actually on screen: this runs per keystroke of the
+  // relic title, and re-rendering it rebuilds every glyph on the profile.
+  const grid = document.getElementById('profile-stories-grid');
+  if (grid && grid.offsetParent !== null) renderProfileStories();
 }
 function setStoryGlyphStyle(storyId, style) { setGlyphPref(storyId, { style: style }); glyphRefresh(storyId); }
 // Every photo on every track in the relic, in the order the days happened.
@@ -7080,7 +7105,7 @@ function renderStoryPhotos(storyId) {
   const cap = document.getElementById('sd-photo-caption');
   if (cap) cap.textContent = photos.length
     ? photos.length + (photos.length === 1 ? ' photo from this relic\'s activities' : ' photos from this relic\'s activities')
-    : 'No photos yet. Added photos are matched to the right track.';
+    : 'No photos yet.';
 }
 // Photos dropped on the relic are filed onto the track they were taken on.
 async function handleRelicPhotoUpload(input) {
@@ -7088,7 +7113,7 @@ async function handleRelicPhotoUpload(input) {
   const files = Array.from(input.files);
   input.value = '';
   if (!story || !files.length) return;
-  let placed = 0, byTime = 0, unplaced = 0;
+  let placed = 0, unplaced = 0;
   const dismiss = toast('Adding ' + files.length + (files.length === 1 ? ' photo…' : ' photos…'), { duration: 60000 });
   for (const file of files) {
     try {
@@ -7098,7 +7123,6 @@ async function handleRelicPhotoUpload(input) {
       if (!hit) { unplaced++; continue; }
       await uploadPhotoToMoment(hit.memId, file, geo);
       placed++;
-      if (hit.how === 'time') byTime++;
     } catch (e) {
       console.error('Relic photo upload failed', e);
       unplaced++;
@@ -7107,11 +7131,11 @@ async function handleRelicPhotoUpload(input) {
   dismiss();
   renderStoryPhotos(storyId);
   if (selectedId && db[selectedId] && !isStory(db[selectedId])) renderPhotos(selectedId);
-  if (placed) toast(placed + ' photo' + (placed === 1 ? '' : 's') + ' matched to ' +
-    (byTime === placed ? 'their tracks by time' : byTime ? 'their tracks by time and place' : 'their tracks by location'),
-    { icon: 'check' });
-  if (unplaced) toast(unplaced + ' photo' + (unplaced === 1 ? " couldn't be matched to a track" : "s couldn't be matched to a track") +
-    ' — add them from the activity instead', { error: true });
+  // Don't narrate the matching — it either worked or it didn't.
+  if (placed) toast(placed + (placed === 1 ? ' photo added' : ' photos added'), { icon: 'check' });
+  if (unplaced) toast(unplaced === 1
+    ? "One photo didn't match an activity — add it from the activity itself"
+    : unplaced + " photos didn't match an activity — add them from the activity itself", { error: true });
 }
 let _relicPhotoStoryId = null;
 
@@ -8282,8 +8306,11 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
     `<div><div class="pp-stat-val">${counts.following}</div><div class="pp-stat-label">Following</div></div>`;
   renderPpFollowButton();
   renderPublicMap(acts, focusActivityId);
+  // Without the third argument a relic's photos silently don't render here,
+  // even though the feed shows them.
+  const ppPhotos = await Social.storyPhotos(stories).catch(() => ({}));
   const storiesHtml = stories.length
-    ? `<div class="section-title" style="margin-top:0"><h2>Relics</h2></div>${stories.map(st => renderPublicStoryCard(st, profile)).join('')}<div class="section-title"><h2>Activities</h2></div>`
+    ? `<div class="section-title" style="margin-top:0"><h2>Relics</h2></div>${stories.map(st => renderPublicStoryCard(st, profile, ppPhotos[st.story_id])).join('')}<div class="section-title"><h2>Activities</h2></div>`
     : '';
   document.querySelector('#public-profile-view .section-title h2').parentElement.style.display = stories.length ? 'none' : '';
 
@@ -8911,7 +8938,14 @@ let storyTypeFilters = new Set(Object.keys(TYPE_CONFIG));
 let storySort = 'recent';
 let editingStoryId = null; // null = new story, string = editing existing
 
+function clearStagedGlyphPref() {
+  const p = glyphPrefs();
+  if (!p[GLYPH_NEW]) return;
+  delete p[GLYPH_NEW];
+  try { localStorage.setItem(GLYPH_KEY, JSON.stringify(p)); } catch (e) {}
+}
 function openStoryModal(existingId) {
+  clearStagedGlyphPref();
   editingStoryId = existingId || null;
   storySelectedIds = new Set();
   storyTypeFilters = new Set(Object.keys(TYPE_CONFIG));
@@ -9098,26 +9132,31 @@ async function saveStory() {
 
   const id = editingStoryId || stableStoryId(title);
   const now = new Date().toISOString();
-  // A new relic's glyph choices were staged under GLYPH_NEW; move them across
-  // now that it has an id, and clear the staging slot for the next one.
-  if (!editingStoryId && glyphPrefs()[GLYPH_NEW]) {
-    setGlyphPref(id, glyphPrefs()[GLYPH_NEW]);
-    delete glyphPrefs()[GLYPH_NEW];
-    try { localStorage.setItem(GLYPH_KEY, JSON.stringify(glyphPrefs())); } catch (e) {}
-  }
+  // This rebuilds the relic object from the form, so anything not restated
+  // here is silently dropped on every save — which is how the glyph columns
+  // and isPublic were being reset. A new relic's glyph choices are staged
+  // under GLYPH_NEW (it had no row to write to); they go straight onto the
+  // object rather than through setGlyphPref, which would take its
+  // localStorage branch because db[id] does not exist yet.
+  const prev = (editingStoryId && db[editingStoryId]) ? db[editingStoryId] : null;
+  const staged = !editingStoryId ? (glyphPrefs()[GLYPH_NEW] || {}) : {};
 
   const story = {
     id: id,
     type: 'story',
     title: title,
     subtitle: '',
-    coverPhoto: (editingStoryId && db[editingStoryId]) ? db[editingStoryId].coverPhoto || null : null,
+    coverPhoto: prev ? prev.coverPhoto || null : null,
+    isPublic: prev ? !!prev.isPublic : false,
+    glyphStyle: prev ? prev.glyphStyle || null : staged.style || null,
+    glyphColour: prev ? prev.glyphColour || null : staged.colour || null,
+    glyphInk: prev ? prev.glyphInk || null : staged.ink || null,
     momentIds: [...storySelectedIds],
     narrative: document.getElementById('sm-narrative').value,
     mood: _storyMood,
     tags: [],
     published: false,
-    createdAt: (editingStoryId && db[editingStoryId]) ? db[editingStoryId].createdAt || now : now,
+    createdAt: prev ? prev.createdAt || now : now,
     lastModified: now,
     _totalDistance: 0,
     _totalElevation: 0,
@@ -9128,6 +9167,9 @@ async function saveStory() {
 
   computeStoryStats(story);
   db[id] = story;
+  // The staging slot is per-app, not per-relic — leave it set and the next new
+  // relic inherits this one's look.
+  if (!editingStoryId) clearStagedGlyphPref();
 
   const { error } = await sb.from('stories').upsert(storyToRow(story));
   if (error) {

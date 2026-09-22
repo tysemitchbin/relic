@@ -236,7 +236,18 @@ copy says Relic. Don't rename the model.
   (an arc) from anything else. `publicGlyphSvg(row)` renders it.
 - **`story_public.photos` holds storage paths, not URLs**, signed on read by
   `Social.storyPhotos()`, so nothing long-lived sits in the snapshot. Sharing
-  a relic therefore shares its photos — the share confirm says so.
+  a relic therefore shares its photos — the share confirm says so. This needs
+  the **"public relic photo files"** storage policy in
+  `docs/supabase-glyph.sql`: the older policy grants a signed URL only via
+  `activity_public`, and a relic is usually built from private activities, so
+  without it a shared relic renders no photos at all.
+- Snapshot upserts use `onConflict: 'user_id,story_id'` — `story_public`'s
+  primary key is the pair, and naming `story_id` alone fails with 42P10 on
+  every write.
+- **Every `.modal-overlay` shares `z-index: 500`, so DOM order decides.**
+  `#confirm-modal` / `#form-modal` are opened *from* later modals (bulk
+  editor, relic builder, share sheet) and so are pinned above them
+  explicitly. A new modal that can raise a confirm must sit below that.
 - Renders on the profile story card (`is-glyph`; the canvas mini-map stays as
   the fallback for a relic with no GPS) and in the detail panel as a 64px
   thumbnail top-left, with the `sd-map` hero below it placed *relative to the
@@ -248,8 +259,15 @@ copy says Relic. Don't rename the model.
   settings out of the view. `glyphControlsHtml()` is rendered into whichever
   of the mounts in `GLYPH_MOUNTS` exist, and `glyphRefresh()` updates them
   all — add a new mount there rather than wiring a fourth refresh path.
+- **`saveStory()` rebuilds the relic object from the form**, so any field not
+  restated there is dropped on every save — that is how the glyph columns and
+  `isPublic` were being reset by clicking "Save Changes". Add a new relic
+  field to that literal as well as to the mappers.
 - A relic being built has no id, so its glyph choices are staged under
-  `GLYPH_NEW` and moved onto the real id in `saveStory()`.
+  `GLYPH_NEW` and written straight onto the object in `saveStory()` — not via
+  `setGlyphPref`, which would take its localStorage branch because `db[id]`
+  does not exist yet. `clearStagedGlyphPref()` runs on save *and* on
+  `openStoryModal`, or a cancelled relic's look leaks into the next one.
   `glyphStoryById()` returns the staged stand-in built from
   `storySelectedIds`, which is what lets the edit modal preview a relic that
   does not exist yet.
@@ -260,7 +278,9 @@ copy says Relic. Don't rename the model.
 ## The feed is relics only (`relic-glyph`, 2026-09-22)
 
 **Both tabs.** `buildFollowingFeed()` reads `story_public` and nothing else,
-paginated on `date_end`; `buildOwnFeed()` (the You tab) reads `getStories()`.
+with **keyset pagination on `(date_end, story_id)`** — `date_end` is a *date*,
+so a plain `.lt(date_end, cursor)` permanently skips every other relic ending
+on the same day as a page boundary. The cursor is `{d, id}`; `buildOwnFeed()` (the You tab) reads `getStories()`.
 **A public activity is still public** — it shows on its owner's profile, in
 the Activities view and on the friends map layer, and `Social.feed()` /
 `itemFromPublicRow()` still serve those — but it is not a post. The feed is
@@ -303,6 +323,12 @@ no relic-level photo store, and adding one would duplicate `activity_photos`.
   counts. GPS is the fallback, nearest point on any of the relic's tracks
   within 1.5 km. Neither → returns null and the caller *says so* rather than
   guessing a track.
+- **Both times are compared as UTC, and that is deliberate.** An activity's
+  `date` is Strava's `start_date_local` stored as a timestamptz with a `+00:00`
+  offset — local wall-clock labelled UTC. EXIF `DateTimeOriginal` is also
+  wall-clock with no zone, so `readExifTaken()` returns `Date.UTC(...)`.
+  Reading it as browser-local instead compares the two in different frames and
+  silently breaks time matching for every user outside UTC.
 - **`readExifTaken()` is deliberately separate from `readEXIF()`.** The latter
   is dense, load-bearing GPS-parsing code; this only needed one more tag
   (IFD0 → Exif SubIFD `0x8769` → `0x9003`), so it walks its own copy rather

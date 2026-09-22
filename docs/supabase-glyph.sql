@@ -57,3 +57,21 @@ alter table public.story_public
 alter table public.story_public
   add constraint story_public_glyph_colour_check
   check (glyph_colour is null or glyph_colour in ('track', 'shade', 'one'));
+
+-- ── Photo files inside a shared relic ────────────────────────────────────
+--
+-- The existing "public activity photo files" policy grants a signed URL only
+-- for photos whose *activity* has an activity_public row. A relic is very
+-- often built from private activities, so without this a shared relic shows
+-- no photos at all — while the share confirm promises them.
+--
+-- Scoped to exactly the paths the owner published in story_public.photos:
+-- sharing a relic exposes its photos, and nothing else.
+drop policy if exists "public relic photo files" on storage.objects;
+create policy "public relic photo files" on storage.objects for select to authenticated using (
+  bucket_id = 'photos'
+  and exists (
+    select 1 from public.story_public sp
+    where storage.objects.name = any (sp.photos)
+  )
+);
