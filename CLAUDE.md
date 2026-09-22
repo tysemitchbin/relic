@@ -270,6 +270,28 @@ bug, this is what replaced them:
   separate from `filters` since Pins aren't tracked Moments and none of the
   distance/duration/HR-style filters apply to them. Track colors moved into
   this same drawer too ("Track colours" section, still `updateTypeColor()`).
+  **"Track thickness"** (2026-09-22, added after) is the same idea for line
+  width: one `trackWidth` multiplier (0.5–3, slider, default 1), also *not*
+  part of `filters`/`matchMoment` — it doesn't hide/show anything, so it's
+  excluded from `activeFilterCount()` and `clearFilters()`, same precedent
+  as Track colours. It persists in `relic_mapprefs_v1_<uid>` alongside
+  `filters`/`sidebarSort` (see `saveMapPrefs()`/`applyStoredFilters()`), and
+  is read back **before** `initMapLayers()` first creates the layers so a
+  returning user's saved thickness applies to the very first paint, not just
+  after their next interaction. `setTrackWidth()` → `applyTrackThickness()`
+  scale `tracks-layer`, `tracks-highlight`, and `friends-layer` together;
+  `tracks-layer`'s width lives in one of three *shapes* depending on what's
+  currently open — nothing (`tracksLineWidthExpr()`, zoom-interpolated),
+  one Moment (`updateTrackHighlight()`'s `['case',...]`), or a Story
+  (`viewStoryOnMap()`'s own `['any',...]` case, never routed through
+  `updateTrackHighlight()`) — and `applyTrackThickness()` re-derives
+  whichever one currently applies rather than assuming the Moment-or-nothing
+  shape, which would otherwise silently cancel a live Story highlight back
+  to the untouched-map default the moment someone nudged the slider. The
+  invisible hit-testing layers (`tracks-hit`, `friends-hit`, `draw-route-
+  hit`) and the draw-route tool's own line are deliberately **not** scaled —
+  different concerns (a bigger tap target; a temporary drawing aid), not
+  "how thick do my tracks look."
 - **Activities view** (`#activities-view`, `renderActivitiesView()`) is a
   sortable table reachable from the header nav (desktop) / mobile hamburger
   menu, and since 2026-09-20 also from the account-avatar dropdown

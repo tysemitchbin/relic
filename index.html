@@ -1543,6 +1543,22 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 }
 .fd-tri button.on { background: var(--surface); color: var(--ink); box-shadow: var(--sh-1); }
 
+/* Track thickness slider (Filters → Track thickness) */
+.fd-thickness-row { display: flex; align-items: center; gap: 12px; }
+.fd-thickness-slider {
+  flex: 1; -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px;
+  background: var(--paper2); outline: none; cursor: pointer;
+}
+.fd-thickness-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); cursor: pointer; box-shadow: var(--sh-1); border: 2px solid var(--surface);
+}
+.fd-thickness-slider::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer;
+  border: 2px solid var(--surface); box-shadow: var(--sh-1);
+}
+.fd-thickness-val { font: 700 13px var(--font-ui); color: var(--ink); min-width: 34px; text-align: right; font-variant-numeric: tabular-nums; }
+
 /* Active-filter chip bar (map sidebar + activities view) */
 .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 16px; align-items: center; }
 .filter-chips:empty { display: none; }
@@ -2684,6 +2700,10 @@ async function strava(action, extra) {
 }
 
 let db = {}, map, terrainOn = false, satelliteOn = false;
+// One universal multiplier on every track's line width on the main map —
+// set in the filter drawer ("Track thickness"), applies to tracks-layer,
+// tracks-highlight and friends-layer alike. See applyTrackThickness().
+let trackWidth = 1;
 let allMemories = [], filteredMemories = [], allStories = [];
 let _pinDropMode = false; // click-to-drop-pin mode (Pins feature)
 let _drawMode = false; // draw-your-route tracing mode
@@ -2772,7 +2792,7 @@ function saveMapPrefs() {
     const k = _prefsKey(); if (!k) return;
     try {
       localStorage.setItem(k, JSON.stringify({
-        v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, camera: _lastCamera,
+        v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, trackWidth, camera: _lastCamera,
       }));
     } catch (e) { /* quota — prefs just won't persist */ }
   }, 400);
@@ -2793,6 +2813,7 @@ function applyStoredFilters(p) {
     filters = d;
   }
   if (p.sidebarSort) sidebarSort = p.sidebarSort;
+  if (typeof p.trackWidth === 'number' && p.trackWidth >= 0.5 && p.trackWidth <= 3) trackWidth = p.trackWidth;
 }
 function restoreBasemap(p) {
   if (_basemapRestored || !p || DEMO) return;
@@ -3552,14 +3573,20 @@ function renderPinMarkers() {
   });
 }
 
+// The base zoom-responsive width for tracks-layer, scaled by the user's
+// Track thickness setting (trackWidth) — used both at layer creation and
+// whenever updateTrackHighlight() clears the highlight.
+function tracksLineWidthExpr(scale) {
+  return ['interpolate',['linear'],['zoom'],2,0.8*scale,6,1.5*scale,10,2.5*scale,14,3.5*scale];
+}
 function initMapLayers() {
   const tracksGeoJSON = buildTracksGeoJSON(allMemories);
   if(map.getSource('tracks')) { map.getSource('tracks').setData(tracksGeoJSON); } else {
     map.addSource('tracks',{type:'geojson',data:tracksGeoJSON,tolerance:0.5,buffer:0});
     map.addLayer({id:'tracks-layer',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
-      paint:{'line-color':['get','color'],'line-width':['interpolate',['linear'],['zoom'],2,0.8,6,1.5,10,2.5,14,3.5],'line-opacity':0.85}});
+      paint:{'line-color':['get','color'],'line-width':tracksLineWidthExpr(trackWidth),'line-opacity':0.85}});
     map.addLayer({id:'tracks-highlight',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
-      filter:['==',['get','id'],''],paint:{'line-color':['get','color'],'line-width':5,'line-opacity':1}});
+      filter:['==',['get','id'],''],paint:{'line-color':['get','color'],'line-width':5*trackWidth,'line-opacity':1}});
     // Invisible fat line so you don't have to land a tap on a 2px stroke.
     map.addLayer({id:'tracks-hit',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
       paint:{'line-color':'#000','line-opacity':0,'line-width':18}});
@@ -3590,11 +3617,42 @@ function updateTrackHighlight(memId) {
   map.setFilter('tracks-highlight',['==',['get','id'],memId||'']);
   if(memId) {
     map.setPaintProperty('tracks-layer','line-opacity',['case',['==',['get','id'],memId],1,0.2]);
-    map.setPaintProperty('tracks-layer','line-width',['case',['==',['get','id'],memId],5,1.5]);
+    map.setPaintProperty('tracks-layer','line-width',['case',['==',['get','id'],memId],5*trackWidth,1.5*trackWidth]);
   } else {
     map.setPaintProperty('tracks-layer','line-opacity',0.85);
-    map.setPaintProperty('tracks-layer','line-width',['interpolate',['linear'],['zoom'],2,0.8,6,1.5,10,2.5,14,3.5]);
+    map.setPaintProperty('tracks-layer','line-width',tracksLineWidthExpr(trackWidth));
   }
+}
+
+// Called when the Track thickness slider moves. tracks-layer's line-width
+// is in one of three shapes depending on what's currently open — nothing,
+// a single Moment (updateTrackHighlight), or a Story (viewStoryOnMap's own
+// ['any', ...] case, never routed through updateTrackHighlight) — so this
+// re-derives whichever one applies rather than assuming the "moment or
+// nothing" shape and stomping a live Story highlight back to the default.
+function applyTrackThickness() {
+  if (!map || !map.getLayer || !map.getLayer('tracks-layer')) return;
+  const sel = selectedId && db[selectedId];
+  if (sel && isStory(sel)) {
+    const ids = sel.momentIds || [];
+    if (ids.length) {
+      const matchFilter = ['any', ...ids.map(id => ['==', ['get', 'id'], id])];
+      map.setPaintProperty('tracks-layer', 'line-width', ['case', matchFilter, 4 * trackWidth, 1 * trackWidth]);
+    }
+  } else {
+    updateTrackHighlight(sel ? selectedId : null);
+  }
+  if (map.getLayer('tracks-highlight')) map.setPaintProperty('tracks-highlight', 'line-width', 5 * trackWidth);
+  if (map.getLayer('friends-layer')) {
+    map.setPaintProperty('friends-layer', 'line-width', ['interpolate', ['linear'], ['zoom'], 3, 1 * trackWidth, 10, 2.2 * trackWidth, 14, 3 * trackWidth]);
+  }
+}
+function setTrackWidth(val) {
+  trackWidth = Math.max(0.5, Math.min(3, parseFloat(val) || 1));
+  applyTrackThickness();
+  saveMapPrefs();
+  const label = document.getElementById('fd-thickness-val');
+  if (label) label.textContent = trackWidth.toFixed(2).replace(/0+$/, '').replace(/\.$/, '') + '×';
 }
 
 // ════════════════════════════════════════
@@ -3651,7 +3709,7 @@ function closeFilterDrawer() {
 }
 
 // Which sections start collapsed (persists across rebuilds within a session)
-let _fdCollapsed = new Set(['fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-color']);
+let _fdCollapsed = new Set(['fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-color','fd-sec-thickness']);
 function toggleFilterSection(id) {
   if (_fdCollapsed.has(id)) _fdCollapsed.delete(id); else _fdCollapsed.add(id);
   document.getElementById(id)?.classList.toggle('collapsed');
@@ -3734,6 +3792,14 @@ function buildFilterDrawer() {
         <input type="color" value="${c.color}" oninput="updateTypeColor('${k}',this.value)"></div>
       <div class="tp-color-label">${c.label}</div></div>`).join('');
 
+  const thicknessLabel = trackWidth.toFixed(2).replace(/0+$/, '').replace(/\.$/, '') + '×';
+  const thicknessHtml = `
+    <div class="fd-thickness-row">
+      <input class="fd-thickness-slider" type="range" min="0.5" max="3" step="0.25" value="${trackWidth}" oninput="setTrackWidth(this.value)">
+      <span class="fd-thickness-val" id="fd-thickness-val">${thicknessLabel}</span>
+    </div>
+    <div class="fd-hint">One thickness for every track on the map — yours, a selected track, and friends' tracks all scale together.</div>`;
+
   // Pins aren't part of `filters`/matchMoment (they're not tracked Moments —
   // distance/duration/HR filters make no sense for a point pin), so this
   // section drives activePinCategories + PIN_CATEGORIES colors directly,
@@ -3759,6 +3825,7 @@ function buildFilterDrawer() {
   html += sec('fd-sec-attr', 'Attributes', attrHtml, filters.hasPhotos != null || filters.hasNote != null || filters.commute != null);
   html += sec('fd-sec-pins', 'Pins', pinsHtml, activePinCategories.size < Object.keys(PIN_CATEGORIES).length);
   if (typeEntries.length) html += sec('fd-sec-color', 'Track colours', colorHtml, false);
+  html += sec('fd-sec-thickness', 'Track thickness', thicknessHtml, trackWidth !== 1);
   body.innerHTML = html;
 }
 
@@ -4002,7 +4069,7 @@ async function toggleFriendsLayer() {
       map.addSource('friends', { type: 'geojson', data });
       const below = map.getLayer('tracks-layer') ? 'tracks-layer' : undefined;
       map.addLayer({ id: 'friends-layer', type: 'line', source: 'friends', layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 1, 10, 2.2, 14, 3], 'line-opacity': 0.7, 'line-dasharray': [2, 1.2] } }, below);
+        paint: { 'line-color': ['get', 'color'], 'line-width': ['interpolate', ['linear'], ['zoom'], 3, 1*trackWidth, 10, 2.2*trackWidth, 14, 3*trackWidth], 'line-opacity': 0.7, 'line-dasharray': [2, 1.2] } }, below);
       map.addLayer({ id: 'friends-hit', type: 'line', source: 'friends', paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 16 } }, below);
       map.on('click', 'friends-hit', e => {
         if (_pinDropMode || _drawMode) return;
@@ -7831,7 +7898,7 @@ function viewStoryOnMap(storyId) {
     if (map.getLayer('tracks-highlight')) {
       map.setFilter('tracks-highlight', matchFilter);
       map.setPaintProperty('tracks-layer', 'line-opacity', ['case', matchFilter.slice(0), 1, 0.15]);
-      map.setPaintProperty('tracks-layer', 'line-width', ['case', matchFilter.slice(0), 4, 1]);
+      map.setPaintProperty('tracks-layer', 'line-width', ['case', matchFilter.slice(0), 4*trackWidth, 1*trackWidth]);
     }
 
     // Fit bounds to all member tracks
@@ -8702,7 +8769,7 @@ _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobil
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
 _r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
 _r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);
-_r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);
+_r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);_r('setTrackWidth',setTrackWidth);
 _r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
 _r('renderActivitiesView',renderActivitiesView);_r('buildFilterDrawer',buildFilterDrawer);
 _r('removeImportFile',removeImportFile);
