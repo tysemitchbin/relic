@@ -148,9 +148,103 @@ to know:
 - **Views:** `feed` (Following/You tabs + `#feed-top` checklist/"On this day"),
   `people` (Discover/Following/Followers tabs — the follower lists moved here
   from the old People page; the profile's Followers/Following stats open
-  them via `openConnections()`), `public-profile` (hero + interactive
-  `_ppMap` of their public tracks). The map's activity list (`#sidebar`)
+  them via `openConnections()`), `public-profile` (hero + a static cover band
+  of their public tracks — see "Profile = Stories only" below for where the
+  interactive map actually lives now). The map's activity list (`#sidebar`)
   opens from the `#list-toggle` pill.
+
+## Profile = Stories only (2026-09-20)
+
+The user was explicit: Profile (yours or someone else's) is not another
+activity list — Strava already does that. It's Stories, curated. Individual
+Moments/activities live behind a click, not on the page.
+
+**UI label vs. code (2026-09-20):** everything a person sees now calls this
+"Relic" ("New Relic", "Relics", "Delete this relic?", etc.) — the user asked
+for the rename explicitly, scoped to visible text only. Every internal name
+stays "Story"/`story` on purpose: `isStory()`, `getStories()`, `openStoryModal`,
+`saveStory()`, `.story-card`/`.story-modal`/`#sm-*` CSS and ids, the
+`stories`/`story_public` Supabase tables and columns (`story_id`, …), the
+`type:'story'` value stored on the object itself. Don't "helpfully" rename
+any of that to match the UI — it's unrelated code, and renaming the table
+needs a migration nobody has asked for. If a future ask does want the code
+renamed too (or the database), treat it as new scope, not a continuation of
+this one. One unrelated concept that intentionally did **not** get renamed:
+"Has story note" (the filter drawer) and the `'story'` badge in the map
+sidebar list both mean "this individual Moment has a written note"
+(`m.note`) — nothing to do with the Story/Relic entity, so they keep saying
+"story" in that different sense.
+
+- **Profile page itself** (`#profile-view` / `#public-profile-view`) now
+  shows only: header (photo/name/bio/stats, or avatar/name/bio/stats for a
+  public profile), a **map hero** (`.profile-cover-wrap` wrapping
+  `#profile-cover` on your own profile / `#pp-cover` on a public one — both
+  reuse the same `.profile-cover` static-image-band styling and rendering
+  helper, `renderProfileCover()` for your own, `renderPublicCover(acts)` for
+  someone else's), and **Stories** (`renderProfileStories()` /
+  `renderPublicStoryCard()` inside `#pp-body`). There is no "Moments"
+  honeycomb grid or "Activities" list anywhere in Profile — not on the page,
+  and (2026-09-20) not in the map-hero modal either, see below. Both stories
+  sections show an `emptyBlock()` empty state (not a hidden section) when
+  there are none yet, with a "New story" CTA — the point is to nudge people
+  toward making one, not to look broken.
+- **The map hero is clickable** (`onclick="openProfileMapModal(...)"`,
+  `role="button" tabindex="0"`, same plain-div-as-button pattern as
+  `.profile-stat[onclick]` elsewhere in this file) and opens
+  `#profile-map-modal` — an interactive map (`#pmm-map`, `_pmmMap`,
+  `renderPmmMap(tracks, focusActivityId)`) of every track privacy allows.
+  **Map only, no list of any kind** — an earlier version of this modal also
+  showed a Moments honeycomb grid (own profile) or a feed-card activity list
+  (someone else's); the user explicitly said no activity list anywhere and
+  no honeycomb grid, so both were deleted along with their support code
+  (`renderProfileHoneycomb()`, `drawMiniMap()`, `setProfileSort()`/
+  `profileSort`, the `.hex-*` CSS, `#pmm-body` and its children). Don't
+  resurrect any of that inside this modal — if a browsable list is wanted
+  again, it belongs on its own page, the way Activities does below.
+- **It's a genuine full-screen takeover, not a floating dialog** (user
+  feedback, 2026-09-22, after the first version rendered as a small centered
+  card — "want to open a full map, not just a pop up window"). `#profile-map-
+  modal` and `.profile-map-modal-inner` override the generic `.modal-overlay`/
+  `.modal` centered-card treatment directly (`padding:0`, `width/height:100%`,
+  `max-width/max-height:none`, `border-radius:0`) so it fills the whole
+  viewport — including over the header, since `.modal-overlay`'s z-index
+  (500) already beats `#header`'s (200) — at every screen size, not just
+  the mobile bottom-sheet breakpoint. The mobile media query only adds
+  safe-area padding to `.pmm-head` and drops the bottom-sheet drag-handle
+  `::before` (not a sheet any more). If a future modal ever wants this same
+  full-bleed treatment, copy this pair of overrides rather than fighting the
+  base `.modal` sizing per breakpoint.
+- **Your own individual activities have their own page**: `#activities-view`
+  / `renderActivitiesView()` (a sortable table, pre-existing — see "Filters +
+  Activities view" below) is reachable from the header nav *and*, since
+  2026-09-20, from the account-avatar dropdown (`#account-menu`, "Your
+  activities", right next to Settings) — the user asked for a dropdown entry
+  point and this already-existing view was the natural fit, so no new view
+  was built. It only ever shows your own Moments; there's no equivalent
+  "browse all of someone else's activities" page — a visitor sees another
+  person's individual activities only via Stories and the Following feed.
+- **`isOwnContext` (the modal's 3rd argument) must come from the caller, not
+  from `userId === currentUser.id`.** You can land on your *own*
+  public-profile page — a deep link to your own shared activity, or "View on
+  profile" from your own map popup — and that must still use the
+  already-fetched public `acts` (what a visitor would see), not every
+  private Moment you have. Only the map hero on your actual `#profile-view`
+  passes `true`; the public-profile hero and the internal deep-link call
+  (`openProfileMapModal(userId, focusActivityId)` at the end of
+  `openPublicProfile`) both omit it, so they always take the "public" path
+  even when `userId` happens to be you.
+- **A Story can be just one moment** (`saveStory()` only requires 1+, back
+  to the original rule — a same-session 2+ minimum was tried and reverted:
+  the user, on reflection, was fine with a single-activity Relic). Grouping
+  is otherwise free-form (search/type/date filters in the story modal
+  already support both "this trip" and "Walks in May" style themes) — no
+  code change needed there.
+- **Deferred, not built:** auto-suggesting a Story by grouping a user's
+  Moments that share an area and a time window ("relic suggestions"). The
+  user raised it as a future idea, not a request for this pass — flagging it
+  here so a future session doesn't have to rediscover the intent from
+  scratch. It would slot in naturally as a nudge on the map hero or the
+  empty-story-state CTA, once there's a grouping heuristic to build it on.
 
 ## Relic glyph (`relic-glyph`, 2026-09-22)
 
@@ -364,11 +458,36 @@ bug, this is what replaced them:
   separate from `filters` since Pins aren't tracked Moments and none of the
   distance/duration/HR-style filters apply to them. Track colors moved into
   this same drawer too ("Track colours" section, still `updateTypeColor()`).
+  **"Track thickness"** (2026-09-22, added after) is the same idea for line
+  width: one `trackWidth` multiplier (0.5–3, slider, default 1), also *not*
+  part of `filters`/`matchMoment` — it doesn't hide/show anything, so it's
+  excluded from `activeFilterCount()` and `clearFilters()`, same precedent
+  as Track colours. It persists in `relic_mapprefs_v1_<uid>` alongside
+  `filters`/`sidebarSort` (see `saveMapPrefs()`/`applyStoredFilters()`), and
+  is read back **before** `initMapLayers()` first creates the layers so a
+  returning user's saved thickness applies to the very first paint, not just
+  after their next interaction. `setTrackWidth()` → `applyTrackThickness()`
+  scale `tracks-layer`, `tracks-highlight`, and `friends-layer` together;
+  `tracks-layer`'s width lives in one of three *shapes* depending on what's
+  currently open — nothing (`tracksLineWidthExpr()`, zoom-interpolated),
+  one Moment (`updateTrackHighlight()`'s `['case',...]`), or a Story
+  (`viewStoryOnMap()`'s own `['any',...]` case, never routed through
+  `updateTrackHighlight()`) — and `applyTrackThickness()` re-derives
+  whichever one currently applies rather than assuming the Moment-or-nothing
+  shape, which would otherwise silently cancel a live Story highlight back
+  to the untouched-map default the moment someone nudged the slider. The
+  invisible hit-testing layers (`tracks-hit`, `friends-hit`, `draw-route-
+  hit`) and the draw-route tool's own line are deliberately **not** scaled —
+  different concerns (a bigger tap target; a temporary drawing aid), not
+  "how thick do my tracks look."
 - **Activities view** (`#activities-view`, `renderActivitiesView()`) is a
-  sortable table reachable from the header nav, sharing `filteredMemories`
-  with the map. The old Archive/stats page (`buildStats()`, `#stats-view`)
-  is **parked** — code kept, not reachable from nav — per `map-filters`'
-  original design, not something this merge changed.
+  sortable table reachable from the header nav (desktop) / mobile hamburger
+  menu, and since 2026-09-20 also from the account-avatar dropdown
+  (`#account-menu`, "Your activities") — see "Profile = Stories only" above.
+  Shares `filteredMemories` with the map. The old Archive/stats page
+  (`buildStats()`, `#stats-view`) is **parked** — code kept, not reachable
+  from nav — per `map-filters`' original design, not something this merge
+  changed.
 - **Map prefs persist per-user** (`relic_mapprefs_v1_<uid>`): `filters`,
   `sidebarSort`, `terrainOn`, `satelliteOn`, and last camera position, via
   `saveMapPrefs()` (debounced) / `loadMapPrefs()` / `applyStoredFilters()`
