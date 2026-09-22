@@ -1178,6 +1178,13 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card-map canvas { width: 100%; height: 100%; }
 .story-card-map.is-glyph { display: flex; align-items: center; justify-content: center; background: var(--surface); }
 .story-card-map.is-glyph svg { width: 100%; height: 100%; padding: 10px; }
+.fc-glyph { display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--surface); border-block: 1px solid var(--border); padding: 18px; }
+.fc-glyph svg { width: 100%; max-width: 260px; aspect-ratio: 1; }
+.fc-glyph:empty { display: none; }
+.fc-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; padding: 10px 18px 0; }
+.fc-photo { padding: 0; border: 0; border-radius: var(--r-sm, 8px); overflow: hidden; aspect-ratio: 1; cursor: pointer; background: var(--paper2); }
+.fc-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sd-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; margin-top: 8px; }
 .sd-photo { padding: 0; border: 0; border-radius: var(--r-sm, 8px); overflow: hidden; aspect-ratio: 1; cursor: pointer; background: var(--paper2); }
 .sd-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -2946,6 +2953,7 @@ function rowToStory(r) {
     id: r.id, type: 'story', title: r.title || 'Untitled', narrative: r.narrative || '',
     mood: r.mood || null, coverPhoto: r.cover_photo_path || null,
     momentIds: Array.isArray(r.moment_ids) ? r.moment_ids : [],
+    glyphStyle: r.glyph_style || null, glyphColour: r.glyph_colour || null, glyphInk: r.glyph_ink || null,
     createdAt: r.created_at, lastModified: r.updated_at,
   };
 }
@@ -2955,6 +2963,7 @@ function storyToRow(s) {
     narrative: s.narrative || '', mood: s.mood || null,
     cover_photo_path: s.coverPhoto || null,
     moment_ids: Array.isArray(s.momentIds) ? s.momentIds : [],
+    glyph_style: s.glyphStyle || null, glyph_colour: s.glyphColour || null, glyph_ink: s.glyphInk || null,
   };
 }
 
@@ -5833,11 +5842,24 @@ const Social = {
     return data || [];
   },
   // Shared stories (story_public). Empty — not an error — before the migration.
-  async stories(authorIds, limit) {
+  async stories(authorIds, limit, before) {
     if (_socialOff.stories || !authorIds.length) return [];
-    const { data, error } = await sb.from('story_public').select('*').in('user_id', authorIds).order('date_end', { ascending: false }).limit(limit || 20);
+    let q = sb.from('story_public').select('*').in('user_id', authorIds).order('date_end', { ascending: false }).limit(limit || 20);
+    if (before) q = q.lt('date_end', before);
+    const { data, error } = await q;
     if (error) { if (isMissingTable(error)) _socialOff.stories = true; else console.warn('story feed failed', error); return []; }
     return data || [];
+  },
+  // { story_id: [signedUrl, …] } from the paths the snapshot carries, so a
+  // follower sees a relic's photos without reading the owner's photo rows.
+  async storyPhotos(rows) {
+    const out = {};
+    const paths = [...new Set(rows.flatMap(r => r.photos || []))].slice(0, 120);
+    if (!paths.length) return out;
+    const { data: signed } = await sb.storage.from('photos').createSignedUrls(paths, SIGNED_URL_TTL);
+    const byPath = {}; (signed || []).forEach(s => { if (s.signedUrl) byPath[s.path] = s.signedUrl; });
+    rows.forEach(r => { out[r.story_id] = (r.photos || []).map(p => byPath[p]).filter(Boolean); });
+    return out;
   },
   // { key: [signedUrl, …] } for public activities' photos
   async photos(rows) {
@@ -5997,6 +6019,17 @@ const DemoSocial = (() => {
     date_start: kaiRides[kaiRides.length - 1].date.slice(0, 10), date_end: kaiRides[0].date.slice(0, 10),
     moment_count: kaiRides.length, distance: kaiRides.reduce((a, r) => a + r.distance, 0), duration: kaiRides.reduce((a, r) => a + r.duration, 0),
     elevation: 0, type_counts: { Ride: kaiRides.length }, polylines: kaiRides.flatMap(r => r.polylines), colors: kaiRides.map(() => '#2563eb'),
+    // The fields a shared relic carries since the glyph migration — without
+    // these the demo feed renders a relic card with no glyph and no photos,
+    // which is exactly what a real one must never look like.
+    // literal, not GLYPH_DEFAULT_INK: this fixture is built during boot and
+    // that const is declared further down the file, so naming it here throws
+    // on the temporal dead zone and takes the whole demo seed with it
+    glyph_style: 'accurate', glyph_colour: 'shade', glyph_ink: '#2A3324',
+    glyph_tracks: kaiRides.map(r => ({ p: r.polylines, c: '#2196F3', k: 'Ride' })),
+    photos: [1, 2, 3].map(n => 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="hsl(' +
+      (n * 74 % 360) + ',48%,62%)"/></svg>')),
   }];
   const state = {
     following: new Set(['u_ines', 'u_kai', 'u_maya']),
@@ -6034,11 +6067,21 @@ const DemoSocial = (() => {
         .sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, limit || 15));
     },
     async userActivities(userId) { return wait(allRows().filter(r => r.user_id === userId).sort((a, b) => (a.date < b.date ? 1 : -1))); },
-    async stories(authorIds) {
+    async stories(authorIds, limit, before) {
       const own = getStories().filter(st => st.isPublic).map(buildStorySnapshotRow);
-      return wait(demoStories.concat(own).filter(r => authorIds.includes(r.user_id)).sort((a, b) => (a.date_end < b.date_end ? 1 : -1)));
+      let all = demoStories.concat(own).filter(r => authorIds.includes(r.user_id))
+        .sort((a, b) => (a.date_end < b.date_end ? 1 : -1));
+      if (before) all = all.filter(r => (r.date_end || '') < before);
+      return wait(all.slice(0, limit || 20));
     },
     async photos() { return {}; },
+    // Demo photos are inline data URLs, not storage paths, so hand them back
+    // as-is rather than trying to sign them.
+    async storyPhotos(rows) {
+      const out = {};
+      rows.forEach(r => { out[r.story_id] = (r.photos || []).filter(u => /^(data|blob|https?):/.test(u)); });
+      return wait(out);
+    },
     async kudos(keys) {
       const out = new Map();
       keys.forEach(k => { const l = state.kudos.get(k) || []; if (l.length) out.set(k, { count: l.length, mine: l.some(x => x.user_id === currentUser.id), users: l.map(x => x.user_id) }); });
@@ -6311,38 +6354,28 @@ async function buildFollowingFeed(reset) {
         `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Invite friends</button>`);
       return;
     }
-    const [rows, stories] = await Promise.all([
-      Social.feed({ authorIds: authors, before: _feedCursor, limit: 15 }),
-      reset ? Social.stories(authors, 20) : Promise.resolve(null),
-    ]);
+    // Relics only. A public activity stays public — it shows on its owner's
+    // profile and map — but it is not a post. The feed is the curated layer.
+    const pageStories = await Social.stories(authors, 10, _feedCursor);
     if (token !== _feedToken) return;
-    if (stories) _feedStories = stories;
-    // Interleave shared stories by date: take the ones at least as new as
-    // this page's oldest activity (or all that remain on the last page).
-    const pageDone = rows.length < 15;
-    const floor = rows.length ? (rows[rows.length - 1].date || '').slice(0, 10) : '';
-    const pageStories = _feedStories.filter(st => pageDone || (st.date_end || '') >= floor);
-    _feedStories = _feedStories.filter(st => !pageStories.includes(st));
-    if (reset && !rows.length && !pageStories.length) {
+    const pageDone = pageStories.length < 10;
+    if (reset && !pageStories.length) {
       c.innerHTML = emptyBlock('home', 'Quiet out there',
-        'The people you follow haven\'t shared anything public yet. Check back soon, or find a few more people to follow.',
+        'The people you follow haven\'t shared a relic yet. Check back soon, or find a few more people to follow.',
         `<button class="btn-primary" onclick="switchView('people')">Find people</button>`);
       return;
     }
-    const [profs, photos, kudos, ccounts] = await Promise.all([
-      Social.profiles(rows.map(r => r.user_id).concat(pageStories.map(st => st.user_id))), Social.photos(rows),
-      Social.kudos(rows.map(r => socialKey(r.user_id, r.activity_id))),
-      Social.commentCounts(rows.map(r => socialKey(r.user_id, r.activity_id))),
+    const [profs, storyPhotoUrls] = await Promise.all([
+      Social.profiles(pageStories.map(st => st.user_id)),
+      Social.storyPhotos(pageStories),
     ]);
     if (token !== _feedToken) return;
     const byId = Object.fromEntries(profs.map(p => [p.id, p]));
     if (reset) c.innerHTML = '';
-    const merged = rows.map(r => ({ d: r.date || '', html: () => renderActivityCard(itemFromPublicRow(r, byId[r.user_id], photos, kudos, ccounts)) }))
-      .concat(pageStories.map(st => ({ d: (st.date_end || '') + 'T23:59:59', html: () => renderPublicStoryCard(st, byId[st.user_id]) })))
-      .sort((a, b) => (a.d < b.d ? 1 : -1));
-    c.insertAdjacentHTML('beforeend', merged.map(m => m.html()).join(''));
+    c.insertAdjacentHTML('beforeend',
+      pageStories.map(st => renderPublicStoryCard(st, byId[st.user_id], storyPhotoUrls[st.story_id])).join(''));
     flushCanvasJobs();
-    _feedCursor = rows.length ? rows[rows.length - 1].date : _feedCursor;
+    _feedCursor = pageStories.length ? pageStories[pageStories.length - 1].date_end : _feedCursor;
     _feedDone = pageDone;
     more.innerHTML = _feedDone
       ? `<div class="people-empty" style="text-align:center">You're all caught up ✓</div>`
@@ -6574,19 +6607,50 @@ function glyphStyleKey(k) {
   k = GLYPH_STYLE_ALIASES[k] || k;
   return GLYPH_STYLES[k] ? k : GLYPH_DEFAULT_STYLE;
 }
+// The relic row is the source of truth; localStorage is only read as a
+// fallback, for choices made before these columns existed and for a relic
+// still being built (GLYPH_NEW), which has no row yet. Merged per field, so a
+// half-migrated relic doesn't lose the settings it hasn't saved.
 function glyphPrefFor(storyId) {
-  const p = glyphPrefs()[storyId] || {};
+  const st = db[storyId], ls = glyphPrefs()[storyId] || {};
+  const own = st && isStory(st) ? st : null;
+  const style = (own && own.glyphStyle) || ls.style;
+  const colour = (own && own.glyphColour) || ls.colour || (ls.mono ? 'one' : null);
+  const ink = (own && own.glyphInk) || ls.ink;
   return {
-    style: glyphStyleKey(p.style),
-    // `mono: true` is the old two-state flag; read it as the one-colour mode.
-    colour: ['track', 'shade', 'one'].indexOf(p.colour) >= 0 ? p.colour : (p.mono ? 'one' : 'track'),
-    ink: /^#[0-9a-f]{6}$/i.test(p.ink || '') ? p.ink : GLYPH_DEFAULT_INK,
+    style: glyphStyleKey(style),
+    colour: ['track', 'shade', 'one'].indexOf(colour) >= 0 ? colour : 'track',
+    ink: /^#[0-9a-f]{6}$/i.test(ink || '') ? ink : GLYPH_DEFAULT_INK,
   };
 }
 function setGlyphPref(storyId, patch) {
+  const st = db[storyId];
+  if (st && isStory(st)) {
+    if (patch.style != null) st.glyphStyle = patch.style;
+    if (patch.colour != null) st.glyphColour = patch.colour;
+    if (patch.ink != null) st.glyphInk = patch.ink;
+    st.lastModified = new Date().toISOString();
+    markDirty(st.id);
+    // A shared relic's snapshot carries the look, so followers see the
+    // owner's choice rather than the default.
+    if (st.isPublic) refreshStorySnapshot(st.id);
+    return;
+  }
+  // No row yet (a relic still being built) — stage it locally.
   const p = glyphPrefs();
   p[storyId] = Object.assign({}, p[storyId], patch);
   try { localStorage.setItem(GLYPH_KEY, JSON.stringify(p)); } catch (e) {}
+}
+// Re-push the public snapshot after a look change. Quiet on failure: the
+// relic itself is already saved, and the snapshot rebuilds on the next
+// visibility toggle or edit.
+async function refreshStorySnapshot(storyId) {
+  const st = db[storyId];
+  if (!st || !st.isPublic || DEMO) return;
+  try {
+    const { error } = await sb.from('story_public').upsert(buildStorySnapshotRow(st), { onConflict: 'story_id' });
+    if (error) throw error;
+  } catch (e) { console.warn('Relic snapshot refresh failed', e); }
 }
 
 // ── geometry (all prefixed gly* — this file is one big global scope) ──
@@ -6920,6 +6984,22 @@ function renderGlyph(tracks, style, colour, ink) {
   return '<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' + parts.join('') + '</svg>';
 }
 
+// A shared relic as its owner drew it. glyph_tracks is one entry per
+// activity, so the segments a privacy trim split apart are rejoined before
+// the track is normalised — otherwise a follower's glyph would be built from
+// fragments and look nothing like the owner's.
+function publicGlyphSvg(r) {
+  const tracks = (r.glyph_tracks || []).map(t => {
+    let coords = [];
+    (t.p || []).forEach(enc => { try { coords = coords.concat(decodePolyline(enc)); } catch (e) {} });
+    return { coords: coords, color: t.c || GLYPH_DEFAULT_INK, flight: t.k === 'Flight' };
+  }).filter(t => t.coords.length >= 2);
+  if (!tracks.length) return '';
+  return renderGlyph(tracks, glyphStyleKey(r.glyph_style),
+    ['track', 'shade', 'one'].indexOf(r.glyph_colour) >= 0 ? r.glyph_colour : 'track',
+    /^#[0-9a-f]{6}$/i.test(r.glyph_ink || '') ? r.glyph_ink : GLYPH_DEFAULT_INK);
+}
+
 function storyGlyphSvg(story) {
   const g = glyphPrefFor(story.id);
   return renderGlyph(storyGlyphTracks(story), g.style, g.colour, g.ink);
@@ -7207,6 +7287,10 @@ function shareStoryImage(storyId) {
 // moment's privacy radius (500 m when it has none) before it leaves.
 function buildStorySnapshotRow(story) {
   computeStoryStats(story);
+  const g = glyphPrefFor(story.id);
+  const mems = (story.momentIds || []).map(id => db[id])
+    .filter(m => m && !isStory(m) && !m.isPin && getCoords(m))
+    .sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1);
   const polylines = [], colors = [];
   (story.momentIds || []).map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin).forEach(m => {
     const c = getCoords(m); if (!c) return;
@@ -7219,6 +7303,20 @@ function buildStorySnapshotRow(story) {
     moment_count: story._momentCount || 0, distance: story._totalDistance || 0,
     duration: story._totalDuration || 0, elevation: story._totalElevation || 0,
     type_counts: story._typeBreakdown || {}, polylines, colors,
+    // The look, so a follower sees the owner's glyph rather than the default.
+    glyph_style: g.style, glyph_colour: g.colour, glyph_ink: g.ink,
+    // `polylines` is flat and redaction splits one track into several
+    // segments, so it can't be regrouped into tracks. The glyph needs tracks,
+    // so it gets its own structure: one entry per activity, in date order,
+    // with the type group a follower needs to know a flight from a run.
+    glyph_tracks: mems.map(m => ({
+      p: redactTrackForPrivacy(getCoords(m) || [], m.privacyRadiusM || 500),
+      c: m.customColor || getColor(m.type),
+      k: getGroup(m.type),
+    })).filter(t => t.p.length),
+    // Storage paths, not URLs — the reader signs them, so nothing long-lived
+    // ends up sitting in the snapshot.
+    photos: mems.flatMap(m => (m.photos || []).map(ph => DEMO ? ph.dataUrl : ph._path).filter(Boolean)),
   };
 }
 async function setStoryVisibility(storyId, makePublic) {
@@ -7226,7 +7324,7 @@ async function setStoryVisibility(storyId, makePublic) {
   if (!!story.isPublic === makePublic) return;
   if (makePublic && !(await uiConfirm({
     title: 'Share this relic?',
-    body: 'Your followers will see it in their feed and on your profile — its title, narrative, stats and a map of its tracks. The first and last 500 m of each track are hidden (or your own privacy radius, if you set one). The individual activities keep their own privacy setting.',
+    body: 'Your followers will see it in their feed and on your profile — its title, narrative, stats, photos, glyph and a map of its tracks. The first and last 500 m of each track are hidden (or your own privacy radius, if you set one). The individual activities keep their own privacy setting.',
     ok: 'Share relic',
   }))) { renderStoryShareSection(storyId); return; }
   story.isPublic = makePublic;
@@ -7261,7 +7359,7 @@ function storyLink(userId, storyId) { return profileLink(userId) + '&s=' + encod
 function shareStory(userId, storyId, title) { shareLink(storyLink(userId, storyId), title || 'A story on Relic', (title || 'A trip') + ' — on Relic'); }
 
 // Someone else's (or your own, as others see it) shared story.
-function renderPublicStoryCard(r, prof) {
+function renderPublicStoryCard(r, prof, photoUrls) {
   const isOwn = r.user_id === currentUser.id;
   const authorClick = isOwn ? `switchView('profile')` : `openPublicProfile(${jsAttr(r.user_id)})`;
   const open = isOwn && db[r.story_id] ? `viewStoryOnMap(${jsAttr(r.story_id)})` : `openPublicProfile(${jsAttr(r.user_id)},null,${jsAttr(r.story_id)})`;
@@ -7269,19 +7367,14 @@ function renderPublicStoryCard(r, prof) {
   const range = r.date_start && r.date_end ? (r.date_start === r.date_end ? fmt(r.date_end, true) : fmt(r.date_start) + ' – ' + fmt(r.date_end, true)) : '';
   const types = Object.entries(r.type_counts || {});
   const mood = MOODS.find(m => m.id === r.mood);
-  const overlays = []; let budget = 7400;
-  (r.polylines || []).forEach((p, i) => {
-    const seg = pathOv(p, ((r.colors || [])[i] || '#C1502E').replace('#', ''), 3, 0.9);
-    if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
-  });
-  const cid = 'fcs-' + Math.random().toString(36).slice(2, 9);
-  if (r.polylines && r.polylines.length) _canvasJobs.push({ id: cid, polylines: r.polylines, color: (r.colors || [])[0] || '#C1502E' });
+  // The glyph leads the card now; the map lives in the relic itself.
   return `<article class="feed-card story-card-feed" data-story="${escapeHtml(socialKey(r.user_id, r.story_id))}">
     <header class="fc-header">
       <div class="fc-avatar" onclick="${authorClick}">${avatarHtml(prof?.avatarUrl, prof?.name, 'av-44', r.user_id)}</div>
       <div class="fc-user"><button class="fc-username" onclick="${authorClick}">${escapeHtml(prof?.name || 'Someone')}</button><div class="fc-date">${escapeHtml(range)}</div></div>
       <span class="fc-story-badge"><svg class="ic" style="width:14px;height:14px"><use href="#i-book"/></svg>Relic</span>
     </header>
+    <div class="fc-glyph" onclick="${open}" title="Open this relic">${publicGlyphSvg(r)}</div>
     <div class="fc-name" onclick="${open}">${escapeHtml(r.title || 'Untitled relic')}</div>
     ${r.narrative ? `<div class="fc-note">${escapeHtml(r.narrative)}</div>` : ''}
     ${types.length ? `<div class="fc-story-types">${types.map(([k, n]) => `<span class="fc-story-type-pill" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}">${escapeHtml(TYPE_CONFIG[k]?.label || k)} · ${n}</span>`).join('')}</div>` : ''}
@@ -7290,7 +7383,8 @@ function renderPublicStoryCard(r, prof) {
       <div class="fc-stat"><div class="fc-stat-val">${r.duration > 0 ? formatDur(r.duration) : '—'}</div><div class="fc-stat-label">Time</div></div>
       <div class="fc-stat"><div class="fc-stat-val">${r.moment_count || 0}</div><div class="fc-stat-label">Moments</div></div>
     </div>
-    ${overlays.length || (r.polylines || []).length ? `<div class="fc-map" onclick="${open}"><canvas id="${cid}" width="640" height="260"></canvas>${mapboxStaticImg(overlays, 640, 260)}</div>` : ''}
+    ${(photoUrls || []).length ? `<div class="fc-photos">${photoUrls.slice(0, 6).map(u =>
+      `<button class="fc-photo" onclick="openLightboxUrl(${jsAttr(u)})"><img src="${escapeHtml(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
     ${mood ? `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>` : ''}
     <footer class="fc-actions"><span class="fc-spacer"></span>
       <button class="fc-act" onclick="shareStory(${jsAttr(r.user_id)},${jsAttr(r.story_id)},${jsAttr(r.title)})" title="Share" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>

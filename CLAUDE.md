@@ -221,9 +221,22 @@ copy says Relic. Don't rename the model.
   floors luminance and `glyShade()` caps it at 0.70, because a pale colour
   vanishes on the light card the glyph sits on. The old two-state `mono` flag
   is migrated in `glyphPrefFor`.
-- **Choices live in `relic_glyph_v1` (localStorage), keyed by story id** — no
-  migration. Consequence: followers see the default glyph. Promoting to
-  columns on `stories` + `story_public` is the known follow-up.
+- **Choices live on the relic row** (`glyph_style` / `glyph_colour` /
+  `glyph_ink`, see `docs/supabase-glyph.sql` — must be applied before this
+  ships). `relic_glyph_v1` in localStorage is now only a *fallback*, read per
+  field for choices made before the columns existed and for a relic still
+  being built (`GLYPH_NEW`), which has no row. Changing the look of a shared
+  relic re-pushes its snapshot (`refreshStorySnapshot`).
+- **A follower's glyph must match the owner's, which `polylines` cannot do.**
+  Redaction splits one track into several segments, so that array is not 1:1
+  with the relic's activities and rebuilding tracks from it would normalise
+  fragments. `story_public.glyph_tracks` is the glyph's own structure — one
+  jsonb entry per activity in date order, `{p: [encoded…], c, k}` — where `k`
+  is the TYPE_CONFIG group, without which a follower cannot tell a flight
+  (an arc) from anything else. `publicGlyphSvg(row)` renders it.
+- **`story_public.photos` holds storage paths, not URLs**, signed on read by
+  `Social.storyPhotos()`, so nothing long-lived sits in the snapshot. Sharing
+  a relic therefore shares its photos — the share confirm says so.
 - Renders on the profile story card (`is-glyph`; the canvas mini-map stays as
   the fallback for a relic with no GPS) and in the detail panel as a 64px
   thumbnail top-left, with the `sd-map` hero below it placed *relative to the
@@ -243,6 +256,23 @@ copy says Relic. Don't rename the model.
 - `glyphToBlob()` rasterises the *same* inline SVG through an `Image` rather
   than redrawing on canvas, so the shared PNG and the on-screen glyph cannot
   drift apart.
+
+## The feed is relics only (`relic-glyph`, 2026-09-22)
+
+`buildFollowingFeed()` reads `story_public` and nothing else, paginated on
+`date_end`. **A public activity is still public** — it shows on its owner's
+profile and on the friends map layer, and `Social.feed()` / `itemFromPublicRow()`
+still serve those — but it is not a post. The feed is the curated layer.
+
+A feed card leads with the glyph (clickable, opens the relic), then title,
+narrative, stats and photos. The card's own mini-map was removed: the glyph
+replaced it and two maps of the same tracks was one too many.
+
+Any new `Social` method needs its `DemoSocial` twin (`storyPhotos` has one),
+and the `demoStories` fixture has to carry new snapshot fields or `?demo`
+renders a relic card with no glyph and no photos. That fixture is built during
+boot, so it cannot name consts declared further down the file — doing so
+throws on the temporal dead zone and takes the whole demo seed with it.
 
 ## Relic photos (`relic-glyph`, 2026-09-22)
 
