@@ -54,6 +54,9 @@
   table.grid td.name em{display:block;font-style:normal;font-weight:400;font-size:12px;color:var(--ink-3)}
   .tcell{display:flex;gap:10px;align-items:center}
   .box{background:#fff;border-radius:8px;overflow:hidden;flex:none}
+  .auto td.meas{font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .auto td.rec{font-size:12.5px;color:var(--ink-2);max-width:34ch}
+  .auto td.rec b{display:block;color:var(--ink);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
   .note{color:var(--ink-2);font-size:13px;max-width:72ch;margin:10px 0 0}
 </style>
 </head>
@@ -104,6 +107,14 @@
     </figure>
   </div>
   <p class="note" id="legend"></p>
+
+  <h2>Automatic — recipe chosen from the tracks</h2>
+  <p class="note" style="margin:0 0 12px">No knobs. Each relic is measured, a recipe is picked, and the
+  glyph is composed to that recipe. Every relic below is rendered by the same function.</p>
+  <table class="grid auto">
+    <thead><tr><th>Relic</th><th>Glyph</th><th>Measured</th><th>Recipe</th></tr></thead>
+    <tbody id="autoGrid"></tbody>
+  </table>
 
   <h2>Every style, this relic, both anchorings</h2>
   <table class="grid">
@@ -172,17 +183,16 @@ var KIND={
   flight:{label:'Flight',color:'#D9A441',flight:true}
 };
 var PRESETS={
-  'Alpine week'        :[{k:'hike'},{k:'hike'},{k:'ski'},{k:'ski'},{k:'walk'},{k:'hike'}],
-  'Southeast Asia'     :[{k:'flight'},{k:'flight'},{k:'flight'},{k:'walk'},{k:'walk'},{k:'ride'}],
-  'Big ride weekend'   :[{k:'ride',s:'loop'},{k:'ride',s:'outback'},{k:'run',s:'loop'}],
-  'One long run'       :[{k:'run',s:'lollipop'}],
-  'A year of flying'   :[{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'}],
-  'Coast to coast'     :[{k:'ride',s:'p2p'},{k:'ride',s:'p2p'},{k:'ride',s:'p2p'},{k:'ride',s:'p2p'},{k:'ride',s:'p2p'}],
-  'Everything, 2 years':[{k:'run'},{k:'ride'},{k:'hike'},{k:'flight'},{k:'walk'},{k:'ski'},{k:'run'},{k:'flight'},{k:'hike'},{k:'ride'},{k:'walk'},{k:'run'}]
+  'Alpine week'        :{spread:8,   t:[{k:'hike'},{k:'hike'},{k:'ski'},{k:'ski'},{k:'walk'},{k:'hike'}]},
+  'Southeast Asia'     :{spread:2500,t:[{k:'flight'},{k:'flight'},{k:'flight'},{k:'walk'},{k:'walk'},{k:'ride'}]},
+  'Big ride weekend'   :{spread:25,  t:[{k:'ride',s:'loop'},{k:'ride',s:'outback'},{k:'run',s:'loop'}]},
+  'One long run'       :{spread:0,   t:[{k:'run',s:'lollipop'}]},
+  'A year of flying'   :{spread:4000,t:[{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'},{k:'flight'}]},
+  'Coast to coast'     :{spread:1500,t:[{k:'ride',s:'p2p'},{k:'ride',s:'p2p'},{k:'ride',s:'p2p'},{k:'ride',s:'p2p'},{k:'ride',s:'p2p'}]},
+  'Home patch'         :{spread:4,   t:[{k:'run',s:'loop'},{k:'run',s:'outback'},{k:'walk',s:'loop'},{k:'run',s:'lollipop'},{k:'walk',s:'meander'}]},
+  'Everything, 2 years':{spread:400, t:[{k:'run'},{k:'ride'},{k:'hike'},{k:'flight'},{k:'walk'},{k:'ski'},{k:'run'},{k:'flight'},{k:'hike'},{k:'ride'},{k:'walk'},{k:'run'}]}
 };
 
-/* Styles are just presets over the pipeline knobs below, plus cap/join,
-   which is what actually separates "carved" from "drawn". */
 var STYLES={
   trace :{label:'Trace (raw GPS)', ang:0, grid:0,  sm:0, tol:0.006, w:1.4, op:0.55, cap:'round', join:'round', term:false},
   ink   :{label:'Ink',             ang:0, grid:0,  sm:3, tol:0.022, w:2.4, op:0.50, cap:'round', join:'round', term:false},
@@ -197,20 +207,24 @@ function kmToLngLat(p){
   var cl=Math.cos(LAT0*Math.PI/180);
   return p.map(function(q){return [LNG0+q[0]/(111*cl),LAT0+q[1]/111];});
 }
-function buildTracks(preset,seed){
-  var rnd=mulberry32(seed),out=[];
-  preset.forEach(function(spec){
+function buildTracks(name,seed){
+  var P=PRESETS[name],rnd=mulberry32(seed),out=[],sp=P.spread||0;
+  P.t.forEach(function(spec){
     var k=KIND[spec.k];
+    /* Scatter each track inside the relic's geographic spread, so
+       "do these tracks share a place?" becomes a measurable thing. */
+    var ang=rnd()*6.283,rad=Math.sqrt(rnd())*sp,ox=Math.cos(ang)*rad,oy=Math.sin(ang)*rad;
+    var off=function(p){return p.map(function(q){return [q[0]+ox,q[1]+oy];});};
     if(k.flight){
       var brg=rnd()*360,len=600+rnd()*7000,a=(brg-90)*Math.PI/180,km=[];
       for(var i=0;i<=24;i++){var t=i/24*len,j=(rnd()-0.5)*len*0.012;
         km.push([t*Math.cos(a)-j*Math.sin(a),t*Math.sin(a)+j*Math.cos(a)]);}
-      out.push({kind:'flight',color:k.color,flight:true,bearing:brg,coords:kmToLngLat(km)});
+      out.push({kind:'flight',color:k.color,flight:true,bearing:brg,coords:kmToLngLat(off(km))});
       return;
     }
     var shp=spec.s||k.shapes[Math.floor(rnd()*k.shapes.length)];
     var R=k.R[0]+rnd()*(k.R[1]-k.R[0]);
-    out.push({kind:spec.k,color:k.color,flight:false,coords:kmToLngLat(SHAPES[shp](rnd,R))});
+    out.push({kind:spec.k,color:k.color,flight:false,coords:kmToLngLat(off(SHAPES[shp](rnd,R)))});
   });
   return out;
 }
@@ -289,6 +303,65 @@ function chaikin(p,it){
   return p;
 }
 
+/* Simplify to a target number of segments rather than a fixed tolerance.
+   This is what keeps a 12-track relic from becoming a hairball: the glyph
+   gets a fixed ink budget, and a busier relic just spends it thinner. */
+function simplifyToSegments(p,target){
+  if(p.length-1<=target)return p.slice();
+  var b=bbox(p),span=Math.max(b.w,b.h),lo=0,hi=span*0.6,best=null;
+  for(var i=0;i<20;i++){
+    var mid=(lo+hi)/2,r=rdp(p,mid);
+    if(r.length-1>target)lo=mid;else{hi=mid;best=r;}
+  }
+  return best||rdp(p,hi);
+}
+
+/* ── measurement: everything the selector is allowed to know ── */
+function features(tracks){
+  var n=tracks.length;
+  var per=tracks.map(function(t){
+    var p=project(t.coords,true),b=bbox(p),diag=Math.hypot(b.w,b.h),L=pathLen(p);
+    var gap=Math.hypot(p[p.length-1][0]-p[0][0],p[p.length-1][1]-p[0][1]);
+    return {size:diag,closure:gap/(L||1e-9),sinu:L/(diag||1e-9),
+            c:[(b.minX+b.maxX)/2,(b.minY+b.maxY)/2]};
+  });
+  var med=function(a){var x=a.slice().sort(function(u,v){return u-v;});return x[Math.floor(x.length/2)];};
+  var sizes=per.map(function(x){return x.size;}),mSize=med(sizes)||1e-9;
+  var cb=bbox(per.map(function(x){return x.c;}));
+  return {
+    n:n,
+    flightRatio:tracks.filter(function(t){return t.flight;}).length/n,
+    /* closure near 0 = a loop that returns to its start; near 1 = a straight line */
+    loopRatio:per.filter(function(x){return x.closure<0.15;}).length/n,
+    sinuosity:med(per.map(function(x){return x.sinu;})),
+    /* how far apart the tracks sit, measured in track-sizes. Below ~1 they
+       physically overlap, which means the real map already IS a figure. */
+    dispersion:Math.hypot(cb.w,cb.h)/mSize,
+    scaleSpread:Math.log10((Math.max.apply(null,sizes)||1)/(Math.min.apply(null,sizes)||1e-9))
+  };
+}
+
+/* ── selection: a short, readable ladder. Order matters. ── */
+function chooseRecipe(f){
+  if(f.n===1)
+    return {name:'Solo',comp:'solo',ang:8,budget:20,w:2.6,op:0.9,cap:'round',join:'round',term:true,
+      why:'One track is already a figure. Draw it alone and large — stacking has nothing to stack.'};
+  if(f.flightRatio>=0.8)
+    return {name:'Pinwheel',comp:'radial',ang:0,budget:0,w:2.6,op:0.7,cap:'round',join:'round',term:true,
+      why:'Nothing but flights. Arcs are already a vocabulary; quantising them only makes them worse.'};
+  if(f.dispersion<1.2)
+    return {name:'Survey',comp:'map',ang:8,budget:52,w:2.0,op:0.8,cap:'butt',join:'miter',term:true,
+      why:'The tracks overlap in real space, so they already compose one figure. Keep true geography and stylise it.'};
+  if(f.n<=5&&f.loopRatio>=0.5)
+    return {name:'Weave',comp:'intersect',ang:8,budget:40,w:2.4,op:0.75,cap:'round',join:'round',term:false,
+      why:'A few closed loops. Centred on each other they interlock instead of colliding.'};
+  if(f.n>=10)
+    return {name:'Thicket',comp:'radial',ang:6,budget:64,w:2.4,op:0.85,cap:'square',join:'miter',term:false,
+      why:'Too many tracks to intersect legibly. Radiate them and spend the ink budget thinly.'};
+  return {name:'Fan',comp:'radial',ang:8,budget:44,w:2.4,op:0.8,cap:'butt',join:'miter',term:true,
+    why:'A handful of mixed tracks in different places. Radiate from a shared start, eight directions.'};
+}
+
 function fitIntersect(p,size,pad){
   var b=bbox(p),S=size-pad*2,sc=S/Math.max(b.w,b.h);
   var cx=(b.minX+b.maxX)/2,cy=(b.minY+b.maxY)/2;
@@ -318,27 +391,50 @@ function isClosed(p,size){
 }
 
 function glyphSVG(tracks,o){
-  var size=100,pad=size*0.10,parts=[],lens=tracks.map(function(t){return pathLen(t.coords||[]);});
+  var size=100,pad=size*(o.mode==='solo'?0.07:0.10),parts=[];
+  var lens=tracks.map(function(t){return pathLen(t.coords||[]);});
   var lo=Math.min.apply(null,lens),hi=Math.max.apply(null,lens);
-  tracks.forEach(function(t,i){
+
+  /* stage 1 — per-track geometry, still in projected space */
+  var prepped=tracks.map(function(t){
+    if(t.flight&&o.arcs)return {arc:true,t:t};
+    var pj=project(t.coords,o.cos);
+    if(o.budget)pj=simplifyToSegments(pj,Math.max(3,Math.round(o.budget/tracks.length)));
+    else if(o.tol>0){var b=bbox(pj);pj=rdp(pj,Math.max(b.w,b.h)*o.tol);}
+    if(o.ang>=3)pj=quantAngles(pj,o.ang);
+    return {arc:false,pj:pj,t:t};
+  });
+
+  /* stage 2 — one shared transform for Survey, per-track otherwise */
+  var survey=null;
+  if(o.mode==='map'){
+    var all=[];prepped.forEach(function(x){if(!x.arc)all=all.concat(x.pj);});
+    if(all.length){
+      var gb=bbox(all),S=size-pad*2,sc=S/Math.max(gb.w,gb.h);
+      var cx=(gb.minX+gb.maxX)/2,cy=(gb.minY+gb.maxY)/2;
+      survey=function(q){return q.map(function(v){
+        return [size/2+(v[0]-cx)*sc,size/2-(v[1]-cy)*sc];});};
+    }
+  }
+
+  prepped.forEach(function(x,i){
     var pts;
-    if(t.flight&&o.arcs){
-      pts=flightArc(t.bearing,size,pad,o.mode,o.bow);
-      /* Facet the arc with the same vocabulary, or it sits alien among
-         angular strokes. Enough segments that it still reads as a bow. */
+    if(x.arc){
+      /* Survey never fires on a relic with flights (they're far too big to
+         overlap), so an arc there falls back to centred placement. */
+      pts=flightArc(x.t.bearing,size,pad,o.mode==='radial'?'origin':'intersect',o.bow);
       if(o.ang>=3)pts=quantAngles(resample(pts,o.ang>=10?9:6),o.ang);
+    }else if(survey){
+      pts=survey(x.pj);
     }else{
-      var pj=project(t.coords,o.cos);
-      if(o.tol>0){var b=bbox(pj);pj=rdp(pj,Math.max(b.w,b.h)*o.tol);}
-      if(o.ang>=3)pj=quantAngles(pj,o.ang);
-      pts=o.mode==='origin'?fitOrigin(pj,size,pad):fitIntersect(pj,size,pad);
+      pts=o.mode==='radial'?fitOrigin(x.pj,size,pad):fitIntersect(x.pj,size,pad);
     }
     if(o.grid)pts=gridSnap(pts,size,o.grid);
     if(o.sm)pts=chaikin(pts,o.sm);
     if(pts.length<2)return;
 
     var op=o.fade?o.op*(0.28+0.72*(i+1)/tracks.length):o.op;
-    var col=o.mono?'#2A3324':t.color;
+    var col=o.mono?'#2A3324':x.t.color;
     var w=o.w;
     if(o.wbyd&&hi>lo)w=o.w*(0.6+1.0*(lens[i]-lo)/(hi-lo));
     parts.push('<path d="'+pathD(pts)+'" fill="none" stroke="'+col+'" stroke-width="'+w.toFixed(2)+
@@ -352,6 +448,15 @@ function glyphSVG(tracks,o){
   });
   return '<svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">'+
          parts.join('')+'</svg>';
+}
+
+/* The whole feature in one call: measure, choose, compose. */
+function autoGlyph(tracks){
+  var f=features(tracks),r=chooseRecipe(f);
+  var svg=glyphSVG(tracks,{mode:r.comp==='solo'?'solo':r.comp,ang:r.ang,budget:r.budget,tol:0,
+    grid:0,sm:0,w:r.w,op:r.op,cap:r.cap,join:r.join,term:r.term,
+    bow:0.26,mono:true,arcs:true,cos:true,fade:false,wbyd:false});
+  return {svg:svg,f:f,r:r};
 }
 
 /* ── wiring ── */
@@ -398,7 +503,7 @@ function render(){
   el('tolv').textContent=(+el('tol').value)===0?'off':(+el('tol').value).toFixed(3);
   el('bowv').textContent=(+el('bow').value).toFixed(2);
 
-  var tracks=buildTracks(PRESETS[sel.value],seed);
+  var tracks=buildTracks(sel.value,seed);
   el('big-a').innerHTML=glyphSVG(tracks,opts('intersect'));
   el('big-b').innerHTML=glyphSVG(tracks,opts('origin'));
   el('sizes-a').innerHTML=[128,64,40,24].map(function(px){
@@ -415,8 +520,18 @@ function render(){
       '<td><div class="tcell">'+boxes(tracks,'intersect',[96,52,30],k)+'</div></td>'+
       '<td><div class="tcell">'+boxes(tracks,'origin',[96,52,30],k)+'</div></td></tr>';}).join('');
 
+  el('autoGrid').innerHTML=Object.keys(PRESETS).map(function(name){
+    var g=autoGlyph(buildTracks(name,seed)),f=g.f,r=g.r;
+    var pct=function(x){return Math.round(x*100)+'%';};
+    return '<tr><td class="name">'+name+'<em>'+PRESETS[name].t.length+' tracks</em></td>'+
+      '<td><div class="tcell">'+[96,44,28].map(function(px){
+        return '<div class="box" style="width:'+px+'px;height:'+px+'px">'+g.svg+'</div>';}).join('')+'</div></td>'+
+      '<td class="meas">'+f.n+' tracks<br>'+pct(f.flightRatio)+' flights<br>'+pct(f.loopRatio)+' loops<br>'+
+        'dispersion '+f.dispersion.toFixed(2)+'<br>sinuosity '+f.sinuosity.toFixed(1)+'</td>'+
+      '<td class="rec"><b>'+r.name+'</b>'+r.why+'</td></tr>';}).join('');
+
   el('grid').innerHTML=Object.keys(PRESETS).map(function(name){
-    var tr=buildTracks(PRESETS[name],seed);
+    var tr=buildTracks(name,seed);
     return '<tr><td class="name">'+name+'<em>'+tr.length+' tracks</em></td>'+
       '<td><div class="tcell">'+boxes(tr,'intersect',[72,44,28])+'</div></td>'+
       '<td><div class="tcell">'+boxes(tr,'origin',[72,44,28])+'</div></td></tr>';}).join('');
