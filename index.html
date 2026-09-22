@@ -1178,6 +1178,15 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card-map canvas { width: 100%; height: 100%; }
 .story-card-map.is-glyph { display: flex; align-items: center; justify-content: center; background: var(--surface); }
 .story-card-map.is-glyph svg { width: 100%; height: 100%; padding: 10px; }
+.sm-glyph-row { display: flex; gap: 12px; align-items: flex-start; }
+.glyph-name { font: 600 15px var(--font-ui); color: var(--ink); }
+.glyph-sub { font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
+.rs-preview { display: flex; align-items: center; justify-content: center; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r-md, 12px); aspect-ratio: 1;
+  max-width: 230px; margin: 4px auto 14px; }
+.rs-preview svg { width: 100%; height: 100%; padding: 14px; }
+.rs-targets { display: flex; flex-direction: column; gap: 8px; }
+.rs-targets .btn-ghost { justify-content: flex-start; width: 100%; }
 .sd-glyph { display: flex; gap: 12px; align-items: flex-start; padding: 14px 18px 2px; }
 .glyph-thumb { width: 64px; height: 64px; flex: none; display: flex; align-items: center; justify-content: center;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md, 12px); overflow: hidden; }
@@ -2417,6 +2426,23 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 </div>
 
 <!-- STORY MODAL -->
+<div class="modal-overlay" id="relic-share-modal" onclick="if(event.target===this)closeRelicShare()">
+  <div class="modal">
+    <div class="modal-title">Share relic</div>
+    <div class="modal-sub" id="rs-sub"></div>
+    <div class="rs-preview" id="rs-preview"></div>
+    <div class="sm-label">How it looks</div>
+    <div id="rs-controls"></div>
+    <div class="sm-label" style="margin-top:14px">How to share</div>
+    <div class="rs-targets">
+      <button class="btn-ghost" onclick="rsSaveGlyph()"><svg class="ic"><use href="#i-image"/></svg>Save glyph as image</button>
+      <button class="btn-ghost" onclick="rsShareCard()"><svg class="ic"><use href="#i-image"/></svg>Share as card</button>
+      <button class="btn-ghost" onclick="rsShareLink()"><svg class="ic"><use href="#i-share"/></svg>Share a link</button>
+    </div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeRelicShare()">Cancel</button></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="story-modal">
   <div class="modal story-modal">
     <div class="story-modal-header">
@@ -2453,6 +2479,13 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           <div>
             <div class="sm-label">Mood</div>
             <div class="mood-row" id="sm-mood-row"></div>
+          </div>
+          <div>
+            <div class="sm-label">Glyph</div>
+            <div class="sm-glyph-row">
+              <div class="glyph-thumb" id="sm-glyph-art"></div>
+              <div class="glyph-ctl" id="sm-glyph-controls"></div>
+            </div>
           </div>
           <div>
             <div class="sm-label">Selected Moments</div>
@@ -4229,9 +4262,13 @@ function showStoryDetail(storyId) {
   if (glyphSvg) {
     var glyphDiv = document.createElement('div');
     glyphDiv.className = 'sd-glyph';
+    // Thumbnail only — style and colour live behind Edit, the way a Strava
+    // activity keeps its settings out of the view.
     glyphDiv.innerHTML =
       '<div class="glyph-thumb" id="sd-glyph-art">' + glyphSvg + '</div>' +
-      '<div class="glyph-ctl" id="sd-glyph-controls">' + glyphControlsHtml(story.id) + '</div>';
+      '<div class="glyph-ctl"><div class="glyph-name">' + escapeHtml(story.title || 'Untitled') + '</div>' +
+      '<div class="glyph-sub">' + (story._momentCount || 0) + ' moments · ' +
+      escapeHtml(GLYPH_STYLES[glyphPrefFor(story.id).style].label) + ' glyph</div></div>';
     document.getElementById('d-stats').insertAdjacentElement('beforebegin', glyphDiv);
   }
 
@@ -4276,8 +4313,8 @@ function showStoryDetail(storyId) {
   var actionsDiv = document.createElement('div');
   actionsDiv.className = 'sd-actions';
   actionsDiv.innerHTML =
-    '<button class="btn-ghost btn-sm" onclick="openStoryModal(\'' + storyId + '\')"><svg class="ic"><use href="#i-pen"/></svg>Edit moments</button>' +
-    '<button class="btn-ghost btn-sm" onclick="shareStoryImage(\'' + storyId + '\')"><svg class="ic"><use href="#i-image"/></svg>Share as image</button>' +
+    '<button class="btn-ghost btn-sm" onclick="openStoryModal(\'' + storyId + '\')"><svg class="ic"><use href="#i-pen"/></svg>Edit</button>' +
+    '<button class="btn-ghost btn-sm" onclick="openRelicShare(\'' + storyId + '\')"><svg class="ic"><use href="#i-share"/></svg>Share</button>' +
     '<button class="btn-ghost danger" style="border-color:#c0392b;color:#c0392b" onclick="deleteStory(\'' + storyId + '\');closeDetail()">Delete Relic</button>';
   body.insertBefore(actionsDiv, document.getElementById('d-rows'));
   var shareDiv = document.createElement('div');
@@ -6742,14 +6779,88 @@ function glyphControlsHtml(storyId) {
   }
   return html;
 }
+// A relic being built has no id yet, so its glyph choices are staged under
+// this key and committed in saveStory() once the real id exists.
+const GLYPH_NEW = '__new';
+function glyphStoryById(id) {
+  if (db[id] && isStory(db[id])) return db[id];
+  if (id === GLYPH_NEW) return { id: GLYPH_NEW, momentIds: [...storySelectedIds] };
+  return null;
+}
+// [artElementId, controlsElementId] for every place the glyph is shown.
+const GLYPH_MOUNTS = [['sd-glyph-art', null], ['sm-glyph-art', 'sm-glyph-controls'], ['rs-preview', 'rs-controls']];
 function glyphRefresh(storyId) {
-  const art = document.getElementById('sd-glyph-art');
-  if (art && db[storyId]) art.innerHTML = storyGlyphSvg(db[storyId]) || '<div class="glyph-empty">No GPS tracks in this relic yet.</div>';
-  const ctl = document.getElementById('sd-glyph-controls');
-  if (ctl) ctl.innerHTML = glyphControlsHtml(storyId);
+  const story = glyphStoryById(storyId);
+  GLYPH_MOUNTS.forEach(function(m) {
+    const art = document.getElementById(m[0]);
+    if (art && story) art.innerHTML = storyGlyphSvg(story) || '<div class="glyph-empty">No GPS tracks yet.</div>';
+    const ctl = m[1] && document.getElementById(m[1]);
+    if (ctl) ctl.innerHTML = glyphControlsHtml(storyId);
+  });
   if (document.getElementById('profile-stories-grid')) renderProfileStories();
 }
 function setStoryGlyphStyle(storyId, style) { setGlyphPref(storyId, { style: style }); glyphRefresh(storyId); }
+let _rsStoryId = null;
+function openRelicShare(storyId) {
+  const story = db[storyId];
+  if (!story || !isStory(story)) return;
+  _rsStoryId = storyId;
+  computeStoryStats(story);
+  document.getElementById('rs-sub').textContent =
+    (story.title || 'Untitled') + ' · ' + (story._momentCount || 0) + ' moments';
+  glyphRefresh(storyId);
+  document.getElementById('relic-share-modal').classList.add('open');
+}
+function closeRelicShare() {
+  document.getElementById('relic-share-modal').classList.remove('open');
+  _rsStoryId = null;
+}
+// The glyph is inline SVG, so rasterise it through an image rather than
+// redrawing it on a canvas — one source of truth for the artwork.
+async function glyphToBlob(svg, size) {
+  const px = size || 1024;
+  const url = URL.createObjectURL(new Blob(
+    ['<svg xmlns="http://www.w3.org/2000/svg" width="' + px + '" height="' + px + '" viewBox="0 0 100 100">' +
+     svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '') + '</svg>'], { type: 'image/svg+xml' }));
+  try {
+    const img = await _loadImg(url);
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = px;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#FBF9F5'; ctx.fillRect(0, 0, px, px);
+    ctx.drawImage(img, 0, 0, px, px);
+    return await new Promise(res => cv.toBlob(res, 'image/png'));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function rsSaveGlyph() {
+  const story = db[_rsStoryId];
+  if (!story) return;
+  const svg = storyGlyphSvg(story);
+  if (!svg) { toast('This relic has no GPS tracks to draw', { error: true }); return; }
+  const dismiss = toast('Making your image…', { duration: 20000 });
+  let blob;
+  try { blob = await glyphToBlob(svg, 1024); } catch (e) { console.error(e); }
+  dismiss();
+  if (!blob) { toast('Couldn\'t create the image', { error: true }); return; }
+  const name = (story.title || 'relic').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 40) + '-glyph.png';
+  const file = new File([blob], name, { type: 'image/png' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ files: [file], title: story.title }); return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast('Glyph saved', { icon: 'check' });
+}
+function rsShareCard() { const id = _rsStoryId; closeRelicShare(); shareStoryImage(id); }
+function rsShareLink() {
+  const story = db[_rsStoryId];
+  if (!story) return;
+  if (!story.isPublic) toast('This relic is private — only you can open that link', { icon: 'lock' });
+  shareStory(currentUser.id, story.id, story.title);
+}
 function setStoryGlyphColour(storyId, mode) { setGlyphPref(storyId, { colour: mode }); glyphRefresh(storyId); }
 function setStoryGlyphInk(storyId, ink) { setGlyphPref(storyId, { ink: ink }); glyphRefresh(storyId); }
 
@@ -8620,6 +8731,7 @@ function removeStoryMoment(id) {
 }
 
 function updateStoryPreview() {
+  glyphRefresh(editingStoryId || GLYPH_NEW);
   // Selected chips
   const chipList = document.getElementById('sm-selected-list');
   chipList.innerHTML = '';
@@ -8657,6 +8769,13 @@ async function saveStory() {
 
   const id = editingStoryId || stableStoryId(title);
   const now = new Date().toISOString();
+  // A new relic's glyph choices were staged under GLYPH_NEW; move them across
+  // now that it has an id, and clear the staging slot for the next one.
+  if (!editingStoryId && glyphPrefs()[GLYPH_NEW]) {
+    setGlyphPref(id, glyphPrefs()[GLYPH_NEW]);
+    delete glyphPrefs()[GLYPH_NEW];
+    try { localStorage.setItem(GLYPH_KEY, JSON.stringify(glyphPrefs())); } catch (e) {}
+  }
 
   const story = {
     id: id,
@@ -9168,7 +9287,7 @@ _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
 _r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
 _r('computeStoryStats',computeStoryStats);_r('stableStoryId',stableStoryId);
 _r('openStoryModal',openStoryModal);_r('closeStoryModal',closeStoryModal);
-_r('setStoryGlyphStyle',setStoryGlyphStyle);_r('setStoryGlyphColour',setStoryGlyphColour);_r('setStoryGlyphInk',setStoryGlyphInk);
+_r('setStoryGlyphStyle',setStoryGlyphStyle);_r('setStoryGlyphColour',setStoryGlyphColour);_r('openRelicShare',openRelicShare);_r('closeRelicShare',closeRelicShare);_r('rsSaveGlyph',rsSaveGlyph);_r('rsShareCard',rsShareCard);_r('rsShareLink',rsShareLink);_r('setStoryGlyphInk',setStoryGlyphInk);
 _r('renderStoryMomentList',renderStoryMomentList);_r('toggleStoryMoment',toggleStoryMoment);
 _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeStoryMoment);
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);

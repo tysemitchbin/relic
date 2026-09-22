@@ -219,6 +219,20 @@ copy says Relic. Don't rename the model.
   thumbnail top-left, with the `sd-map` hero below it placed *relative to the
   glyph at insert time* — it is built later in `showStoryDetail` than it is
   displayed.
+- **The detail panel shows the glyph, it does not configure it.** Style and
+  colour live behind **Edit** (the glyph block in `#story-modal`) and in the
+  **Share** popup (`#relic-share-modal`), the way a Strava activity keeps its
+  settings out of the view. `glyphControlsHtml()` is rendered into whichever
+  of the mounts in `GLYPH_MOUNTS` exist, and `glyphRefresh()` updates them
+  all — add a new mount there rather than wiring a fourth refresh path.
+- A relic being built has no id, so its glyph choices are staged under
+  `GLYPH_NEW` and moved onto the real id in `saveStory()`.
+  `glyphStoryById()` returns the staged stand-in built from
+  `storySelectedIds`, which is what lets the edit modal preview a relic that
+  does not exist yet.
+- `glyphToBlob()` rasterises the *same* inline SVG through an `Image` rather
+  than redrawing on canvas, so the shared PNG and the on-screen glyph cannot
+  drift apart.
 
 ## Filters + Activities view (merged from `map-filters`, 2026-09-04)
 
