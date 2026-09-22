@@ -89,10 +89,11 @@
       <div class="ctl"><label for="sm">Smoothing <span class="val" id="smv"></span></label><input type="range" id="sm" min="0" max="4" step="1" value="0"></div>
       <div class="ctl"><label for="tol">Simplify <span class="val" id="tolv"></span></label><input type="range" id="tol" min="0" max="0.12" step="0.002" value="0.006"></div>
       <div class="ctl"><label for="bow">Flight bow <span class="val" id="bowv"></span></label><input type="range" id="bow" min="0" max="0.45" step="0.01" value="0.26"></div>
+      <div class="ctl"><label for="blend">Blend</label><select id="blend"><option value="multiply">multiply</option><option value="normal">normal</option></select></div>
       <div class="ctl"><label>&nbsp;</label><button id="shuffle">Reshuffle tracks</button></div>
     </div>
     <div class="row"><div class="checks" style="grid-column:1/-1">
-      <label><input type="checkbox" id="mono" checked> Monochrome</label>
+      <label><input type="checkbox" id="mono"> Monochrome</label>
       <label><input type="checkbox" id="arcs" checked> Flights as arcs</label>
       <label><input type="checkbox" id="term"> Terminals</label>
       <label><input type="checkbox" id="wbyd"> Weight by distance</label>
@@ -121,6 +122,16 @@
   <table class="grid auto">
     <thead><tr><th>Relic</th><th>Glyph</th><th>Measured</th><th>Recipe</th></tr></thead>
     <tbody id="autoGrid"></tbody>
+  </table>
+
+  <h2>Colour — matched to the user's map palette</h2>
+  <p class="note" style="margin:0 0 12px">Each stroke takes its track's colour, resolved exactly as the
+  map does: <code>m.customColor || getColor(m.type)</code>, after <code>loadColors()</code> has applied
+  the user's own overrides. Multiply darkens where strokes cross, which reads as depth in one hue and
+  can go muddy across several.</p>
+  <table class="grid">
+    <thead><tr><th>Relic</th><th>Track colours · multiply</th><th>Track colours · normal</th><th>Monochrome</th></tr></thead>
+    <tbody id="colourGrid"></tbody>
   </table>
 
   <h2>Print check — flat colour, no overlap shading</h2>
@@ -199,14 +210,20 @@ function shapeMeander(rnd,R){
 }
 var SHAPES={loop:shapeLoop,outback:shapeOutBack,p2p:shapeP2P,lollipop:shapeLollipop,meander:shapeMeander};
 
+/* Colours are the real TYPE_CONFIG values from activity-types.js. In the app
+   loadColors() has already folded the user's relic_colors_v1 overrides into
+   TYPE_CONFIG, so getColor() returns their chosen colour, and a track resolves
+   as `m.customColor || getColor(m.type)`. Followers read the owner's colours
+   out of story_public.colors, which buildStorySnapshotRow already writes. */
 var KIND={
-  run   :{label:'Run',   color:'#E0533C',shapes:['loop','outback','lollipop'],R:[2,7]},
-  ride  :{label:'Ride',  color:'#2F7FD1',shapes:['loop','p2p','outback'],    R:[14,55]},
-  hike  :{label:'Hike',  color:'#4E8C4A',shapes:['outback','lollipop','meander'],R:[4,15]},
-  ski   :{label:'Ski',   color:'#37B3C9',shapes:['p2p','meander'],           R:[3,11]},
-  walk  :{label:'Walk',  color:'#9B6BC4',shapes:['meander','loop','p2p'],    R:[1,4]},
-  flight:{label:'Flight',color:'#D9A441',flight:true}
+  run   :{label:'Run',       color:'#FF3D3D',shapes:['loop','outback','lollipop'],R:[2,7]},
+  ride  :{label:'Road Bike', color:'#2196F3',shapes:['loop','p2p','outback'],    R:[14,55]},
+  hike  :{label:'Hike',      color:'#1B8A3F',shapes:['outback','lollipop','meander'],R:[4,15]},
+  ski   :{label:'Alpine Ski',color:'#FF2D87',shapes:['p2p','meander'],           R:[3,11]},
+  walk  :{label:'Walk',      color:'#AA47BC',shapes:['meander','loop','p2p'],    R:[1,4]},
+  flight:{label:'Flight',    color:'#FF9100',flight:true}
 };
+
 var PRESETS={
   'Alpine week'        :{spread:8,   t:[{k:'hike'},{k:'hike'},{k:'ski'},{k:'ski'},{k:'walk'},{k:'hike'}]},
   'Southeast Asia'     :{spread:2500,t:[{k:'flight'},{k:'flight'},{k:'flight'},{k:'walk'},{k:'walk'},{k:'ride'}]},
@@ -464,11 +481,11 @@ function glyphSVG(tracks,o){
     if(o.wbyd&&hi>lo)w=o.w*(0.6+1.0*(lens[i]-lo)/(hi-lo));
     parts.push('<path d="'+pathD(pts)+'" fill="none" stroke="'+col+'" stroke-width="'+w.toFixed(2)+
       '" stroke-opacity="'+op.toFixed(3)+'" stroke-linecap="'+o.cap+'" stroke-linejoin="'+o.join+
-      '" style="mix-blend-mode:multiply"/>');
+      '" style="mix-blend-mode:'+o.blend+'"/>');
     if(o.term&&!isClosed(pts,size)){
       [pts[0],pts[pts.length-1]].forEach(function(q){
         parts.push('<circle cx="'+q[0].toFixed(2)+'" cy="'+q[1].toFixed(2)+'" r="'+(w*0.95).toFixed(2)+
-          '" fill="'+col+'" fill-opacity="'+op.toFixed(3)+'" style="mix-blend-mode:multiply"/>');});
+          '" fill="'+col+'" fill-opacity="'+op.toFixed(3)+'" style="mix-blend-mode:'+o.blend+'"/>');});
     }
   });
   return '<svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">'+
@@ -480,7 +497,7 @@ function autoGlyph(tracks){
   var f=features(tracks),r=chooseRecipe(f);
   var svg=glyphSVG(tracks,{mode:r.comp==='solo'?'solo':r.comp,ang:r.ang,budget:r.budget,tol:0,
     grid:0,sm:0,w:r.w,op:r.op,cap:r.cap,join:r.join,term:r.term,
-    bow:0.26,mono:true,arcs:true,cos:true,fade:false,wbyd:false});
+    blend:el('blend').value,bow:0.26,mono:el('mono').checked,arcs:true,cos:true,fade:false,wbyd:false});
   return {svg:svg,f:f,r:r};
 }
 
@@ -505,7 +522,7 @@ function opts(mode,styleKey){
     tol: live?+el('tol').value :s.tol,
     cap:s.cap,join:s.join,
     term:live?el('term').checked:s.term,
-    bow:+el('bow').value,mono:el('mono').checked,arcs:el('arcs').checked,
+    blend:el('blend').value,bow:+el('bow').value,mono:el('mono').checked,arcs:el('arcs').checked,
     cos:el('cos').checked,fade:el('fade').checked,wbyd:el('wbyd').checked};
 }
 function applyStyle(){
@@ -555,11 +572,23 @@ function render(){
         'dispersion '+f.dispersion.toFixed(2)+'<br>sinuosity '+f.sinuosity.toFixed(1)+'</td>'+
       '<td class="rec"><b>'+r.name+'</b>'+r.why+'</td></tr>';}).join('');
 
+  el('colourGrid').innerHTML=Object.keys(PRESETS).map(function(name){
+    var tracks=buildTracks(name,seed),r=chooseRecipe(features(tracks));
+    var mk=function(mono,blend){return glyphSVG(tracks,{mode:r.comp==='solo'?'solo':r.comp,ang:r.ang,
+      budget:r.budget,tol:0,grid:0,sm:0,w:r.w,op:r.op,cap:r.cap,join:r.join,term:r.term,
+      blend:blend,bow:0.26,mono:mono,arcs:true,cos:true,fade:false,wbyd:false});};
+    var cell=function(mono,blend){return '<td><div class="tcell">'+[96,40,28].map(function(px){
+      return '<div class="box" style="width:'+px+'px;height:'+px+'px">'+mk(mono,blend)+'</div>';
+      }).join('')+'</div></td>';};
+    return '<tr><td class="name">'+name+'<em>'+r.name+'</em></td>'+
+      cell(false,'multiply')+cell(false,'normal')+cell(true,'multiply')+'</tr>';
+  }).join('');
+
   el('printGrid').innerHTML=Object.keys(PRESETS).map(function(name){
     var tracks=buildTracks(name,seed),r=chooseRecipe(features(tracks));
     var mk=function(flat){return glyphSVG(tracks,{mode:r.comp==='solo'?'solo':r.comp,ang:r.ang,
       budget:r.budget,tol:0,grid:0,sm:0,w:r.w,op:flat?1:r.op,cap:r.cap,join:r.join,term:r.term,
-      bow:0.26,mono:true,arcs:true,cos:true,fade:false,wbyd:false});};
+      blend:el('blend').value,bow:0.26,mono:el('mono').checked,arcs:true,cos:true,fade:false,wbyd:false});};
     var cell=function(flat){return '<td><div class="tcell">'+[96,40].map(function(px){
       return '<div class="box" style="width:'+px+'px;height:'+px+'px">'+mk(flat)+'</div>';
       }).join('')+'</div></td>';};
@@ -585,7 +614,7 @@ function render(){
       '<td><div class="tcell">'+boxes(tr,'intersect',[72,44,28])+'</div></td>'+
       '<td><div class="tcell">'+boxes(tr,'origin',[72,44,28])+'</div></td></tr>';}).join('');
 }
-['preset','w','op','ang','grid','sm','tol','bow','mono','arcs','term','wbyd','cos','fade']
+['preset','w','op','ang','grid','sm','tol','bow','blend','mono','arcs','term','wbyd','cos','fade']
   .forEach(function(id){el(id).addEventListener('input',render);});
 stySel.addEventListener('change',function(){applyStyle();render();});
 el('shuffle').addEventListener('click',function(){seed=(seed*1103515245+12345)>>>8;render();});
