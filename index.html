@@ -1176,6 +1176,19 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card:hover { box-shadow: var(--sh-2); transform: translateY(-2px); }
 .story-card-map { width: 100%; height: 140px; background: var(--paper3); position: relative; overflow: hidden; }
 .story-card-map canvas { width: 100%; height: 100%; }
+.story-card-map.is-glyph { display: flex; align-items: center; justify-content: center; background: var(--surface); }
+.story-card-map.is-glyph svg { width: 100%; height: 100%; padding: 10px; }
+.glyph-art { display: flex; align-items: center; justify-content: center; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--r-md, 12px); aspect-ratio: 1; max-width: 220px; margin: 0 auto 12px; }
+.glyph-art svg { width: 100%; height: 100%; padding: 12px; }
+.glyph-empty { font-size: 13px; color: var(--text-3); text-align: center; padding: 24px 12px; }
+.glyph-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.glyph-row .chip { cursor: pointer; border: 1px solid transparent; font-size: 12px; padding: 4px 10px; }
+.glyph-row .chip.on { background: var(--accent-soft); color: var(--accent-strong); border-color: var(--accent); }
+.glyph-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.glyph-sw { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; padding: 0; }
+.glyph-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--surface) inset; }
+.glyph-sw-custom { width: 26px; height: 26px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: none; cursor: pointer; }
 .story-card-body { padding: 14px 16px 16px; }
 .story-card-title { font: 600 18px/1.25 var(--font-display); color: var(--ink); margin-bottom: 4px; }
 .story-card-meta { font-size: 13px; color: var(--text-3); margin-bottom: 10px; }
@@ -4103,7 +4116,7 @@ function showDetail(memId) {
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
   // Restore detail body to moment layout (in case it was showing a story)
-  document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(el => el.remove());
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(el => el.remove());
   document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
   document.getElementById('d-rows').style.display='';
   document.getElementById('d-strava-link').style.display='';
@@ -4206,6 +4219,19 @@ function showStoryDetail(storyId) {
   document.querySelectorAll('#detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
 
   const body = document.getElementById('detail-body');
+
+  // Glyph — the story's tracks as one mark. Style and colour are the user's.
+  var glyphDiv = document.createElement('div');
+  glyphDiv.className = 'sd-glyph';
+  glyphDiv.innerHTML =
+    '<div class="detail-section-title">Glyph</div>' +
+    '<div class="glyph-art" id="sd-glyph-art">' +
+      (storyGlyphSvg(story) || '<div class="glyph-empty">No GPS tracks in this story yet.</div>') +
+    '</div>' +
+    '<div id="sd-glyph-controls">' + glyphControlsHtml(story.id) + '</div>';
+  // Straight under the stats — it's the story's mark, not an afterthought.
+  // appendChild would drop it below the hidden moment-detail sections.
+  document.getElementById('d-stats').insertAdjacentElement('afterend', glyphDiv);
 
   // Narrative section
   var narrativeDiv = document.createElement('div');
@@ -6311,6 +6337,308 @@ function _wrapText(ctx, text, maxW, maxLines) {
   if (lines.length === maxLines && words.join(' ') !== lines.join(' ')) lines[maxLines - 1] = lines[maxLines - 1].replace(/\s*\S*$/, '') + '…';
   return lines;
 }
+
+// ════════════════════════════════════════
+// RELIC GLYPH — a story's tracks as one line drawing
+// ════════════════════════════════════════
+// Each track is scaled on its own to a common size and stacked on a shared
+// anchor, so the result is a mark rather than a map. Tracks are NEVER rotated:
+// north stays up, so the glyph still carries true cardinal direction, and a
+// straight track stays straight at its real bearing.
+//
+// Flights are the one exception to drawing real geometry. Most flight data has
+// no usable trace — Strava/GPX imports never populate endLat/endPlace and
+// manual entry draws a straight two-point line — so a flight is redrawn as a
+// fixed-size, fixed-bow arc turned to its real bearing. Every flight is then
+// the same mark differing only in heading, which is what makes a curve read as
+// "flight" at thumbnail size.
+//
+// Style + colour are the user's choice and are stored per story in
+// localStorage (see GLYPH_KEY). Promoting them to columns on `stories` and
+// into the story_public snapshot — so followers see the owner's chosen glyph
+// rather than the default — is the follow-up; nothing here needs a migration.
+const GLYPH_KEY = 'relic_glyph_v1';
+const GLYPH_DEFAULT_INK = '#2A3324';
+// comp: how tracks are stacked. ang: size of the angle vocabulary each segment
+// heading snaps to (0 = free). This is what separates a glyph from a scribble.
+const GLYPH_STYLES = {
+  compass: { label: 'Compass', comp: 'radial',    ang: 8, w: 2.4, op: 0.80, cap: 'butt',   join: 'miter', term: true  },
+  rune:    { label: 'Rune',    comp: 'radial',    ang: 6, w: 2.9, op: 0.90, cap: 'square', join: 'miter', term: false },
+  survey:  { label: 'Survey',  comp: 'map',       ang: 8, w: 2.0, op: 0.80, cap: 'round',  join: 'round', term: true  },
+  weave:   { label: 'Weave',   comp: 'intersect', ang: 8, w: 2.4, op: 0.75, cap: 'round',  join: 'round', term: false },
+  trace:   { label: 'Trace',   comp: 'radial',    ang: 0, w: 1.6, op: 0.60, cap: 'round',  join: 'round', term: false },
+};
+const GLYPH_DEFAULT_STYLE = 'compass';
+const GLYPH_INKS = ['#2A3324', '#C1502E', '#1B8A3F', '#2196F3', '#AA47BC', '#FF9100'];
+
+let _glyphPrefs = null;
+function glyphPrefs() {
+  if (_glyphPrefs) return _glyphPrefs;
+  try { _glyphPrefs = JSON.parse(localStorage.getItem(GLYPH_KEY) || '{}'); } catch (e) { _glyphPrefs = {}; }
+  return _glyphPrefs;
+}
+function glyphPrefFor(storyId) {
+  const p = glyphPrefs()[storyId] || {};
+  return {
+    style: GLYPH_STYLES[p.style] ? p.style : GLYPH_DEFAULT_STYLE,
+    mono: !!p.mono,
+    ink: /^#[0-9a-f]{6}$/i.test(p.ink || '') ? p.ink : GLYPH_DEFAULT_INK,
+  };
+}
+function setGlyphPref(storyId, patch) {
+  const p = glyphPrefs();
+  p[storyId] = Object.assign({}, p[storyId], patch);
+  try { localStorage.setItem(GLYPH_KEY, JSON.stringify(p)); } catch (e) {}
+}
+
+// ── geometry (all prefixed gly* — this file is one big global scope) ──
+function glyBbox(p) {
+  let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity;
+  p.forEach(q => { a = Math.min(a, q[0]); b = Math.max(b, q[0]); c = Math.min(c, q[1]); d = Math.max(d, q[1]); });
+  return { minX: a, maxX: b, minY: c, maxY: d, w: (b - a) || 1e-9, h: (d - c) || 1e-9 };
+}
+// Raw lat/lng stretches horizontally away from the equator, so a round loop in
+// Oslo would come out an ellipse. Scale longitude by cos(latitude) first.
+function glyProject(coords) {
+  let m = 0; coords.forEach(c => { m += c[1]; }); m /= coords.length;
+  const f = Math.cos(m * Math.PI / 180);
+  return coords.map(c => [c[0] * f, c[1]]);
+}
+function glyPerp(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+  if (!L) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  return Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / L;
+}
+function glyRdp(p, eps) {
+  if (p.length < 3) return p.slice();
+  let dm = 0, idx = 0; const a = p[0], b = p[p.length - 1];
+  for (let i = 1; i < p.length - 1; i++) { const d = glyPerp(p[i], a, b); if (d > dm) { dm = d; idx = i; } }
+  if (dm > eps) return glyRdp(p.slice(0, idx + 1), eps).slice(0, -1).concat(glyRdp(p.slice(idx), eps));
+  return [a, b];
+}
+// Simplify to a target number of segments rather than a fixed tolerance: the
+// glyph gets a fixed ink budget, so a busier story spends it thinner instead
+// of collapsing into a hairball.
+function glySimplifyTo(p, target) {
+  if (p.length - 1 <= target) return p.slice();
+  const b = glyBbox(p), span = Math.max(b.w, b.h);
+  let lo = 0, hi = span * 0.6, best = null;
+  for (let i = 0; i < 20; i++) {
+    const mid = (lo + hi) / 2, r = glyRdp(p, mid);
+    if (r.length - 1 > target) lo = mid; else { hi = mid; best = r; }
+  }
+  return best || glyRdp(p, hi);
+}
+function glyResample(p, n) {
+  const d = [0]; let t = 0;
+  for (let i = 1; i < p.length; i++) { t += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); d.push(t); }
+  if (!t) return p.slice();
+  const out = []; let j = 0;
+  for (let k = 0; k <= n; k++) {
+    const s = k / n * t;
+    while (j < d.length - 2 && d[j + 1] < s) j++;
+    const f = (s - d[j]) / ((d[j + 1] - d[j]) || 1);
+    out.push([p[j][0] + (p[j + 1][0] - p[j][0]) * f, p[j][1] + (p[j + 1][1] - p[j][1]) * f]);
+  }
+  return out;
+}
+// Keep each segment's length, snap its heading to one of n directions. This is
+// the step that turns a GPS wiggle into a few deliberate strokes.
+function glyQuantAngles(p, n) {
+  if (n < 3 || p.length < 2) return p.slice();
+  const step = 2 * Math.PI / n, out = [p[0].slice()];
+  for (let i = 1; i < p.length; i++) {
+    const dx = p[i][0] - p[i - 1][0], dy = p[i][1] - p[i - 1][1];
+    const L = Math.hypot(dx, dy), a = Math.round(Math.atan2(dy, dx) / step) * step;
+    const q = out[out.length - 1];
+    out.push([q[0] + Math.cos(a) * L, q[1] + Math.sin(a) * L]);
+  }
+  // Snapping every heading drifts the endpoint, which leaves loops visibly
+  // unclosed. Spread that error back along the path.
+  const m = out.length - 1;
+  if (m < 1) return out;
+  const ex = (out[m][0] - out[0][0]) - (p[p.length - 1][0] - p[0][0]);
+  const ey = (out[m][1] - out[0][1]) - (p[p.length - 1][1] - p[0][1]);
+  return out.map((q, i) => [q[0] - ex * i / m, q[1] - ey * i / m]);
+}
+function glyFitIntersect(p, size, pad) {
+  const b = glyBbox(p), S = size - pad * 2, sc = S / Math.max(b.w, b.h);
+  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+  return p.map(q => [size / 2 + (q[0] - cx) * sc, size / 2 - (q[1] - cy) * sc]);
+}
+// Pinning the start and fitting the bounding box would let an out-and-back
+// (which returns near its origin) render far smaller than a point-to-point, so
+// scale by max radius from the start instead — every track reaches the same
+// distance out.
+function glyFitOrigin(p, size, pad) {
+  const o = p[0]; let R = 0;
+  p.forEach(q => { R = Math.max(R, Math.hypot(q[0] - o[0], q[1] - o[1])); });
+  const sc = ((size - pad * 2) / 2) / (R || 1e-9);
+  return p.map(q => [size / 2 + (q[0] - o[0]) * sc, size / 2 - (q[1] - o[1]) * sc]);
+}
+function glyBearing(coords) {
+  const a = coords[0], b = coords[coords.length - 1];
+  const toRad = d => d * Math.PI / 180;
+  const y = Math.sin(toRad(b[0] - a[0])) * Math.cos(toRad(b[1]));
+  const x = Math.cos(toRad(a[1])) * Math.sin(toRad(b[1])) - Math.sin(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.cos(toRad(b[0] - a[0]));
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+function glyFlightArc(brg, size, pad, mode, bow) {
+  const S = size - pad * 2, L = (mode === 'radial' ? S / 2 : S * 0.92), n = 48, pts = [];
+  const cx = L / 2, cy = -2 * (bow == null ? 0.26 : bow) * L;
+  for (let i = 0; i <= n; i++) { const t = i / n, mt = 1 - t; pts.push([2 * mt * t * cx + t * t * L, 2 * mt * t * cy]); }
+  // bearing 0 = north = up, so local +x rotates to (sin, -cos)
+  const a = (brg - 90) * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+  const rot = pts.map(q => [q[0] * ca - q[1] * sa, q[0] * sa + q[1] * ca]);
+  let ax = 0, ay = 0;
+  if (mode !== 'radial') { const b = glyBbox(rot); ax = (b.minX + b.maxX) / 2; ay = (b.minY + b.maxY) / 2; }
+  return rot.map(q => [size / 2 + q[0] - ax, size / 2 + q[1] - ay]);
+}
+function glyPathD(p) {
+  return p.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(2) + ' ' + q[1].toFixed(2)).join(' ');
+}
+// Users may recolour any type; a pale one (Gravel's #C6D22E) would vanish on
+// the light card the glyph sits on, so floor its luminance.
+function glyInk(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return GLYPH_DEFAULT_INK;
+  const v = parseInt(m[1], 16), r = v >> 16 & 255, g = v >> 8 & 255, b = v & 255;
+  const L = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  if (L <= 0.62) return '#' + m[1];
+  const k = 0.62 / L, c = x => Math.round(Math.max(0, Math.min(255, x * k)));
+  return '#' + ((1 << 24) + (c(r) << 16) + (c(g) << 8) + c(b)).toString(16).slice(1);
+}
+
+// Pins carry no line and a story can't contain them anyway (the picker reads
+// getMoments(), which excludes them) — but a start-only manual entry is a real
+// Moment with no polyline, so guard on coords.
+function storyGlyphTracks(story) {
+  const out = [];
+  (story.momentIds || []).forEach(id => {
+    const m = db[id];
+    if (!m || isStory(m) || m.isPin) return;
+    const c = getCoords(m);
+    if (!c || c.length < 2) return;
+    out.push({ coords: c, color: m.customColor || getColor(m.type), flight: getGroup(m.type) === 'Flight' });
+  });
+  return out;
+}
+
+function renderGlyph(tracks, style, mono, ink) {
+  const st = GLYPH_STYLES[style] || GLYPH_STYLES[GLYPH_DEFAULT_STYLE];
+  const n = tracks.length;
+  if (!n) return '';
+  const SZ = 100, pad = 10;
+  // One track has nothing to radiate from, so it centres instead. A derived
+  // parameter, not a different style.
+  const mode = n === 1 ? 'intersect' : st.comp;
+  const budget = Math.max(20, Math.min(70, 18 + n * 5));
+  const target = Math.max(3, Math.round(budget / n));
+  const w = st.w * (n >= 10 ? 0.85 : 1);
+
+  const prepped = tracks.map(t => {
+    if (t.flight) return { arc: true, t: t };
+    let p = glyProject(t.coords);
+    p = glySimplifyTo(p, target);
+    if (st.ang >= 3) p = glyQuantAngles(p, st.ang);
+    return { arc: false, p: p, t: t };
+  });
+
+  // Survey keeps true geography, so every track shares one transform.
+  let survey = null;
+  if (mode === 'map') {
+    let all = [];
+    prepped.forEach(x => { if (!x.arc) all = all.concat(x.p); });
+    if (all.length) {
+      const gb = glyBbox(all), S = SZ - pad * 2, sc = S / Math.max(gb.w, gb.h);
+      const cx = (gb.minX + gb.maxX) / 2, cy = (gb.minY + gb.maxY) / 2;
+      survey = q => q.map(v => [SZ / 2 + (v[0] - cx) * sc, SZ / 2 - (v[1] - cy) * sc]);
+    }
+  }
+
+  let laid = prepped.map(x => {
+    let pts;
+    if (x.arc) {
+      pts = glyFlightArc(glyBearing(x.t.coords), SZ, pad, mode === 'radial' ? 'radial' : 'intersect');
+      // Facet the arc with the same vocabulary, or a smooth curve sits alien
+      // among angular strokes.
+      if (st.ang >= 3) pts = glyQuantAngles(glyResample(pts, st.ang >= 10 ? 9 : 6), st.ang);
+    } else if (survey) {
+      pts = survey(x.p);
+    } else {
+      pts = mode === 'radial' ? glyFitOrigin(x.p, SZ, pad) : glyFitIntersect(x.p, SZ, pad);
+    }
+    return { pts: pts, t: x.t };
+  }).filter(x => x.pts.length >= 2);
+
+  // Anchoring pins each track at a point, not in the middle of the frame: a
+  // story whose tracks all head the same way lands in one corner. Fit the
+  // finished composition to the box as a whole — one uniform scale and a
+  // translate, so every relative size and position survives.
+  if (laid.length) {
+    let all = [];
+    laid.forEach(x => { all = all.concat(x.pts); });
+    const u = glyBbox(all), S = SZ - pad * 2;
+    const sc = Math.min(S / u.w, S / u.h);
+    const cx = (u.minX + u.maxX) / 2, cy = (u.minY + u.maxY) / 2;
+    laid = laid.map(x => ({ t: x.t, pts: x.pts.map(q => [SZ / 2 + (q[0] - cx) * sc, SZ / 2 + (q[1] - cy) * sc]) }));
+  }
+
+  const parts = [];
+  laid.forEach(x => {
+    const pts = x.pts;
+    const col = mono ? glyInk(ink || GLYPH_DEFAULT_INK) : glyInk(x.t.color);
+    parts.push('<path d="' + glyPathD(pts) + '" fill="none" stroke="' + col + '" stroke-width="' + w.toFixed(2) +
+      '" stroke-opacity="' + st.op + '" stroke-linecap="' + st.cap + '" stroke-linejoin="' + st.join +
+      '" style="mix-blend-mode:multiply"/>');
+    if (st.term && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) >= SZ * 0.04) {
+      [pts[0], pts[pts.length - 1]].forEach(q => {
+        parts.push('<circle cx="' + q[0].toFixed(2) + '" cy="' + q[1].toFixed(2) + '" r="' + (w * 0.95).toFixed(2) +
+          '" fill="' + col + '" fill-opacity="' + st.op + '" style="mix-blend-mode:multiply"/>');
+      });
+    }
+  });
+  return '<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">' + parts.join('') + '</svg>';
+}
+
+function storyGlyphSvg(story) {
+  const g = glyphPrefFor(story.id);
+  return renderGlyph(storyGlyphTracks(story), g.style, g.mono, g.ink);
+}
+
+function glyphControlsHtml(storyId) {
+  const g = glyphPrefFor(storyId);
+  const chip = (on, label, fn) =>
+    '<button class="chip' + (on ? ' on' : '') + '" onclick="' + fn + '">' + escapeHtml(label) + '</button>';
+  let html =
+    '<div class="glyph-row">' + Object.keys(GLYPH_STYLES).map(k =>
+      chip(k === g.style, GLYPH_STYLES[k].label, 'setStoryGlyphStyle(' + jsAttr(storyId) + ',' + jsAttr(k) + ')')
+    ).join('') + '</div>' +
+    '<div class="glyph-row">' +
+      chip(!g.mono, 'Track colours', 'setStoryGlyphMono(' + jsAttr(storyId) + ',false)') +
+      chip(g.mono, 'One colour', 'setStoryGlyphMono(' + jsAttr(storyId) + ',true)') +
+    '</div>';
+  if (g.mono) {
+    html += '<div class="glyph-swatches">' + GLYPH_INKS.map(c =>
+      '<button class="glyph-sw' + (c.toLowerCase() === g.ink.toLowerCase() ? ' on' : '') + '" style="background:' + c +
+      '" title="' + c + '" onclick="setStoryGlyphInk(' + jsAttr(storyId) + ',' + jsAttr(c) + ')"></button>'
+    ).join('') +
+    '<input type="color" class="glyph-sw-custom" value="' + g.ink + '" title="Custom colour"' +
+    ' oninput="setStoryGlyphInk(' + jsAttr(storyId) + ',this.value)"></div>';
+  }
+  return html;
+}
+function glyphRefresh(storyId) {
+  const art = document.getElementById('sd-glyph-art');
+  if (art && db[storyId]) art.innerHTML = storyGlyphSvg(db[storyId]) || '<div class="glyph-empty">No GPS tracks in this story yet.</div>';
+  const ctl = document.getElementById('sd-glyph-controls');
+  if (ctl) ctl.innerHTML = glyphControlsHtml(storyId);
+  if (document.getElementById('profile-stories-grid')) renderProfileStories();
+}
+function setStoryGlyphStyle(storyId, style) { setGlyphPref(storyId, { style: style }); glyphRefresh(storyId); }
+function setStoryGlyphMono(storyId, mono) { setGlyphPref(storyId, { mono: !!mono }); glyphRefresh(storyId); }
+function setStoryGlyphInk(storyId, ink) { setGlyphPref(storyId, { ink: ink }); glyphRefresh(storyId); }
+
 async function renderShareCard(o) {
   const W = 1080, H = 1350, MAP_H = 820;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -7674,7 +8002,10 @@ function renderProfileStories() {
     const card = document.createElement('div');
     card.className = 'story-card';
 
-    let mapHtml = '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>' + staticStoryMapImg(story, 440, 200);
+    const glyph = storyGlyphSvg(story);
+    let mapHtml = glyph
+      ? '<div class="story-card-map is-glyph">' + glyph
+      : '<div class="story-card-map"><canvas id="sc-map-' + story.id + '" width="440" height="200"></canvas>' + staticStoryMapImg(story, 440, 200);
     mapHtml += '<div class="story-card-badge">' + (story._momentCount || 0) + ' moments</div></div>';
 
     card.innerHTML = mapHtml +
@@ -7697,8 +8028,8 @@ function renderProfileStories() {
     card.onclick = function() { viewStoryOnMap(story.id); };
     grid.appendChild(card);
 
-    // Draw multi-track mini map
-    requestAnimationFrame(function() { drawStoryCardMap(story); });
+    // Only the fallback needs painting; the glyph is inline SVG.
+    if (!glyph) requestAnimationFrame(function() { drawStoryCardMap(story); });
   });
 }
 
@@ -8723,6 +9054,7 @@ _r('applyFilters',applyFilters);_r('updateImportUI',updateImportUI);
 _r('isStory',isStory);_r('getMoments',getMoments);_r('getStories',getStories);
 _r('computeStoryStats',computeStoryStats);_r('stableStoryId',stableStoryId);
 _r('openStoryModal',openStoryModal);_r('closeStoryModal',closeStoryModal);
+_r('setStoryGlyphStyle',setStoryGlyphStyle);_r('setStoryGlyphMono',setStoryGlyphMono);_r('setStoryGlyphInk',setStoryGlyphInk);
 _r('renderStoryMomentList',renderStoryMomentList);_r('toggleStoryMoment',toggleStoryMoment);
 _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeStoryMoment);
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
