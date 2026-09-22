@@ -1178,6 +1178,9 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .story-card-map canvas { width: 100%; height: 100%; }
 .story-card-map.is-glyph { display: flex; align-items: center; justify-content: center; background: var(--surface); }
 .story-card-map.is-glyph svg { width: 100%; height: 100%; padding: 10px; }
+.sd-narrative-read { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--text-2); white-space: pre-wrap; }
+.sd-mood-read { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-2); }
+.sd-mood-read span { font-weight: 600; color: var(--ink); }
 .sm-glyph-row { display: flex; gap: 12px; align-items: flex-start; }
 .glyph-name { font: 600 15px var(--font-ui); color: var(--ink); }
 .glyph-sub { font-size: 12.5px; color: var(--text-3); margin-top: 2px; }
@@ -4266,20 +4269,24 @@ function showStoryDetail(storyId) {
     // activity keeps its settings out of the view.
     glyphDiv.innerHTML =
       '<div class="glyph-thumb" id="sd-glyph-art">' + glyphSvg + '</div>' +
-      '<div class="glyph-ctl"><div class="glyph-name">' + escapeHtml(story.title || 'Untitled') + '</div>' +
-      '<div class="glyph-sub">' + (story._momentCount || 0) + ' moments · ' +
-      escapeHtml(GLYPH_STYLES[glyphPrefFor(story.id).style].label) + ' glyph</div></div>';
+      '<div class="glyph-ctl"><div class="glyph-name">' +
+      escapeHtml(GLYPH_STYLES[glyphPrefFor(story.id).style].label) + ' glyph</div>' +
+      '<div class="glyph-sub">' + (story._momentCount || 0) + ' moments</div></div>';
     document.getElementById('d-stats').insertAdjacentElement('beforebegin', glyphDiv);
   }
 
 
-  // Narrative section
-  var narrativeDiv = document.createElement('div');
-  narrativeDiv.className = 'sd-narrative';
-  narrativeDiv.innerHTML =
-    '<div class="detail-section-title">Narrative</div>' +
-    '<textarea class="sd-narrative-input" id="sd-narrative-input" placeholder="Write about this chapter of your life...">' + escapeHtml(story.narrative || '') + '</textarea>';
-  body.insertBefore(narrativeDiv, document.getElementById('d-rows'));
+  // Narrative — read-only, and only when written, same rule as the mood. It
+  // is authored in Edit; an empty textarea on every relic was clutter.
+  var narrativeDiv = null;
+  if ((story.narrative || '').trim()) {
+    narrativeDiv = document.createElement('div');
+    narrativeDiv.className = 'sd-narrative';
+    narrativeDiv.innerHTML =
+      '<div class="detail-section-title">Narrative</div>' +
+      '<p class="sd-narrative-read">' + escapeHtml(story.narrative) + '</p>';
+    body.insertBefore(narrativeDiv, document.getElementById('d-rows'));
+  }
 
   // Map — real Mapbox tiles behind every child moment's track, same as the story cards
   var mapDiv = document.createElement('div');
@@ -4291,22 +4298,19 @@ function showStoryDetail(storyId) {
   // mood where it used to sit.
   var glyphEl = document.querySelector('#detail-body .sd-glyph');
   if (glyphEl) glyphEl.insertAdjacentElement('afterend', mapDiv);
-  else body.insertBefore(mapDiv, narrativeDiv);
+  else body.insertBefore(mapDiv, narrativeDiv || document.getElementById('d-rows'));
   requestAnimationFrame(function() { drawFeedStoryMap(story, 'sd-map-' + story.id); });
 
-  document.getElementById('sd-narrative-input').oninput = function() {
-    story.narrative = this.value;
-    story.lastModified = new Date().toISOString();
-    markDirty(story.id);
-  };
-
-  // Mood section
+  // Mood — read-only, and only when there is one. Setting it lives in Edit,
+  // same as the glyph; an unset mood was rendering an empty five-button row on
+  // every relic that had never been given one.
   var moodSection = document.getElementById('d-mood-section');
   if (moodSection) {
-    moodSection.style.display = '';
-    document.getElementById('d-mood').innerHTML = MOODS.map(function(m) {
-      return '<button class="mood-btn ' + (story.mood === m.id ? 'active' : '') + '" onclick="setStoryDetailMood(\'' + storyId + '\',\'' + m.id + '\',this)">' + m.emoji + '<span>' + m.label + '</span></button>';
-    }).join('');
+    var mood = MOODS.find(function(m) { return m.id === story.mood; });
+    moodSection.style.display = mood ? '' : 'none';
+    if (mood) document.getElementById('d-mood').innerHTML =
+      // the section is already titled "Feeling", so don't say "Felt" again
+      '<div class="sd-mood-read">' + mood.emoji + '<span>' + escapeHtml(mood.label) + '</span></div>';
   }
 
   // Actions
@@ -4357,15 +4361,6 @@ function showStoryDetail(storyId) {
   document.getElementById('save-indicator').textContent = '';
 }
 
-function setStoryDetailMood(storyId, moodId, btn) {
-  var story = db[storyId];
-  if (!story) return;
-  story.mood = story.mood === moodId ? null : moodId;
-  story.lastModified = new Date().toISOString();
-  document.querySelectorAll('#d-mood .mood-btn').forEach(function(b) { b.classList.remove('active'); });
-  if (story.mood) btn.classList.add('active');
-  markDirty(storyId);
-}
 function closeDetail() {
   var wasStory = selectedId && db[selectedId] && isStory(db[selectedId]);
   selectedId=null;
@@ -9295,7 +9290,7 @@ _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
 _r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
-_r('showStoryDetail',showStoryDetail);_r('setStoryDetailMood',setStoryDetailMood);
+_r('showStoryDetail',showStoryDetail);
 _r('renderFeedMomentCard',renderFeedMomentCard);_r('renderFeedStoryCard',renderFeedStoryCard);
 _r('drawFeedStoryMap',drawFeedStoryMap);
 _r('getStravaToken',getStravaToken);_r('fetchStravaStreams',fetchStravaStreams);
