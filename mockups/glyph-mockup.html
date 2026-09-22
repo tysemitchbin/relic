@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Relic glyph — anchoring mockup</title>
+<title>Relic glyph — anchoring + stylisation mockup</title>
 <style>
   :root{
     --paper:#F4F0E8; --surface:#FBF9F5; --ink:#2A3324; --ink-2:#5C6B54; --ink-3:#8b9383;
@@ -14,22 +14,21 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-ui);
        font-size:14px;line-height:1.5;padding:28px 20px 72px}
-  .wrap{max-width:1080px;margin:0 auto}
+  .wrap{max-width:1120px;margin:0 auto}
   h1{font-family:var(--font-display);font-size:30px;font-weight:600;margin:0 0 6px;letter-spacing:-.01em}
-  .lede{color:var(--ink-2);margin:0 0 26px;max-width:62ch}
+  .lede{color:var(--ink-2);margin:0 0 26px;max-width:64ch}
   h2{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
-     color:var(--rust);margin:34px 0 14px}
+     color:var(--rust);margin:36px 0 14px}
 
-  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:14px 18px;
-            background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+  .controls{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px}
+  .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:13px 18px}
+  .row+.row{margin-top:13px;padding-top:13px;border-top:1px solid var(--line)}
   .ctl{display:flex;flex-direction:column;gap:5px;min-width:0}
   .ctl label{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
   .ctl select,.ctl input[type=range]{width:100%}
-  .ctl select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;
-              background:#fff;color:var(--ink)}
+  .ctl select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
   .ctl .val{font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:12px}
-  .checks{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;
-          grid-column:1/-1;padding-top:4px;border-top:1px solid var(--line);margin-top:2px}
+  .checks{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
   .checks label{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer}
   button{font:inherit;font-weight:600;padding:7px 14px;border-radius:999px;border:0;
          background:var(--rust);color:#fff;cursor:pointer}
@@ -42,7 +41,6 @@
   .canvas{aspect-ratio:1;background:#fff;border-radius:10px;overflow:hidden}
   figcaption strong{display:block;font-family:var(--font-display);font-size:17px;font-weight:600}
   figcaption span{color:var(--ink-2);font-size:12.5px}
-
   .sizes{display:flex;gap:14px;align-items:flex-end;padding-top:4px;border-top:1px solid var(--line)}
   .sizes .s{display:flex;flex-direction:column;align-items:center;gap:5px}
   .sizes .s i{font-style:normal;font-size:10px;color:var(--ink-3);font-variant-numeric:tabular-nums}
@@ -55,49 +53,65 @@
   table.grid td.name{font-weight:600;white-space:nowrap}
   table.grid td.name em{display:block;font-style:normal;font-weight:400;font-size:12px;color:var(--ink-3)}
   .tcell{display:flex;gap:10px;align-items:center}
-  .tcell .box{background:#fff;border-radius:8px;overflow:hidden;flex:none}
-  .note{color:var(--ink-2);font-size:13px;max-width:70ch;margin:10px 0 0}
+  .box{background:#fff;border-radius:8px;overflow:hidden;flex:none}
+  .note{color:var(--ink-2);font-size:13px;max-width:72ch;margin:10px 0 0}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Relic glyph — anchoring mockup</h1>
+  <h1>Relic glyph — anchoring + stylisation</h1>
   <p class="lede">Every track in a relic, each scaled independently to the same size and stacked on a
-  common anchor. <strong>A</strong> anchors each track on its bounding-box centre, so the lines cross
-  each other. <strong>B</strong> anchors each track on its start point, so they radiate. Flights ignore
-  their geometry entirely and draw as a fixed arc rotated to the flight's true bearing.</p>
+  common anchor. <strong>A</strong> centres each track's bounding box, so lines cross. <strong>B</strong>
+  pins each track's start point, so they radiate. Flights discard their geometry and draw as a fixed arc
+  rotated to the true bearing. The <strong>style</strong> control decides how much the raw trace is
+  rewritten into a constrained stroke vocabulary.</p>
 
   <div class="controls">
-    <div class="ctl"><label for="preset">Relic</label><select id="preset"></select></div>
-    <div class="ctl"><label for="w">Stroke width <span class="val" id="wv"></span></label><input type="range" id="w" min="0.4" max="4" step="0.1" value="1.4"></div>
-    <div class="ctl"><label for="op">Stroke opacity <span class="val" id="opv"></span></label><input type="range" id="op" min="0.15" max="1" step="0.05" value="0.55"></div>
-    <div class="ctl"><label for="bow">Flight bow <span class="val" id="bowv"></span></label><input type="range" id="bow" min="0" max="0.45" step="0.01" value="0.26"></div>
-    <div class="ctl"><label for="tol">Simplify <span class="val" id="tolv"></span></label><input type="range" id="tol" min="0" max="0.05" step="0.002" value="0.006"></div>
-    <div class="ctl"><label>&nbsp;</label><button id="shuffle">Reshuffle tracks</button></div>
-    <div class="checks">
+    <div class="row">
+      <div class="ctl"><label for="preset">Relic</label><select id="preset"></select></div>
+      <div class="ctl"><label for="style">Style</label><select id="style"></select></div>
+      <div class="ctl"><label for="w">Stroke width <span class="val" id="wv"></span></label><input type="range" id="w" min="0.4" max="6" step="0.1" value="1.4"></div>
+      <div class="ctl"><label for="op">Stroke opacity <span class="val" id="opv"></span></label><input type="range" id="op" min="0.15" max="1" step="0.05" value="0.55"></div>
+    </div>
+    <div class="row">
+      <div class="ctl"><label for="ang">Angle vocabulary <span class="val" id="angv"></span></label><input type="range" id="ang" min="0" max="16" step="1" value="0"></div>
+      <div class="ctl"><label for="grid">Grid snap <span class="val" id="gridv"></span></label><input type="range" id="grid" min="0" max="28" step="1" value="0"></div>
+      <div class="ctl"><label for="sm">Smoothing <span class="val" id="smv"></span></label><input type="range" id="sm" min="0" max="4" step="1" value="0"></div>
+      <div class="ctl"><label for="tol">Simplify <span class="val" id="tolv"></span></label><input type="range" id="tol" min="0" max="0.12" step="0.002" value="0.006"></div>
+      <div class="ctl"><label for="bow">Flight bow <span class="val" id="bowv"></span></label><input type="range" id="bow" min="0" max="0.45" step="0.01" value="0.26"></div>
+      <div class="ctl"><label>&nbsp;</label><button id="shuffle">Reshuffle tracks</button></div>
+    </div>
+    <div class="row"><div class="checks" style="grid-column:1/-1">
       <label><input type="checkbox" id="mono" checked> Monochrome</label>
       <label><input type="checkbox" id="arcs" checked> Flights as arcs</label>
+      <label><input type="checkbox" id="term"> Terminals</label>
+      <label><input type="checkbox" id="wbyd"> Weight by distance</label>
       <label><input type="checkbox" id="cos" checked> cos(lat) correction</label>
       <label><input type="checkbox" id="fade"> Fade by age</label>
-      <label><input type="checkbox" id="dots"> Mark start points</label>
-    </div>
+    </div></div>
   </div>
 
   <div class="pair">
     <figure>
       <div class="canvas" id="big-a"></div>
-      <figcaption><strong>A · Intersecting</strong><span>Each track fitted by its bounding box, centred. Lines cross.</span></figcaption>
+      <figcaption><strong>A · Intersecting</strong><span>Bounding box fitted, centred. Lines cross.</span></figcaption>
       <div class="sizes" id="sizes-a"></div>
     </figure>
     <figure>
       <div class="canvas" id="big-b"></div>
-      <figcaption><strong>B · Shared origin</strong><span>Each track's start pinned to the centre, scaled to a common radius. Lines radiate.</span></figcaption>
+      <figcaption><strong>B · Shared origin</strong><span>Start point pinned to centre, common radius. Lines radiate.</span></figcaption>
       <div class="sizes" id="sizes-b"></div>
     </figure>
   </div>
   <p class="note" id="legend"></p>
 
-  <h2>Every relic, both ways, at thumbnail size</h2>
+  <h2>Every style, this relic, both anchorings</h2>
+  <table class="grid">
+    <thead><tr><th>Style</th><th>A · Intersecting</th><th>B · Shared origin</th></tr></thead>
+    <tbody id="styleGrid"></tbody>
+  </table>
+
+  <h2>Every relic, current style, at thumbnail size</h2>
   <table class="grid">
     <thead><tr><th>Relic</th><th>A · Intersecting</th><th>B · Shared origin</th></tr></thead>
     <tbody id="grid"></tbody>
@@ -142,13 +156,13 @@ function shapeLollipop(rnd,R){
 }
 function shapeMeander(rnd,R){
   var p=[],n=110,h=rnd()*6.283,amp=R*0.34,f=1.2+rnd()*1.6,w=0;
-  for(var i=0;i<=n;i++){var t=i/n;w+=(rnd()-0.5)*R*0.05;var x=t*R*2+w*0.4,y=Math.sin(t*6.283*f)*amp*(0.45+t*0.85)+w;
+  for(var i=0;i<=n;i++){var t=i/n;w+=(rnd()-0.5)*R*0.05;
+    var x=t*R*2+w*0.4,y=Math.sin(t*6.283*f)*amp*(0.45+t*0.85)+w;
     p.push([x*Math.cos(h)-y*Math.sin(h),x*Math.sin(h)+y*Math.cos(h)]);}
   return p;
 }
 var SHAPES={loop:shapeLoop,outback:shapeOutBack,p2p:shapeP2P,lollipop:shapeLollipop,meander:shapeMeander};
 
-/* ── activity kinds. Colours are stand-ins for activity-types.js ── */
 var KIND={
   run   :{label:'Run',   color:'#E0533C',shapes:['loop','outback','lollipop'],R:[2,7]},
   ride  :{label:'Ride',  color:'#2F7FD1',shapes:['loop','p2p','outback'],    R:[14,55]},
@@ -157,7 +171,6 @@ var KIND={
   walk  :{label:'Walk',  color:'#9B6BC4',shapes:['meander','loop','p2p'],    R:[1,4]},
   flight:{label:'Flight',color:'#D9A441',flight:true}
 };
-
 var PRESETS={
   'Alpine week'        :[{k:'hike'},{k:'hike'},{k:'ski'},{k:'ski'},{k:'walk'},{k:'hike'}],
   'Southeast Asia'     :[{k:'flight'},{k:'flight'},{k:'flight'},{k:'walk'},{k:'walk'},{k:'ride'}],
@@ -168,22 +181,28 @@ var PRESETS={
   'Everything, 2 years':[{k:'run'},{k:'ride'},{k:'hike'},{k:'flight'},{k:'walk'},{k:'ski'},{k:'run'},{k:'flight'},{k:'hike'},{k:'ride'},{k:'walk'},{k:'run'}]
 };
 
-/* Base point sits at 63.4°N (Trøndelag, like the app's demo data) so the
-   cos(lat) toggle visibly stretches things when it's off. */
+/* Styles are just presets over the pipeline knobs below, plus cap/join,
+   which is what actually separates "carved" from "drawn". */
+var STYLES={
+  trace :{label:'Trace (raw GPS)', ang:0, grid:0,  sm:0, tol:0.006, w:1.4, op:0.55, cap:'round', join:'round', term:false},
+  ink   :{label:'Ink',             ang:0, grid:0,  sm:3, tol:0.022, w:2.4, op:0.50, cap:'round', join:'round', term:false},
+  metro :{label:'Metro',           ang:8, grid:0,  sm:0, tol:0.034, w:2.8, op:0.70, cap:'round', join:'round', term:true},
+  carved:{label:'Carved',          ang:8, grid:16, sm:0, tol:0.044, w:2.2, op:0.85, cap:'butt',  join:'miter', term:true},
+  rune  :{label:'Rune',            ang:6, grid:11, sm:0, tol:0.075, w:2.8, op:0.90, cap:'square',join:'miter', term:true},
+  sigil :{label:'Sigil',           ang:12,grid:0,  sm:1, tol:0.050, w:1.8, op:0.72, cap:'round', join:'round', term:true}
+};
+
 var LAT0=63.4,LNG0=10.4;
 function kmToLngLat(p){
   var cl=Math.cos(LAT0*Math.PI/180);
   return p.map(function(q){return [LNG0+q[0]/(111*cl),LAT0+q[1]/111];});
 }
-
 function buildTracks(preset,seed){
   var rnd=mulberry32(seed),out=[];
   preset.forEach(function(spec){
     var k=KIND[spec.k];
     if(k.flight){
       var brg=rnd()*360,len=600+rnd()*7000,a=(brg-90)*Math.PI/180,km=[];
-      /* A raw imported flight: a near-straight line. This is what we get when
-         "flights as arcs" is off — the messy reality of Strava/GPX flights. */
       for(var i=0;i<=24;i++){var t=i/24*len,j=(rnd()-0.5)*len*0.012;
         km.push([t*Math.cos(a)-j*Math.sin(a),t*Math.sin(a)+j*Math.cos(a)]);}
       out.push({kind:'flight',color:k.color,flight:true,bearing:brg,coords:kmToLngLat(km)});
@@ -207,6 +226,7 @@ function bbox(p){
   p.forEach(function(q){a=Math.min(a,q[0]);b=Math.max(b,q[0]);c=Math.min(c,q[1]);d=Math.max(d,q[1]);});
   return {minX:a,maxX:b,minY:c,maxY:d,w:(b-a)||1e-9,h:(d-c)||1e-9};
 }
+function pathLen(p){var t=0;for(var i=1;i<p.length;i++)t+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);return t;}
 function perp(p,a,b){
   var dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);
   if(!L)return Math.hypot(p[0]-a[0],p[1]-a[1]);
@@ -219,110 +239,193 @@ function rdp(p,eps){
   if(dm>eps)return rdp(p.slice(0,idx+1),eps).slice(0,-1).concat(rdp(p.slice(idx),eps));
   return [a,b];
 }
+function resample(p,n){
+  var d=[0],t=0;
+  for(var i=1;i<p.length;i++){t+=Math.hypot(p[i][0]-p[i-1][0],p[i][1]-p[i-1][1]);d.push(t);}
+  if(!t)return p.slice();
+  var out=[],j=0;
+  for(var k=0;k<=n;k++){var s=k/n*t;
+    while(j<d.length-2&&d[j+1]<s)j++;
+    var f=(s-d[j])/((d[j+1]-d[j])||1);
+    out.push([p[j][0]+(p[j+1][0]-p[j][0])*f,p[j][1]+(p[j+1][1]-p[j][1])*f]);}
+  return out;
+}
 
-/* A: fit the bounding box's longest side into the square, centred. */
+/* THE stylisation step: keep each segment's length but snap its heading to
+   one of n evenly spaced directions. A GPS wiggle becomes a small number of
+   deliberate strokes drawn from a fixed vocabulary — which is most of what
+   separates a glyph from a scribble. */
+function quantAngles(p,n){
+  if(n<3||p.length<2)return p.slice();
+  var step=2*Math.PI/n,out=[p[0].slice()];
+  for(var i=1;i<p.length;i++){
+    var dx=p[i][0]-p[i-1][0],dy=p[i][1]-p[i-1][1];
+    var L=Math.hypot(dx,dy),a=Math.round(Math.atan2(dy,dx)/step)*step;
+    var q=out[out.length-1];
+    out.push([q[0]+Math.cos(a)*L,q[1]+Math.sin(a)*L]);
+  }
+  /* Snapping every heading makes the endpoint drift, which leaves loops
+     visibly unclosed. Spread that error back along the path — each segment
+     bends off its snapped angle by error/n, imperceptible at these counts. */
+  var m=out.length-1;
+  var ex=(out[m][0]-out[0][0])-(p[p.length-1][0]-p[0][0]);
+  var ey=(out[m][1]-out[0][1])-(p[p.length-1][1]-p[0][1]);
+  return out.map(function(q,i){return [q[0]-ex*i/m,q[1]-ey*i/m];});
+}
+function gridSnap(p,size,g){
+  if(!g)return p;
+  var c=size/g,o=p.map(function(q){return [Math.round(q[0]/c)*c,Math.round(q[1]/c)*c];});
+  var out=[o[0]];
+  for(var i=1;i<o.length;i++){var l=out[out.length-1];if(o[i][0]!==l[0]||o[i][1]!==l[1])out.push(o[i]);}
+  return out.length>1?out:p.slice();
+}
+function chaikin(p,it){
+  for(var k=0;k<it&&p.length>2;k++){
+    var o=[p[0]];
+    for(var i=0;i<p.length-1;i++){var a=p[i],b=p[i+1];
+      o.push([a[0]*0.75+b[0]*0.25,a[1]*0.75+b[1]*0.25],[a[0]*0.25+b[0]*0.75,a[1]*0.25+b[1]*0.75]);}
+    o.push(p[p.length-1]);p=o;
+  }
+  return p;
+}
+
 function fitIntersect(p,size,pad){
   var b=bbox(p),S=size-pad*2,sc=S/Math.max(b.w,b.h);
   var cx=(b.minX+b.maxX)/2,cy=(b.minY+b.maxY)/2;
   return p.map(function(q){return [size/2+(q[0]-cx)*sc,size/2-(q[1]-cy)*sc];});
 }
-/* B: pin the start point at the centre, scale so every track reaches the
-   same maximum radius from it. (Fitting the bbox here would let tracks that
-   double back sit much closer in than point-to-point ones.) */
 function fitOrigin(p,size,pad){
   var o=p[0],R=0;
   p.forEach(function(q){R=Math.max(R,Math.hypot(q[0]-o[0],q[1]-o[1]));});
   var sc=((size-pad*2)/2)/(R||1e-9);
   return p.map(function(q){return [size/2+(q[0]-o[0])*sc,size/2-(q[1]-o[1])*sc];});
 }
-
-/* Flights: geometry thrown away. A fixed-size, fixed-bow arc rotated to the
-   real bearing — so every flight is the same mark, differing only in heading. */
 function flightArc(brg,size,pad,mode,bow){
   var S=size-pad*2,L=(mode==='origin'?S/2:S*0.92),n=48,pts=[];
   var cx=L/2,cy=-2*bow*L;
-  for(var i=0;i<=n;i++){var t=i/n,mt=1-t;
-    pts.push([2*mt*t*cx+t*t*L,2*mt*t*cy]);}
+  for(var i=0;i<=n;i++){var t=i/n,mt=1-t;pts.push([2*mt*t*cx+t*t*L,2*mt*t*cy]);}
   var a=(brg-90)*Math.PI/180,ca=Math.cos(a),sa=Math.sin(a);
   pts=pts.map(function(p){return [p[0]*ca-p[1]*sa,p[0]*sa+p[1]*ca];});
   var ax=0,ay=0;
   if(mode!=='origin'){var b=bbox(pts);ax=(b.minX+b.maxX)/2;ay=(b.minY+b.maxY)/2;}
   return pts.map(function(p){return [size/2+p[0]-ax,size/2+p[1]-ay];});
 }
-
 function pathD(p){
   return p.map(function(q,i){return (i?'L':'M')+q[0].toFixed(2)+' '+q[1].toFixed(2);}).join(' ');
 }
+function isClosed(p,size){
+  return Math.hypot(p[0][0]-p[p.length-1][0],p[0][1]-p[p.length-1][1])<size*0.04;
+}
 
 function glyphSVG(tracks,o){
-  var size=100,pad=size*0.10,parts=[];
+  var size=100,pad=size*0.10,parts=[],lens=tracks.map(function(t){return pathLen(t.coords||[]);});
+  var lo=Math.min.apply(null,lens),hi=Math.max.apply(null,lens);
   tracks.forEach(function(t,i){
     var pts;
-    if(t.flight&&o.arcs){pts=flightArc(t.bearing,size,pad,o.mode,o.bow);}
-    else{
+    if(t.flight&&o.arcs){
+      pts=flightArc(t.bearing,size,pad,o.mode,o.bow);
+      /* Facet the arc with the same vocabulary, or it sits alien among
+         angular strokes. Enough segments that it still reads as a bow. */
+      if(o.ang>=3)pts=quantAngles(resample(pts,o.ang>=10?9:6),o.ang);
+    }else{
       var pj=project(t.coords,o.cos);
       if(o.tol>0){var b=bbox(pj);pj=rdp(pj,Math.max(b.w,b.h)*o.tol);}
+      if(o.ang>=3)pj=quantAngles(pj,o.ang);
       pts=o.mode==='origin'?fitOrigin(pj,size,pad):fitIntersect(pj,size,pad);
     }
+    if(o.grid)pts=gridSnap(pts,size,o.grid);
+    if(o.sm)pts=chaikin(pts,o.sm);
+    if(pts.length<2)return;
+
     var op=o.fade?o.op*(0.28+0.72*(i+1)/tracks.length):o.op;
     var col=o.mono?'#2A3324':t.color;
-    parts.push('<path d="'+pathD(pts)+'" fill="none" stroke="'+col+'" stroke-width="'+o.w+
-      '" stroke-opacity="'+op.toFixed(3)+'" stroke-linecap="round" stroke-linejoin="round"'+
-      ' style="mix-blend-mode:multiply"/>');
-    if(o.dots)parts.push('<circle cx="'+pts[0][0].toFixed(2)+'" cy="'+pts[0][1].toFixed(2)+
-      '" r="'+(o.w*1.1).toFixed(2)+'" fill="'+col+'" fill-opacity="0.85"/>');
+    var w=o.w;
+    if(o.wbyd&&hi>lo)w=o.w*(0.6+1.0*(lens[i]-lo)/(hi-lo));
+    parts.push('<path d="'+pathD(pts)+'" fill="none" stroke="'+col+'" stroke-width="'+w.toFixed(2)+
+      '" stroke-opacity="'+op.toFixed(3)+'" stroke-linecap="'+o.cap+'" stroke-linejoin="'+o.join+
+      '" style="mix-blend-mode:multiply"/>');
+    if(o.term&&!isClosed(pts,size)){
+      [pts[0],pts[pts.length-1]].forEach(function(q){
+        parts.push('<circle cx="'+q[0].toFixed(2)+'" cy="'+q[1].toFixed(2)+'" r="'+(w*0.95).toFixed(2)+
+          '" fill="'+col+'" fill-opacity="'+op.toFixed(3)+'" style="mix-blend-mode:multiply"/>');});
+    }
   });
   return '<svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">'+
          parts.join('')+'</svg>';
 }
 
 /* ── wiring ── */
-var seed=7;
-var el=function(id){return document.getElementById(id);};
-var sel=el('preset');
+var seed=7,el=function(id){return document.getElementById(id);};
+var sel=el('preset'),stySel=el('style');
 Object.keys(PRESETS).forEach(function(n){
   var o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
-sel.value='Southeast Asia';
+Object.keys(STYLES).forEach(function(k){
+  var o=document.createElement('option');o.value=k;o.textContent=STYLES[k].label;stySel.appendChild(o);});
+sel.value='Southeast Asia';stySel.value='carved';
 
-function opts(mode){
-  return {mode:mode,w:+el('w').value,op:+el('op').value,bow:+el('bow').value,tol:+el('tol').value,
-          mono:el('mono').checked,arcs:el('arcs').checked,cos:el('cos').checked,
-          fade:el('fade').checked,dots:el('dots').checked};
+function opts(mode,styleKey){
+  var s=STYLES[styleKey||stySel.value];
+  var live=!styleKey||styleKey===stySel.value;
+  return {mode:mode,
+    w:   live?+el('w').value   :s.w,
+    op:  live?+el('op').value  :s.op,
+    ang: live?+el('ang').value :s.ang,
+    grid:live?+el('grid').value:s.grid,
+    sm:  live?+el('sm').value  :s.sm,
+    tol: live?+el('tol').value :s.tol,
+    cap:s.cap,join:s.join,
+    term:live?el('term').checked:s.term,
+    bow:+el('bow').value,mono:el('mono').checked,arcs:el('arcs').checked,
+    cos:el('cos').checked,fade:el('fade').checked,wbyd:el('wbyd').checked};
 }
-function sizeRow(host,tracks,mode){
-  host.innerHTML=[128,64,40,24].map(function(px){
-    return '<div class="s"><div class="box" style="width:'+px+'px;height:'+px+'px">'+
-           glyphSVG(tracks,opts(mode))+'</div><i>'+px+'px</i></div>';}).join('');
+function applyStyle(){
+  var s=STYLES[stySel.value];
+  el('w').value=s.w;el('op').value=s.op;el('ang').value=s.ang;
+  el('grid').value=s.grid;el('sm').value=s.sm;el('tol').value=s.tol;el('term').checked=s.term;
+}
+function boxes(tracks,mode,sizes,styleKey){
+  return sizes.map(function(px){
+    return '<div class="box" style="width:'+px+'px;height:'+px+'px">'+
+           glyphSVG(tracks,opts(mode,styleKey))+'</div>';}).join('');
 }
 function render(){
+  var A=+el('ang').value;
   el('wv').textContent=(+el('w').value).toFixed(1);
   el('opv').textContent=(+el('op').value).toFixed(2);
-  el('bowv').textContent=(+el('bow').value).toFixed(2);
+  el('angv').textContent=A<3?'free':A+' directions ('+(360/A).toFixed(0)+'°)';
+  el('gridv').textContent=(+el('grid').value)?(+el('grid').value)+'×'+(+el('grid').value):'off';
+  el('smv').textContent=(+el('sm').value)||'off';
   el('tolv').textContent=(+el('tol').value)===0?'off':(+el('tol').value).toFixed(3);
+  el('bowv').textContent=(+el('bow').value).toFixed(2);
 
-  var preset=PRESETS[sel.value],tracks=buildTracks(preset,seed);
+  var tracks=buildTracks(PRESETS[sel.value],seed);
   el('big-a').innerHTML=glyphSVG(tracks,opts('intersect'));
   el('big-b').innerHTML=glyphSVG(tracks,opts('origin'));
-  sizeRow(el('sizes-a'),tracks,'intersect');
-  sizeRow(el('sizes-b'),tracks,'origin');
+  el('sizes-a').innerHTML=[128,64,40,24].map(function(px){
+    return '<div class="s">'+boxes(tracks,'intersect',[px])+'<i>'+px+'px</i></div>';}).join('');
+  el('sizes-b').innerHTML=[128,64,40,24].map(function(px){
+    return '<div class="s">'+boxes(tracks,'origin',[px])+'<i>'+px+'px</i></div>';}).join('');
 
   var counts={};tracks.forEach(function(t){counts[t.kind]=(counts[t.kind]||0)+1;});
   el('legend').textContent=tracks.length+' tracks — '+Object.keys(counts).map(function(k){
     return counts[k]+' × '+KIND[k].label.toLowerCase();}).join(', ')+'.';
 
+  el('styleGrid').innerHTML=Object.keys(STYLES).map(function(k){
+    return '<tr><td class="name">'+STYLES[k].label+(k===stySel.value?'<em>live — sliders apply</em>':'')+'</td>'+
+      '<td><div class="tcell">'+boxes(tracks,'intersect',[96,52,30],k)+'</div></td>'+
+      '<td><div class="tcell">'+boxes(tracks,'origin',[96,52,30],k)+'</div></td></tr>';}).join('');
+
   el('grid').innerHTML=Object.keys(PRESETS).map(function(name){
     var tr=buildTracks(PRESETS[name],seed);
-    var cell=function(mode){
-      return '<td><div class="tcell">'+[72,44,28].map(function(px){
-        return '<div class="box" style="width:'+px+'px;height:'+px+'px">'+
-               glyphSVG(tr,opts(mode))+'</div>';}).join('')+'</div></td>';};
     return '<tr><td class="name">'+name+'<em>'+tr.length+' tracks</em></td>'+
-           cell('intersect')+cell('origin')+'</tr>';}).join('');
+      '<td><div class="tcell">'+boxes(tr,'intersect',[72,44,28])+'</div></td>'+
+      '<td><div class="tcell">'+boxes(tr,'origin',[72,44,28])+'</div></td></tr>';}).join('');
 }
-['preset','w','op','bow','tol','mono','arcs','cos','fade','dots'].forEach(function(id){
-  el(id).addEventListener('input',render);});
+['preset','w','op','ang','grid','sm','tol','bow','mono','arcs','term','wbyd','cos','fade']
+  .forEach(function(id){el(id).addEventListener('input',render);});
+stySel.addEventListener('change',function(){applyStyle();render();});
 el('shuffle').addEventListener('click',function(){seed=(seed*1103515245+12345)>>>8;render();});
-render();
+applyStyle();render();
 </script>
 </body>
 </html>
