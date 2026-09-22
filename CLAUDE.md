@@ -273,6 +273,12 @@ builders — `renderPublicStoryCard` (snapshot rows) and `renderFeedStoryCard`
 (your own, from `db`) — must stay in step; they quietly diverged once and the
 You tab kept rendering a canvas map after the shared card had moved on.
 
+**Every empty feed state offers both roads out** — follow someone, or make
+your own relic — because either one fills the feed. There are three
+(`buildFollowingFeed`: following nobody, and nobody-has-shared;
+`buildOwnFeed`: no relics of your own), and they differ only in which action
+is primary. Don't write copy promising an action the block has no button for.
+
 **Front-end copy says "activity", never "moment".** `Moment` stays the model
 name in code (`getMoments`, `momentIds`, `moment_count`, every identifier and
 CSS class); only user-visible strings changed.

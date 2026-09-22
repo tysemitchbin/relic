@@ -6313,9 +6313,9 @@ function buildOwnFeed() {
   // Activities view; the feed is the curated layer on both tabs.
   const stories = getStories();
   if (!stories.length) {
-    container.innerHTML = emptyBlock('book', 'No relics yet',
-      'Group your activities into a relic — a trip, a season, a route — and it will show up here.',
-      `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button><button class="btn-ghost" onclick="switchView('activities')">See your activities</button>`);
+    container.innerHTML = emptyBlock('book', 'Make your first relic',
+      'Group your activities into a relic — a trip, a season, a route — and Relic draws them as one glyph. Or follow people to see theirs.',
+      `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button><button class="btn-ghost" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button>`);
     return;
   }
   stories.forEach(s => computeStoryStats(s));
@@ -6345,8 +6345,11 @@ async function buildFollowingFeed(reset) {
     const authors = [...myFollowingIds].filter(id => !myBlockedIds.has(id));
     if (!authors.length) {
       c.innerHTML = emptyBlock('users', 'Your feed is waiting for friends',
-        'Follow people to see their runs, rides, trips and stories here. Or invite friends who aren\'t on Relic yet.',
-        `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Invite friends</button>`);
+        'Follow people and their relics show up here — a trip, a season, a route, drawn as one glyph. Or make your first relic and start your own.',
+        // Both roads out of an empty feed, same pair as the other two states.
+        // Inviting friends is a third-order action and already lives in the
+        // getting-started checklist, so it doesn't take a slot here.
+        `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>`);
       return;
     }
     // Relics only. A public activity stays public — it shows on its owner's
@@ -6356,8 +6359,8 @@ async function buildFollowingFeed(reset) {
     const pageDone = pageStories.length < 10;
     if (reset && !pageStories.length) {
       c.innerHTML = emptyBlock('home', 'Quiet out there',
-        'The people you follow haven\'t shared a relic yet. Check back soon, or find a few more people to follow.',
-        `<button class="btn-primary" onclick="switchView('people')">Find people</button>`);
+        'Nobody you follow has shared a relic yet. Follow a few more people, or make one of your own — yours show up under You.',
+        `<button class="btn-primary" onclick="switchView('people')"><svg class="ic"><use href="#i-user-plus"/></svg>Find people</button><button class="btn-ghost" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>`);
       return;
     }
     const [profs, storyPhotoUrls] = await Promise.all([
