@@ -358,6 +358,12 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #viewing-banner { flex-wrap: wrap; row-gap: 6px; border-radius: 22px; }
 .viewing-op { display: flex; align-items: center; gap: 6px; font: 500 13px var(--font-ui); color: var(--text-2); }
 .viewing-op input[type=range] { width: 76px; accent-color: var(--accent); }
+.viewing-legend { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 6px 0; white-space: normal; }
+.viewing-legend-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--r-pill); border: 1px solid var(--border); background: var(--surface); font: 500 13px var(--font-ui); color: var(--ink); cursor: pointer; }
+.viewing-legend-chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--dot); flex-shrink: 0; }
+.viewing-legend-chip span { color: var(--text-3); }
+.viewing-legend-chip.off { color: var(--text-3); text-decoration: line-through; }
+.viewing-legend-chip.off i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-3); }
 .viewing-banner-close {
   width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--paper2); color: var(--ink);
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0;
@@ -1931,6 +1937,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <label class="viewing-op">Theirs<input type="range" id="viewing-opacity" min="0.1" max="1" step="0.05" value="0.85" oninput="setViewingOpacity(this.value)" title="Their track opacity" aria-label="Their track opacity"></label>
         <label class="viewing-op">Mine<input type="range" id="viewing-mine-opacity" min="0.1" max="1" step="0.05" value="0.85" oninput="setTrackOpacity(this.value)" title="Your track opacity" aria-label="Your track opacity"></label>
         <button class="viewing-banner-close" onclick="exitProfileView()" aria-label="Stop viewing their map" title="Stop viewing"><svg class="ic"><use href="#i-x"/></svg></button>
+        <div class="viewing-legend" id="viewing-legend" role="group" aria-label="Their activity types — tap to show or hide"></div>
       </div>
 
       <!-- First-connect reveal: import counter, then fly the archive onto the map -->
@@ -8897,7 +8904,7 @@ function renderPublicCover(acts) {
 // satellite, 3D, pins, photos…) intact, and for someone else, overlays
 // their tracks on top of it via the `viewing` source/layer.
 // ════════════════════════════════════════
-let _viewingProfile = null, _viewingFeats = [], viewingOpacity = 0.85;
+let _viewingProfile = null, _viewingFeats = [], viewingOpacity = 0.85, _viewingHidden = new Set();
 // isOwnContext must come from the caller, not from userId === currentUser.id:
 // you can land on YOUR OWN public-profile page (deep link to your own shared
 // activity, or "View on profile" from your own map popup), and that must
@@ -8916,13 +8923,15 @@ async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
   const feats = [];
   acts.forEach(a => (a.polylines || []).forEach(p => {
     let c; try { c = decodePolyline(p); } catch (e) { return; }
-    if (c.length > 1) feats.push({ type: 'Feature', properties: { id: a.activity_id, name: a.name || 'Untitled', date: a.date || '', color: a.custom_color || getColor(a.type) }, geometry: { type: 'LineString', coordinates: c } });
+    if (c.length > 1) feats.push({ type: 'Feature', properties: { id: a.activity_id, name: a.name || 'Untitled', date: a.date || '', color: a.custom_color || getColor(a.type), group: getGroup(a.type) }, geometry: { type: 'LineString', coordinates: c } });
   }));
   if (!feats.length) { toast('Nothing to show on their map yet', { icon: 'map' }); return; }
   _viewingProfile = { userId, name: _ppProfile?.name || 'Their' };
   _viewingFeats = feats;
+  _viewingHidden = new Set();
   switchView('map');
   renderViewingLayer();
+  renderViewingLegend();
   const b = new mapboxgl.LngLatBounds();
   feats.forEach(f => f.geometry.coordinates.forEach(c => b.extend(c)));
   try { map.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 }); } catch (e) {}
@@ -8957,6 +8966,25 @@ function renderViewingLayer() {
   map.setLayoutProperty('viewing-layer', 'visibility', 'visible');
   map.setLayoutProperty('viewing-hit', 'visibility', 'visible');
 }
+// Legend + type filter for the overlaid tracks: one chip per activity group
+// they have, tap to hide/show (someone's flights can bury everything else).
+// Filters both the drawn and hit layers so hidden lines aren't clickable.
+function renderViewingLegend() {
+  const el = document.getElementById('viewing-legend'); if (!el) return;
+  const groups = {};
+  _viewingFeats.forEach(f => {
+    const g = f.properties.group;
+    (groups[g] = groups[g] || { n: 0, color: f.properties.color }).n++;
+  });
+  el.innerHTML = Object.entries(groups).sort((a, b) => b[1].n - a[1].n).map(([g, v]) =>
+    `<button class="viewing-legend-chip${_viewingHidden.has(g) ? ' off' : ''}" style="--dot:${escapeHtml(v.color)}" aria-pressed="${!_viewingHidden.has(g)}" onclick="toggleViewingGroup(${jsAttr(g)})"><i></i>${escapeHtml(TYPE_CONFIG[g]?.label || g)} <span>${v.n}</span></button>`).join('');
+}
+function toggleViewingGroup(g) {
+  if (_viewingHidden.has(g)) _viewingHidden.delete(g); else _viewingHidden.add(g);
+  const f = _viewingHidden.size ? ['!', ['in', ['get', 'group'], ['literal', [..._viewingHidden]]]] : null;
+  try { map.setFilter('viewing-layer', f); map.setFilter('viewing-hit', f); } catch (e) {}
+  renderViewingLegend();
+}
 // User-adjustable opacity for whoever's tracks are currently overlaid (user
 // request, 2026-09-22 — "let the user decide how opaque their tracks are").
 function setViewingOpacity(v) {
@@ -8967,7 +8995,8 @@ function setViewingOpacity(v) {
 // The × on the banner, or navigating away from Map view (see switchView).
 function exitProfileView() {
   if (!_viewingProfile) return;
-  _viewingProfile = null; _viewingFeats = [];
+  _viewingProfile = null; _viewingFeats = []; _viewingHidden = new Set();
+  try { map.setFilter('viewing-layer', null); map.setFilter('viewing-hit', null); } catch (e) {}
   document.getElementById('viewing-banner').hidden = true;
   try { map.setLayoutProperty('viewing-layer', 'visibility', 'none'); map.setLayoutProperty('viewing-hit', 'visibility', 'none'); } catch (e) {}
 }
@@ -10486,7 +10515,7 @@ _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeS
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
-_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('detailBack',detailBack);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
+_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
 _r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
