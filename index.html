@@ -282,6 +282,21 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .map-pill:hover { box-shadow: var(--sh-3); }
 .map-pill .ic { width: 18px; height: 18px; }
 .map-pill .pill-count { font-weight: 500; color: var(--text-3); }
+<<<<<<< Updated upstream
+=======
+.type-legend {
+  position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 110; pointer-events: none;
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 4px 0; justify-content: center;
+}
+.type-legend::-webkit-scrollbar { display: none; }
+.type-legend > * { pointer-events: auto; }
+.type-legend[hidden] { display: none; }
+#detail-panel.open ~ .type-legend { right: calc(var(--detail-w) + 26px); justify-content: flex-start; }
+@media (max-width: 1100px) { .type-legend { justify-content: flex-start; } }
+.tl-all { flex-shrink: 0; border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-pill); padding: 6px 12px; font: 600 13px var(--font-ui); color: var(--accent); cursor: pointer; box-shadow: var(--sh-2); }
+/* Banners sit above the legend bar */
+#mode-banner, #viewing-banner { bottom: 68px; }
+>>>>>>> Stashed changes
 #map-tools {
   position: absolute; top: 14px; right: 14px; z-index: 110;
   display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
@@ -355,9 +370,24 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   max-width: calc(100vw - 24px); white-space: nowrap;
 }
 #mode-banner-text { overflow: hidden; text-overflow: ellipsis; }
+#relic-return:not([hidden]) { display: flex; }
+.sd-seemap { display: none; margin: 12px 18px 4px; width: calc(100% - 36px); justify-content: center; }
+@media (max-width: 768px) { .sd-seemap { display: inline-flex; } }
 #viewing-banner { flex-wrap: wrap; row-gap: 6px; border-radius: 22px; }
 .viewing-op { display: flex; align-items: center; gap: 6px; font: 500 13px var(--font-ui); color: var(--text-2); }
 .viewing-op input[type=range] { width: 76px; accent-color: var(--accent); }
+<<<<<<< Updated upstream
+=======
+.viewing-legend { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 6px 0; white-space: normal; }
+/* Legend chips (own map + someone else's): on = accent, off = white. */
+.viewing-legend-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid var(--accent); background: var(--accent); font: 600 13px var(--font-ui); color: #fff; cursor: pointer; white-space: nowrap; flex-shrink: 0; box-shadow: var(--sh-2); }
+.viewing-legend-chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 1.5px #fff; flex-shrink: 0; }
+.viewing-legend-chip span { font-weight: 500; opacity: .85; }
+.viewing-legend-chip.off { background: var(--surface); border-color: var(--border); color: var(--text-2); }
+.viewing-legend-chip.off i { box-shadow: none; }
+.viewing-legend-chip.off span { color: var(--text-3); opacity: 1; }
+.viewing-legend-label { align-self: center; font: 600 12px var(--font-ui); color: var(--text-3); padding-right: 2px; }
+>>>>>>> Stashed changes
 .viewing-banner-close {
   width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--paper2); color: var(--ink);
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0;
@@ -1926,6 +1956,12 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
            (not a separate modal — reuses every real map control: filters,
            satellite, 3D, etc). viewProfileOnMainMap() opens this;
            exitProfileView() (the × here, or navigating away) tears it down. -->
+      <!-- Mobile "See on map": the relic panel is tucked away so only its lines
+           show; this pill brings the panel back. -->
+      <div id="relic-return" class="mode-banner" hidden>
+        <button class="btn-ghost btn-sm" onclick="relicReturnFromMap()">Back to relic</button>
+        <button class="viewing-banner-close" onclick="closeDetail();relicMapHideReturn()" aria-label="Close relic" title="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
       <div id="viewing-banner" class="mode-banner" hidden>
         <span id="viewing-banner-text"></span>
         <label class="viewing-op">Theirs<input type="range" id="viewing-opacity" min="0.1" max="1" step="0.05" value="0.85" oninput="setViewingOpacity(this.value)" title="Their track opacity" aria-label="Their track opacity"></label>
@@ -4208,6 +4244,29 @@ function _setTypeSet(field, allKeys, key) {
   if (set.has(key)) set.delete(key); else set.add(key);
   filters[field] = (set.size === allKeys.length) ? null : [...set];
 }
+<<<<<<< Updated upstream
+=======
+// Map legend: one chip per activity group you have, tap to show/hide (shift-
+// click = only this one). Reads/writes filters.types via the same helpers the
+// drawer's Activity type section used, so persistence, the Activities view and
+// the filter chips all keep working. Hidden while viewing someone else's map,
+// which has its own legend in #viewing-banner.
+function renderTypeLegend() {
+  const el = document.getElementById('type-legend'); if (!el) return;
+  const counts = {};
+  getMoments().forEach(m => { const g = getGroup(m.type); counts[g] = (counts[g] || 0) + 1; });
+  const entries = Object.entries(TYPE_CONFIG).filter(([k]) => counts[k]);
+  if (!entries.length) { el.hidden = true; return; }
+  el.hidden = false;
+  const chips = entries.map(([k, c]) => {
+    const on = !filters.types || filters.types.includes(k);
+    return `<button class="viewing-legend-chip${on ? '' : ' off'}" style="--dot:${escapeHtml(c.color)}" aria-pressed="${on}" title="Shift-click to show only ${escapeHtml(c.label)}" onclick="onTypeLegendClick(event,${jsAttr(k)})"><i></i>${escapeHtml(c.label)} <span>${counts[k]}</span></button>`;
+  }).join('');
+  el.innerHTML = (_viewingProfile ? '<span class="viewing-legend-label">Mine</span>' : '') + chips
+    + (filters.types ? '<button class="tl-all" onclick="selectAllFilterTypes()">Show all</button>' : '');
+}
+function onTypeLegendClick(e, k) { if (e.shiftKey) soloFilterType(k); else toggleFilterType(k); }
+>>>>>>> Stashed changes
 function toggleFilterType(k) {
   _setTypeSet('types', Object.keys(TYPE_CONFIG), k);
   buildFilterDrawer(); applyFilters();
@@ -4761,13 +4820,19 @@ function showStoryDetail(storyId) {
     glyphDiv.className = 'sd-glyph';
     // Thumbnail only — style and colour live behind Edit, the way a Strava
     // activity keeps its settings out of the view.
-    glyphDiv.innerHTML =
-      '<div class="glyph-thumb" id="sd-glyph-art">' + glyphSvg + '</div>' +
-      '<div class="glyph-ctl"><div class="glyph-name">' +
-      escapeHtml(GLYPH_STYLES[glyphPrefFor(story.id).style].label) + ' glyph</div>' +
-      '<div class="glyph-sub">' + (story._momentCount || 0) + ' activities</div></div>';
+    glyphDiv.innerHTML = '<div class="glyph-thumb" id="sd-glyph-art">' + glyphSvg + '</div>';
     document.getElementById('d-stats').insertAdjacentElement('beforebegin', glyphDiv);
   }
+
+  // "See on map" — mobile only (CSS). The panel covers the whole screen there,
+  // so this tucks it away and leaves just the relic's lines on the map.
+  var mapDiv = document.createElement('div');
+  mapDiv.className = 'sd-map-btn sd-map';
+  mapDiv.style.cssText = 'height:auto;border:0;overflow:visible';
+  mapDiv.innerHTML = '<button class="btn-primary sd-seemap" onclick="relicSeeOnMap()">See on map</button>';
+  var glyphAnchor = document.querySelector('#detail-body .sd-glyph');
+  if (glyphAnchor) glyphAnchor.insertAdjacentElement('afterend', mapDiv);
+  else document.getElementById('d-stats').insertAdjacentElement('beforebegin', mapDiv);
 
 
   // Narrative — read-only, and only when written, same rule as the mood. It
@@ -4781,19 +4846,6 @@ function showStoryDetail(storyId) {
       '<p class="sd-narrative-read">' + escapeHtml(story.narrative) + '</p>';
     body.insertBefore(narrativeDiv, document.getElementById('d-rows'));
   }
-
-  // Map — real Mapbox tiles behind every child moment's track, same as the story cards
-  var mapDiv = document.createElement('div');
-  mapDiv.className = 'sd-map sd-map-hero';
-  mapDiv.title = 'Open on the map';
-  mapDiv.onclick = function() { viewStoryOnMap(story.id); };
-  mapDiv.innerHTML = '<canvas id="sd-map-' + story.id + '" width="620" height="180"></canvas>' + staticStoryMapImg(story, 620, 180);
-  // The map is the hero: directly under the glyph, not below the stats and
-  // mood where it used to sit.
-  var glyphEl = document.querySelector('#detail-body .sd-glyph');
-  if (glyphEl) glyphEl.insertAdjacentElement('afterend', mapDiv);
-  else body.insertBefore(mapDiv, narrativeDiv || document.getElementById('d-rows'));
-  requestAnimationFrame(function() { drawFeedStoryMap(story, 'sd-map-' + story.id); });
 
   // Photos — everything shot on the relic's tracks, plus a way to add more.
   var photoDiv = document.createElement('div');
@@ -4870,6 +4922,7 @@ function showStoryDetail(storyId) {
 }
 
 function closeDetail() {
+  var retPill = document.getElementById('relic-return'); if (retPill) retPill.hidden = true;
   var wasStory = selectedId && db[selectedId] && isStory(db[selectedId]);
   selectedId=null;
   _detailBack = null; updateDetailBack();
@@ -8957,6 +9010,28 @@ function renderViewingLayer() {
   map.setLayoutProperty('viewing-layer', 'visibility', 'visible');
   map.setLayoutProperty('viewing-hit', 'visibility', 'visible');
 }
+<<<<<<< Updated upstream
+=======
+// Legend + type filter for the overlaid tracks: one chip per activity group
+// they have, tap to hide/show (someone's flights can bury everything else).
+// Filters both the drawn and hit layers so hidden lines aren't clickable.
+function renderViewingLegend() {
+  const el = document.getElementById('viewing-legend'); if (!el) return;
+  const groups = {};
+  _viewingFeats.forEach(f => {
+    const g = f.properties.group;
+    (groups[g] = groups[g] || { n: 0, color: f.properties.color }).n++;
+  });
+  el.innerHTML = '<span class="viewing-legend-label">Theirs</span>' + Object.entries(groups).sort((a, b) => b[1].n - a[1].n).map(([g, v]) =>
+    `<button class="viewing-legend-chip${_viewingHidden.has(g) ? ' off' : ''}" style="--dot:${escapeHtml(v.color)}" aria-pressed="${!_viewingHidden.has(g)}" onclick="toggleViewingGroup(${jsAttr(g)})"><i></i>${escapeHtml(TYPE_CONFIG[g]?.label || g)} <span>${v.n}</span></button>`).join('');
+}
+function toggleViewingGroup(g) {
+  if (_viewingHidden.has(g)) _viewingHidden.delete(g); else _viewingHidden.add(g);
+  const f = _viewingHidden.size ? ['!', ['in', ['get', 'group'], ['literal', [..._viewingHidden]]]] : null;
+  try { map.setFilter('viewing-layer', f); map.setFilter('viewing-hit', f); } catch (e) {}
+  renderViewingLegend();
+}
+>>>>>>> Stashed changes
 // User-adjustable opacity for whoever's tracks are currently overlaid (user
 // request, 2026-09-22 — "let the user decide how opaque their tracks are").
 function setViewingOpacity(v) {
@@ -9553,6 +9628,21 @@ function drawStoryCardMap(story) {
   ctx.globalAlpha = 1;
 }
 
+// Mobile "See on map": tuck the panel away (keeping the relic selected), dim
+// every other line to almost nothing, and leave a pill to bring the panel back.
+function relicSeeOnMap() {
+  const story = selectedId && db[selectedId];
+  if (!story || !isStory(story)) return;
+  document.getElementById('detail-panel').classList.remove('open');
+  highlightStoryOnMap(story, 0.05);
+  document.getElementById('relic-return').hidden = false;
+}
+function relicMapHideReturn() { document.getElementById('relic-return').hidden = true; }
+function relicReturnFromMap() {
+  relicMapHideReturn();
+  document.getElementById('detail-panel').classList.add('open');
+}
+
 function viewStoryOnMap(storyId) {
   const story = db[storyId];
   if (!story || !isStory(story)) return;
@@ -9572,7 +9662,7 @@ function viewStoryOnMap(storyId) {
   }, 200);
 }
 
-function highlightStoryOnMap(story) {
+function highlightStoryOnMap(story, dimOpacity) {
   {
     // Highlight all member tracks
     const ids = story.momentIds || [];
@@ -9584,7 +9674,7 @@ function highlightStoryOnMap(story) {
 
     if (map.getLayer('tracks-highlight')) {
       map.setFilter('tracks-highlight', matchFilter);
-      map.setPaintProperty('tracks-layer', 'line-opacity', ['case', matchFilter.slice(0), 1, 0.15]);
+      map.setPaintProperty('tracks-layer', 'line-opacity', ['case', matchFilter.slice(0), 1, dimOpacity == null ? 0.15 : dimOpacity]);
       map.setPaintProperty('tracks-layer', 'line-width', ['case', matchFilter.slice(0), 4*trackWidth, 1*trackWidth]);
     }
 
@@ -10486,7 +10576,11 @@ _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeS
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
+<<<<<<< Updated upstream
 _r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('detailBack',detailBack);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
+=======
+_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('relicSeeOnMap',relicSeeOnMap);_r('relicReturnFromMap',relicReturnFromMap);_r('relicMapHideReturn',relicMapHideReturn);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('onTypeLegendClick',onTypeLegendClick);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
+>>>>>>> Stashed changes
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
 _r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
