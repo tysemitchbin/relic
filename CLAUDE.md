@@ -93,7 +93,7 @@ to know:
   by activities that never sit side by side (red = Run/Motorbike, blue =
   Road Bike/Swim/Boat…). A new type takes another shade in an existing
   family rather than a new hue. Pins default to white for every category;
-  users set colours in Filters → Pins.
+  users set colours in Filters → Pin type.
 - **Tokens, not literals.** Colours/radii/shadows/fonts are CSS variables on
   `:root` (`--bg`, `--surface`, `--text`, `--text-2`, `--text-3`, `--accent`,
   `--r-*`, `--sh-*`, `--font-ui` = Inter, `--font-display` = Fraunces,
@@ -544,23 +544,27 @@ bug, this is what replaced them:
 - **`buildFilterDrawer()`** replaces `buildToolsPanel()` — one collapsible-
   section drawer (`#filter-drawer`, opened via `openFilterDrawer()`/the ⚑
   map control, now a sliders icon) covering type/source/date/distance/duration/elevation/
-  heart-rate/mood/attributes, **plus a "Pins" section** (added during the
-  merge) driven by `PIN_CATEGORIES`/`activePinCategories` — kept structurally
-  separate from `filters` since Pins aren't tracked Moments and none of the
+  heart-rate/mood/attributes, **plus a "Pin type" section** (added during the
+  merge, renamed from "Pins" 2026-09-23 — see below) driven by
+  `PIN_CATEGORIES`/`activePinCategories` — kept structurally separate from
+  `filters` since Pins aren't tracked Moments and none of the
   distance/duration/HR-style filters apply to them. Track colors moved into
   this same drawer too ("Track colours" section, still `updateTypeColor()`).
-  **"Select all" / "Deselect all"** (2026-09-22, user ask — toggling ~18
-  types or a dozen pin categories one at a time was tedious) sits above the
-  toggle grid in both the "Activity type" and "Pins" sections
-  (`.fd-sec-actions`/`.fd-link`). `setAllFilterTypes(on)` sets
-  `filters.types` to `null` (the same "every type on" convention
-  `_setTypeSet` already collapses to) or `[]` (every type off — an empty
-  array is still truthy, so `matchMoment`'s `!f.types.includes(...)` check
-  correctly excludes everything, and `activeFilterCount()`'s `if
-  (filters.types)` still flags it as an active filter). `setAllPinCategories
-  (on)` just replaces the `activePinCategories` Set wholesale. Neither
-  touches the *other* toggle group — they're independent controls with
-  independent "everything" states, not one global select-all.
+  **Select all/Deselect all on the type and pin grids was built twice in
+  parallel** (once directly on `main` 2026-09-22 as `setAllFilterTypes(on)`/
+  `setAllPinCategories(on)` + `.fd-sec-actions`/`.fd-link`, once on the
+  `2026-09-23 map-UX` branch below as `selectAllFilterTypes()`/
+  `deselectAllFilterTypes()`/etc. + `.tp-select-row`/`.tp-select-link`) and
+  collided as a merge conflict when that branch merged back into `main`.
+  Resolved by keeping the map-UX branch's version (it also carries the solo
+  gesture and needed the two actions kept separate, not boolean-flagged, to
+  read consistently next to `soloFilterType`/`soloPinCategory`) and deleting
+  `setAllFilterTypes`/`setAllPinCategories`/`.fd-sec-actions`/`.fd-link`
+  entirely — see the "Both `.tp-type-grid` sections" bullet below for how it
+  actually works. If a future merge turns up `setAllFilterTypes` or
+  `.fd-sec-actions` again (e.g. an unmerged branch based on pre-merge
+  `main`), it's the stale duplicate — take the `selectAllFilterTypes()`/
+  `.tp-select-row` side.
   **"Track thickness"** (2026-09-22, added after) is the same idea for line
   width: one `trackWidth` multiplier (0.5–3, slider, default 1), also *not*
   part of `filters`/`matchMoment` — it doesn't hide/show anything, so it's
@@ -583,6 +587,119 @@ bug, this is what replaced them:
   hit`) and the draw-route tool's own line are deliberately **not** scaled —
   different concerns (a bigger tap target; a temporary drawing aid), not
   "how thick do my tracks look."
+- **`.tp-type-row` rows (Activity type, Pin type) have a "solo" gesture**
+  (`soloFilterType()`/`soloPinCategory()`, 2026-09-23 map-UX pass): clicking
+  the dot/label/`.tp-type-only` "only" button shows just that one row (click
+  again to restore "all"); the separate `.tp-type-toggle` pill keeps the old
+  add/remove-one-of-many behavior. This exists because isolating one sport
+  used to take N-1 clicks via the toggle alone — the single most common
+  filter action in the app. Give a new `.tp-type-row`-based section
+  (Source/Mood are still plain `.fd-chip` multi-select, not rows) both click
+  targets the same way rather than only wiring the toggle.
+- **Both `.tp-type-grid` sections (Activity type, Pin type) also have a
+  bulk "Select all · Deselect all" row** above the grid
+  (`selectAllFilterTypes()`/`deselectAllFilterTypes()`,
+  `selectAllPinCategories()`/`deselectAllPinCategories()`, `.tp-select-row`
+  — added same day, user preferred this over per-row "only" for "show
+  everything" / "hide everything"). **"Deselect all" sets `filters.types =
+  []`, not `null`** — deliberately different values: `null` means "no
+  filter, everything matches" (the `_setTypeSet`/`matchMoment` convention
+  used everywhere else), while `[]` is a real filter whose `.includes()`
+  check matches nothing, i.e. an explicit "hide everything." Don't
+  normalize `[]` to `null` here or "Deselect all" stops deselecting
+  anything. Pins use the equivalent empty-`Set` convention
+  (`activePinCategories = new Set()`). Both bulk actions coexist with the
+  solo gesture and the per-row toggle without special-casing — they're just
+  three different ways to end up setting the same `filters.types`/
+  `activePinCategories` state, and every read site (`matchMoment`,
+  `renderPinMarkers`, `buildFilterDrawer`'s own `on`/`solo` checks) already
+  works off that state rather than off which gesture set it.
+- **The map's Filters button is `.mt-filter-btn`** (`#tools-toggle-btn`), a
+  labeled pill — icon + "Filters" + count — living as its own child of
+  `#map-tools`, not inside the icon-only `.mt-group` camera/layer cluster.
+  It was folded into that cluster as a bare icon before 2026-09-23; moved out
+  so it reads as a peer of the "Activities" pill (both answer "what's
+  shown") rather than map chrome. `#mt-filter-badge`/`.mt-fcount` mirrors
+  Activities view's `#av-fcount` pattern.
+- **Every drawer section starts collapsed, every time the drawer opens** —
+  an auto-expand-if-active behavior was tried right after the 2026-09-23
+  pass above and reverted the same day per user feedback ("when I open the
+  filters they should all be collapsed"). `openFilterDrawer()` resets
+  `_fdCollapsed` to `FD_SECTION_IDS` (the full list of section ids,
+  including the conditional ones) on every open; `toggleFilterSection()`
+  still lets you expand/collapse freely within that one open. Don't
+  reintroduce a "remember what was open" or "expand active sections"
+  behavior here without being asked again.
+- **The drawer is progressive disclosure, not one flat list of 12 sections**
+  (redesigned 2026-09-23, user feedback: "an overwhelming amount of
+  filters" / "this needs a redesign"). **Core** (always visible, in this
+  order): Activity type → Date → Distance → Duration → Elevation gain →
+  Pin type. **Advanced** (Heart rate/Mood/Attributes/Source): hidden by
+  default behind a "+ Add filter" chip row in `buildFilterDrawer()` — the
+  `ADV` array there, each with `applicable()` (Heart rate needs
+  `filterBounds.hasHR`, Source needs 2+ sources) and `active()` (does it
+  already have a value). An advanced section renders inline, in `ADV`'s
+  order, right where the "+ Add filter" row would otherwise sit, once it's
+  either in `_fdExtraShown` (user clicked "+ X") or `active()` (already has
+  a value — an existing filter must never silently vanish behind the
+  disclosure). Each shown advanced section gets a `sec(..., removable:
+  true)` **"Remove"** link next to its title (`removeExtraFilterSection`)
+  that clears its own filter value(s) *and* folds it back behind "+ Add
+  filter" — a hidden-but-still-filtering section would be worse than the
+  wall of sections this replaced. `_fdExtraShown` persists in
+  `relic_mapprefs_v1_<uid>` (see below) so a returning user doesn't have to
+  re-add a filter they were mid-way through setting; `clearFilters()` resets
+  it too, since "Clear all" wiping the values but leaving the section
+  visible-but-empty would be its own confusion. **Appearance** (Track
+  colours, Track thickness) sits below a `.fd-group-label` "Appearance"
+  divider, visually broken out from the filters above it — colour/thickness
+  don't hide or show anything, and living inside "Filters" with no visual
+  distinction read as "two more filters" (user feedback). **`.fd-group-label`
+  is a filled band** (`background: var(--paper2)`, border on both top and
+  bottom, bold sentence-case label — not uppercase/letter-spaced, per this
+  file's button-copy rule above) rather than a plain 1px divider —
+  the first version used the same 1px `border-top` every `.fd-section`
+  already has between its own sections, so "Appearance" read as just another
+  section, not a category change, and Pin type (the section right above it)
+  got roped into looking like part of "Appearance" too (user feedback,
+  same day: "in particular the break and appearance section, also the pin
+  type"). A same-weight divider is not enough separation between tiers —
+  give a break between groups real visual weight (fill + double border),
+  not just a hairline. Preserve this core/advanced/appearance shape when
+  adding a new filterable field: decide which tier it belongs in rather
+  than defaulting it into "core" (that's
+  exactly how this got to 12 sections the first time).
+- **The section formerly called "Pins" is now "Pin type"** (renamed
+  2026-09-23, alongside "Activity type" for consistency — a user-visible
+  label change only; `PIN_CATEGORIES`/`activePinCategories`/
+  `soloPinCategory()`/etc. all keep their names, same "UI label vs. code"
+  split as the Story/Relic rename above).
+- **`#filter-drawer` is wider at desktop widths**: `460px` at `min-width:
+  860px` vs. the `380px` default (tuned for the `max-width: 768px` mobile
+  bottom-sheet breakpoint) — added 2026-09-23 alongside the redesign above,
+  user feedback that it "can expand larger to be easier to use" on desktop.
+- **`clearFilters()` ("Clear all") also resets `activePinCategories`** back
+  to every key in `PIN_CATEGORIES`, even though Pins live outside the
+  `filters` object. Before this it silently left Pins untouched, so soloing
+  a pin category (the "only" gesture above) and then hitting the drawer's
+  one and only "Clear all" looked broken — reported as a bug 2026-09-23.
+  Track colours/thickness are still deliberately excluded (appearance, not
+  visibility — same precedent as `activeFilterCount()`).
+- **`activePinCategories` persists in `relic_mapprefs_v1_<uid>`** alongside
+  `filters`/`sidebarSort`/`trackWidth` (added 2026-09-23, user feedback:
+  "my filter settings should persist when I reload the page ... never
+  reset"). Saved as an array (`saveMapPrefs()`); `applyStoredFilters()`
+  restores it as a Set, filtered against the current `PIN_CATEGORIES` keys
+  so a renamed/removed category in storage doesn't resurrect a stale
+  category. Checked via `Array.isArray()`, not truthiness — an empty array
+  is a real "every pin category off" choice, not "nothing saved yet." This
+  was already true for `filters`/`sidebarSort`/`trackWidth` before
+  2026-09-23; Pins were the one piece of drawer state that didn't survive a
+  reload. `_fdExtraShown` (the advanced-filter disclosure set above) is
+  saved/restored the same way, as `fdExtraShown`. If a new drawer-adjacent
+  piece of state is added outside `filters` (like Pins, Track thickness, or
+  `_fdExtraShown`), persist it here too rather than assuming `filters` alone
+  covers "what the user last had shown."
 - **Activities view** (`#activities-view`, `renderActivitiesView()`) is a
   sortable table reachable from the header nav (desktop) / mobile hamburger
   menu, and since 2026-09-20 also from the account-avatar dropdown
@@ -668,12 +785,13 @@ corrupt `getGroup()`'s reverse lookup (`TYPE_GROUP_MAP`), which assumes every
 key maps to GPS-shaped Strava type strings. Pin colors reuse the *same*
 `relic_colors_v1` localStorage blob as tracked-type colors (it's just a flat
 `{key: color}` map, and pin category keys don't collide with `TYPE_CONFIG`
-keys) — see `loadColors()`. Pin category toggles/colors are their own "Pins"
-section inside `buildFilterDrawer()` (the `map-filters` branch's filter
-drawer, merged into this branch 2026-09-04 — see "Filters + Activities view"
-below), driven by `PIN_CATEGORIES` and `activePinCategories`; NOT part of
-the `filters`/`matchMoment()` object, since distance/duration/HR-style
-filtering makes no sense for a point Pin.
+keys) — see `loadColors()`. Pin category toggles/colors are their own
+"Pin type" section (renamed from "Pins" 2026-09-23) inside
+`buildFilterDrawer()` (the `map-filters` branch's filter drawer, merged into
+this branch 2026-09-04 — see "Filters + Activities view" below), driven by
+`PIN_CATEGORIES` and `activePinCategories`; NOT part of the
+`filters`/`matchMoment()` object, since distance/duration/HR-style filtering
+makes no sense for a point Pin.
 
 **Pins render as DOM `mapboxgl.Marker` elements** (`renderPinMarkers()`), not
 a GL symbol layer with an emoji `text-field`. Mapbox GL's text-field glyph

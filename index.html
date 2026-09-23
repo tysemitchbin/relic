@@ -306,6 +306,17 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .mt-badge[hidden] { display: none; }
 
+.mt-filter-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px 0 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-pill);
+  box-shadow: var(--sh-2); font: 600 14px var(--font-ui); color: var(--ink); cursor: pointer;
+  transition: box-shadow .15s;
+}
+.mt-filter-btn:hover { box-shadow: var(--sh-3); }
+.mt-filter-btn .ic { width: 18px; height: 18px; }
+.mt-fcount { background: var(--accent); color: #fff; border-radius: var(--r-pill); padding: 0 7px; font-size: 12px; line-height: 18px; }
+.mt-fcount[hidden] { display: none; }
+
 /* Layers popover */
 .layers-pop {
   width: 236px; padding: 14px; background: var(--surface); border: 1px solid var(--border);
@@ -377,13 +388,25 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #tools-panel { display: none; }
 
 /* Type toggles + colour rows (used inside the filter drawer) */
+.tp-select-row { display: flex; justify-content: flex-end; align-items: center; gap: 6px; padding: 0 4px 8px; }
+.tp-select-link { background: none; border: none; font: 600 12.5px var(--font-ui); color: var(--text-2); cursor: pointer; padding: 2px 4px; -webkit-tap-highlight-color: transparent; }
+.tp-select-link:hover { color: var(--accent); }
+.tp-select-sep { color: var(--text-3); font-size: 12px; }
 .tp-type-grid { display: flex; flex-direction: column; gap: 2px; }
 .tp-type-row {
-  display: flex; align-items: center; gap: 12px; padding: 8px 8px; min-height: 42px; border-radius: var(--r-sm); cursor: pointer; transition: background .1s;
+  display: flex; align-items: center; gap: 12px; padding: 8px 8px; min-height: 42px; border-radius: var(--r-sm); transition: background .1s;
 }
 .tp-type-row:hover { background: var(--paper2); }
-.tp-type-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.tp-type-label { font-size: 14px; font-weight: 500; text-transform: none; color: var(--ink); flex: 1; }
+.tp-type-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; cursor: pointer; }
+.tp-type-label { font-size: 14px; font-weight: 500; text-transform: none; color: var(--ink); flex: 1; cursor: pointer; }
+.tp-type-only {
+  font: 600 11px var(--font-ui); color: var(--text-3); background: none; border: none; cursor: pointer;
+  padding: 3px 8px; border-radius: var(--r-pill); opacity: .5; transition: opacity .12s, color .12s, background .12s; flex-shrink: 0;
+}
+.tp-type-row:hover .tp-type-only, .tp-type-row:focus-within .tp-type-only, .tp-type-row.is-solo .tp-type-only { opacity: 1; }
+.tp-type-only:hover { color: var(--accent); background: var(--surface); }
+.tp-type-row.is-solo .tp-type-only { color: var(--accent); }
+.tp-type-row.is-solo .tp-type-label { color: var(--accent); }
 .tp-type-toggle {
   width: 40px; height: 24px; border-radius: var(--r-pill); border: none;
   background: var(--paper3); position: relative; cursor: pointer; transition: background .18s; flex-shrink: 0;
@@ -1552,6 +1575,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   display: flex; flex-direction: column;
 }
 #filter-drawer.open { transform: translateX(0); }
+/* Wider on desktop — "an overwhelming amount of filters" (2026-09-23) is a
+   room problem too: the 380px width was tuned for the mobile bottom-sheet
+   breakpoint below, not for a pointer+keyboard desktop session with room to
+   spare. */
+@media (min-width: 860px) { #filter-drawer { width: 460px; } }
 .fd-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: calc(18px + var(--safe-t)) 14px 14px 22px; border-bottom: 1px solid var(--border); flex-shrink: 0;
@@ -1580,6 +1608,14 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .fd-section:not(.has-active) .fd-dot { visibility: hidden; }
 .fd-sec-body { padding: 0 22px 18px; }
 .fd-section.collapsed .fd-sec-body { display: none; }
+.fd-sec-remove { font: 500 12px var(--font-ui); color: var(--text-3); flex-shrink: 0; padding: 3px 7px; border-radius: var(--r-pill); }
+.fd-sec-remove:hover { color: var(--accent); background: var(--surface); }
+.fd-addfilter { padding: 14px 22px 18px; border-bottom: 1px solid var(--border); }
+/* A visibly heavier break than the 1px section-to-section borders above —
+   this is a category change (filters -> appearance), not just the next
+   section, and a same-weight divider made it read as one more filter
+   (user feedback, 2026-09-23). */
+.fd-group-label { padding: 12px 22px; font: 700 12px var(--font-ui); color: var(--text-3); background: var(--paper2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 
 .fd-input {
   width: 100%; background: var(--paper2); border: 1px solid transparent; border-radius: var(--r-md); color: var(--ink);
@@ -1591,10 +1627,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .fd-range-sep { font-size: 13px; color: var(--text-3); flex-shrink: 0; }
 .fd-hint { font-size: 12px; color: var(--text-3); margin-top: 6px; line-height: 1.5; }
 
-.fd-sec-actions { display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 8px; font-size: 12px; }
-.fd-link { border: none; background: none; padding: 0; color: var(--text-3); font: 600 12px var(--font-ui); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.fd-link:hover { color: var(--accent); text-decoration: underline; }
-.fd-sec-actions-sep { color: var(--border); }
 .fd-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .fd-chip {
   padding: 7px 13px; border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-pill);
@@ -1986,9 +2018,14 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <!-- Map controls (top right) -->
       <div id="map-tools">
         <div id="tools-panel"></div>
+        <!-- Filters gets its own labeled pill (not folded into the icon-only
+             camera/layer cluster below) so it reads as a peer of the
+             Activities pill — "what's shown" — rather than map chrome. -->
+        <button class="mt-filter-btn" id="tools-toggle-btn" onclick="openFilterDrawer()" aria-label="Filters">
+          <svg class="ic"><use href="#i-sliders"/></svg>Filters<span class="mt-fcount" id="mt-filter-badge" hidden></span>
+        </button>
         <div class="mt-group">
           <button class="mt-btn" id="layers-btn" onclick="toggleLayersPop(event)" title="Map style" aria-label="Map style"><svg class="ic"><use href="#i-layers"/></svg></button>
-          <button class="mt-btn" id="tools-toggle-btn" onclick="openFilterDrawer()" title="Filters" aria-label="Filters"><svg class="ic"><use href="#i-sliders"/></svg><span class="mt-badge" id="mt-filter-badge" hidden></span></button>
         </div>
         <div class="layers-pop" id="layers-pop" hidden>
           <div class="lp-title">Map style</div>
@@ -2756,7 +2793,7 @@ const PIN_CATEGORIES = {
   // not offered in the manual "add a pin" category picker. See below.
   airport: { label:'Airport', color:'#FFFFFF', icon:'✈️' },
 };
-// Pins default to white; users pick category colours in Filters → Pins.
+// Pins default to white; users pick category colours in Filters → Pin type.
 let activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
 function getPinCategory(cat) { return PIN_CATEGORIES[cat] || PIN_CATEGORIES.other; }
 function getPinColor(cat) { return getPinCategory(cat).color; }
@@ -2894,6 +2931,7 @@ function saveMapPrefs() {
     try {
       localStorage.setItem(k, JSON.stringify({
         v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, photosLayerOn, trackWidth, viewingOpacity, camera: _lastCamera,
+        activePinCategories: [...activePinCategories], fdExtraShown: [..._fdExtraShown],
       }));
     } catch (e) { /* quota — prefs just won't persist */ }
   }, 400);
@@ -2916,6 +2954,17 @@ function applyStoredFilters(p) {
   if (p.sidebarSort) sidebarSort = p.sidebarSort;
   if (typeof p.trackWidth === 'number' && p.trackWidth >= 0.5 && p.trackWidth <= 3) trackWidth = p.trackWidth;
   if (typeof p.viewingOpacity === 'number' && p.viewingOpacity >= 0.15 && p.viewingOpacity <= 1) viewingOpacity = p.viewingOpacity;
+  // Array (not Set) in storage; an empty array is a real "all pin categories
+  // off" choice, so check for the key rather than truthiness. Filter against
+  // PIN_CATEGORIES in case a category was renamed/removed since the save.
+  if (Array.isArray(p.activePinCategories)) {
+    const known = new Set(Object.keys(PIN_CATEGORIES));
+    activePinCategories = new Set(p.activePinCategories.filter(k => known.has(k)));
+  }
+  // Which advanced filter sections (Heart rate/Mood/Attributes/Source) the
+  // user had pulled into view via "+ Add filter" — restored so a returning
+  // user doesn't have to re-add a filter they were mid-way through setting.
+  if (Array.isArray(p.fdExtraShown)) _fdExtraShown = new Set(p.fdExtraShown);
 }
 function restoreBasemap(p) {
   if (_basemapRestored || !p || DEMO) return;
@@ -3896,7 +3945,16 @@ function setSidebarSort(sort) {
 // ════════════════════════════════════════
 // FILTER DRAWER
 // ════════════════════════════════════════
+// Every section id buildFilterDrawer() can render, including the
+// conditional ones (Source/Heart rate/Track colours only show up if the
+// user has that kind of data) — harmless to list unconditionally since
+// _fdCollapsed is just "don't render this one open," not "this exists."
+const FD_SECTION_IDS = ['fd-sec-type','fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-pins','fd-sec-color','fd-sec-thickness'];
 function openFilterDrawer() {
+  // Every section starts collapsed on open, every time — no auto-expand,
+  // no carrying over which sections were left open last time. Within one
+  // open, toggleFilterSection() still lets you expand/collapse freely.
+  _fdCollapsed = new Set(FD_SECTION_IDS);
   buildFilterDrawer();
   document.getElementById('filter-drawer').classList.add('open');
   document.getElementById('filter-backdrop').classList.add('open');
@@ -3906,8 +3964,10 @@ function closeFilterDrawer() {
   document.getElementById('filter-backdrop').classList.remove('open');
 }
 
-// Which sections start collapsed (persists across rebuilds within a session)
-let _fdCollapsed = new Set(['fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-color','fd-sec-thickness']);
+let _fdCollapsed = new Set(FD_SECTION_IDS);
+// Advanced filter sections (Heart rate/Mood/Attributes/Source) the user has
+// explicitly revealed via "+ Add filter" this session — see buildFilterDrawer().
+let _fdExtraShown = new Set();
 function toggleFilterSection(id) {
   if (_fdCollapsed.has(id)) _fdCollapsed.delete(id); else _fdCollapsed.add(id);
   document.getElementById(id)?.classList.toggle('collapsed');
@@ -3929,25 +3989,41 @@ function _fdRange(key, label, unit) {
 function buildFilterDrawer() {
   const body = document.getElementById('fd-body');
   if (!body) return;
-  const sec = (id, title, html, active) => `
+  const sec = (id, title, html, active, removable) => `
     <div class="fd-section ${_fdCollapsed.has(id) ? 'collapsed' : ''} ${active ? 'has-active' : ''}" id="${id}">
       <button class="fd-sec-head" onclick="toggleFilterSection('${id}')">
-        <span>${title}</span><span class="fd-dot"></span><span class="fd-caret">▾</span>
+        <span>${title}</span><span class="fd-dot"></span>
+        ${removable ? `<span class="fd-sec-remove" onclick="event.stopPropagation();removeExtraFilterSection('${id}')">Remove</span>` : ''}
+        <span class="fd-caret">▾</span>
       </button>
       <div class="fd-sec-body">${html}</div>
     </div>`;
 
   // Only the groups this user actually has tracks in — ~18 groups exist, and
   // toggles/colours for sports you never do are just noise.
+  // Select-all/Deselect-all row shared by Activity type and Pin type — both
+  // are the same "N toggles, pick which show" shape, so one bulk action
+  // beats a per-row "only" click for "show everything again" / "hide
+  // everything" (user feedback, 2026-09-23: prefers this to only per-row).
+  const selectAllRow = (selectFn, deselectFn) => `
+    <div class="tp-select-row">
+      <button class="tp-select-link" onclick="${selectFn}()">Select all</button>
+      <span class="tp-select-sep">·</span>
+      <button class="tp-select-link" onclick="${deselectFn}()">Deselect all</button>
+    </div>`;
+
   const usedGroups = new Set(getMoments().map(m => getGroup(m.type)));
   const typeEntries = Object.entries(TYPE_CONFIG).filter(([k]) => usedGroups.has(k));
   const typesHtml = !typeEntries.length ? '<div class="fd-hint">No activities yet.</div>'
-    : '<div class="fd-sec-actions"><button class="fd-link" onclick="setAllFilterTypes(true)">Select all</button><span class="fd-sec-actions-sep">·</span><button class="fd-link" onclick="setAllFilterTypes(false)">Deselect all</button></div><div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
+    : selectAllRow('selectAllFilterTypes', 'deselectAllFilterTypes')
+    + '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
     const on = !filters.types || filters.types.includes(k);
-    return `<div class="tp-type-row" onclick="toggleFilterType('${k}')">
-      <div class="tp-type-dot" style="background:${c.color}"></div>
-      <div class="tp-type-label">${c.label}</div>
-      <div class="tp-type-toggle ${on ? 'on' : ''}"></div></div>`;
+    const solo = filters.types && filters.types.length === 1 && filters.types[0] === k;
+    return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
+      <div class="tp-type-dot" style="background:${c.color}" onclick="soloFilterType('${k}')"></div>
+      <div class="tp-type-label" onclick="soloFilterType('${k}')" title="Click to show only ${escapeHtml(c.label)}">${c.label}</div>
+      <button class="tp-type-only" onclick="soloFilterType('${k}')">${solo ? 'showing only' : 'only'}</button>
+      <div class="tp-type-toggle ${on ? 'on' : ''}" onclick="toggleFilterType('${k}')"></div></div>`;
   }).join('') + '</div>';
 
   const srcHtml = '<div class="fd-chips">' + filterBounds.sources.map(s => {
@@ -4002,29 +4078,86 @@ function buildFilterDrawer() {
   // distance/duration/HR filters make no sense for a point pin), so this
   // section drives activePinCategories + PIN_CATEGORIES colors directly,
   // same as the rest of the app's pin-visibility toggle.
-  const pinsHtml = '<div class="fd-sec-actions"><button class="fd-link" onclick="setAllPinCategories(true)">Select all</button><span class="fd-sec-actions-sep">·</span><button class="fd-link" onclick="setAllPinCategories(false)">Deselect all</button></div><div class="tp-type-grid">' + Object.entries(PIN_CATEGORIES).map(([k,c]) => {
+  const pinsHtml = selectAllRow('selectAllPinCategories', 'deselectAllPinCategories')
+    + '<div class="tp-type-grid">' + Object.entries(PIN_CATEGORIES).map(([k,c]) => {
     const on = activePinCategories.has(k);
-    return `<div class="tp-type-row">
+    const solo = activePinCategories.size === 1 && activePinCategories.has(k);
+    return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
       <div class="tp-color-swatch" id="pin-swatch-${k}" style="background:${c.color};width:16px;height:16px;margin-right:8px">
         <input type="color" value="${c.color}" oninput="updatePinCategoryColor('${k}',this.value)"></div>
-      <div class="tp-type-label" onclick="togglePinCategory('${k}')" style="flex:1;cursor:pointer">${c.icon} ${c.label}</div>
+      <div class="tp-type-label" onclick="soloPinCategory('${k}')" style="flex:1;cursor:pointer" title="Click to show only ${escapeHtml(c.label)}">${c.icon} ${c.label}</div>
+      <button class="tp-type-only" onclick="soloPinCategory('${k}')">${solo ? 'showing only' : 'only'}</button>
       <div class="tp-type-toggle ${on?'on':''}" id="pin-toggle-${k}" onclick="togglePinCategory('${k}')"></div>
     </div>`;
   }).join('') + '</div>';
 
+  // Core filters: always visible, the ones people actually touch often.
+  // Order: what (type) -> when (date) -> how much (the three track stats).
   let html = sec('fd-sec-type', 'Activity type', typesHtml, !!filters.types);
-  if (filterBounds.sources.length > 1) html += sec('fd-sec-source', 'Source', srcHtml, !!filters.sources);
   html += sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
   html += sec('fd-sec-dist', 'Distance', _fdRange('distKm','Distance','km'), rangeActive(filters.distKm));
   html += sec('fd-sec-dur', 'Duration', _fdRange('durMin','Moving time','minutes'), rangeActive(filters.durMin));
   html += sec('fd-sec-elev', 'Elevation gain', _fdRange('elevM','Elevation gain','metres'), rangeActive(filters.elevM));
-  if (filterBounds.hasHR) html += sec('fd-sec-hr', 'Heart rate', _fdRange('hr','Average HR','bpm'), rangeActive(filters.hr));
-  html += sec('fd-sec-mood', 'Mood', moodHtml, !!filters.moods);
-  html += sec('fd-sec-attr', 'Attributes', attrHtml, filters.hasPhotos != null || filters.hasNote != null || filters.commute != null);
-  html += sec('fd-sec-pins', 'Pins', pinsHtml, activePinCategories.size < Object.keys(PIN_CATEGORIES).length);
+
+  // Advanced filters (Heart rate/Mood/Attributes/Source): hidden by default
+  // — with type/date/distance/duration/elevation/pins already always on
+  // screen, a 12-section wall was "overwhelming" (user feedback,
+  // 2026-09-23). Each one only renders once it's either been explicitly
+  // added via "+ Add filter" (_fdExtraShown) or already has a value set
+  // (so an existing filter never silently disappears), and gets a "Remove"
+  // link that clears its value and folds it back away.
+  const ADV = [
+    { id: 'fd-sec-hr', label: 'Heart rate', applicable: () => filterBounds.hasHR,
+      active: () => rangeActive(filters.hr), render: () => sec('fd-sec-hr', 'Heart rate', _fdRange('hr','Average HR','bpm'), rangeActive(filters.hr), true) },
+    { id: 'fd-sec-mood', label: 'Mood', applicable: () => true,
+      active: () => !!filters.moods, render: () => sec('fd-sec-mood', 'Mood', moodHtml, !!filters.moods, true) },
+    { id: 'fd-sec-attr', label: 'Attributes', applicable: () => true,
+      active: () => filters.hasPhotos != null || filters.hasNote != null || filters.commute != null,
+      render: () => sec('fd-sec-attr', 'Attributes', attrHtml, filters.hasPhotos != null || filters.hasNote != null || filters.commute != null, true) },
+    { id: 'fd-sec-source', label: 'Source', applicable: () => filterBounds.sources.length > 1,
+      active: () => !!filters.sources, render: () => sec('fd-sec-source', 'Source', srcHtml, !!filters.sources, true) },
+  ];
+  const advApplicable = ADV.filter(a => a.applicable());
+  const advShown = advApplicable.filter(a => _fdExtraShown.has(a.id) || a.active());
+  const advHidden = advApplicable.filter(a => !(_fdExtraShown.has(a.id) || a.active()));
+  html += advShown.map(a => a.render()).join('');
+  if (advHidden.length) {
+    html += `<div class="fd-addfilter">
+      <div class="fd-hint">Add filter</div>
+      <div class="fd-chips">${advHidden.map(a => `<button class="fd-chip" onclick="addExtraFilterSection('${a.id}')">+ ${a.label}</button>`).join('')}</div>
+    </div>`;
+  }
+
+  html += sec('fd-sec-pins', 'Pin type', pinsHtml, activePinCategories.size < Object.keys(PIN_CATEGORIES).length);
+
+  // Appearance — colour/thickness don't hide or show anything, so they're
+  // visually broken out from the filters above rather than looking like
+  // two more filters (user feedback, 2026-09-23: "confusing").
+  html += '<div class="fd-group-label">Appearance</div>';
   if (typeEntries.length) html += sec('fd-sec-color', 'Track colours', colorHtml, false);
   html += sec('fd-sec-thickness', 'Track thickness', thicknessHtml, trackWidth !== 1);
   body.innerHTML = html;
+}
+// "+ Add filter" — reveal a hidden advanced section, expanded, so adding it
+// and setting a value is one motion rather than add-then-click-to-open.
+function addExtraFilterSection(id) {
+  _fdExtraShown.add(id);
+  _fdCollapsed.delete(id);
+  buildFilterDrawer();
+  saveMapPrefs();
+}
+// Clears the section's own value(s) too — an advanced filter that's hidden
+// but still silently filtering would be worse than the 12-section wall this
+// replaced.
+function removeExtraFilterSection(id) {
+  _fdExtraShown.delete(id);
+  _fdCollapsed.add(id);
+  if (id === 'fd-sec-hr') filters.hr = [null, null];
+  else if (id === 'fd-sec-mood') filters.moods = null;
+  else if (id === 'fd-sec-attr') { filters.hasPhotos = null; filters.hasNote = null; filters.commute = null; }
+  else if (id === 'fd-sec-source') filters.sources = null;
+  buildFilterDrawer();
+  applyFilters();
 }
 
 function _setTypeSet(field, allKeys, key) {
@@ -4036,11 +4169,29 @@ function toggleFilterType(k) {
   _setTypeSet('types', Object.keys(TYPE_CONFIG), k);
   buildFilterDrawer(); applyFilters();
 }
-// null = every type on (the same "all" convention _setTypeSet collapses to);
-// [] = every type off, since matchMoment's `!f.types.includes(...)` check
-// then never matches anything.
-function setAllFilterTypes(on) {
-  filters.types = on ? null : [];
+// "Show only this one" — the common case (isolate one sport) used to take
+// N-1 clicks via toggleFilterType; this does it in one. Soloing an
+// already-solo'd type restores "all" rather than leaving nothing selected.
+function _soloTypeSet(field, allKeys, key) {
+  const cur = filters[field];
+  const isSolo = cur && cur.length === 1 && cur[0] === key;
+  filters[field] = isSolo ? null : [key];
+}
+function soloFilterType(k) {
+  _soloTypeSet('types', Object.keys(TYPE_CONFIG), k);
+  buildFilterDrawer(); applyFilters();
+}
+// Bulk actions on the whole Activity type grid (preferred over per-row
+// "only" for "show everything again" / "hide everything" — user feedback,
+// 2026-09-23). `filters.types = []` (not null) is deliberate: matchMoment's
+// `.includes()` check on an empty array matches nothing, which is exactly
+// "deselect all"; null means "no filter, show every type."
+function selectAllFilterTypes() {
+  filters.types = null;
+  buildFilterDrawer(); applyFilters();
+}
+function deselectAllFilterTypes() {
+  filters.types = [];
   buildFilterDrawer(); applyFilters();
 }
 function toggleFilterSource(s) {
@@ -4078,8 +4229,16 @@ function setAttrFilter(key, val) {
 }
 function clearFilters() {
   filters = defaultFilters();
+  // Pins aren't part of `filters` (see buildFilterDrawer's Pins section),
+  // but they're still a visibility toggle in the same drawer under the same
+  // "Clear all" — leaving them out here meant soloing a pin category and
+  // hitting "Clear all" looked like the button had done nothing.
+  activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
+  // Values are gone, so there's nothing left to show in an advanced section
+  // the user had added — fold them back behind "+ Add filter" too.
+  _fdExtraShown = new Set();
   ['search','av-search'].forEach(i => { const e = document.getElementById(i); if (e) e.value = ''; });
-  buildFilterDrawer(); applyFilters();
+  buildFilterDrawer(); applyFilters(); renderPinMarkers();
 }
 
 // Active-filter chip bar (rendered into both the map sidebar and the Activities view)
@@ -4215,8 +4374,23 @@ function togglePinCategory(key) {
   document.getElementById(`pin-toggle-${key}`)?.classList.toggle('on');
   renderPinMarkers();
 }
-function setAllPinCategories(on) {
-  activePinCategories = on ? new Set(Object.keys(PIN_CATEGORIES)) : new Set();
+// "Show only this one" — solo again to restore all. Same idea as soloFilterType.
+function soloPinCategory(key) {
+  const allKeys = Object.keys(PIN_CATEGORIES);
+  const isSolo = activePinCategories.size === 1 && activePinCategories.has(key);
+  activePinCategories = new Set(isSolo ? allKeys : [key]);
+  buildFilterDrawer();
+  renderPinMarkers();
+}
+// Bulk actions on the whole Pin type grid — same rationale as
+// selectAllFilterTypes/deselectAllFilterTypes above.
+function selectAllPinCategories() {
+  activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
+  buildFilterDrawer();
+  renderPinMarkers();
+}
+function deselectAllPinCategories() {
+  activePinCategories = new Set();
   buildFilterDrawer();
   renderPinMarkers();
 }
@@ -10182,8 +10356,10 @@ _r('viewProfileOnMainMap',viewProfileOnMainMap);_r('exitProfileView',exitProfile
 _r('togglePublicProfileFollow',togglePublicProfileFollow);
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
 _r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
-_r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);_r('setAllFilterTypes',setAllFilterTypes);
+_r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);_r('soloFilterType',soloFilterType);
+_r('selectAllFilterTypes',selectAllFilterTypes);_r('deselectAllFilterTypes',deselectAllFilterTypes);
 _r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);_r('setTrackWidth',setTrackWidth);
+_r('addExtraFilterSection',addExtraFilterSection);_r('removeExtraFilterSection',removeExtraFilterSection);
 _r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
 _r('renderActivitiesView',renderActivitiesView);_r('buildFilterDrawer',buildFilterDrawer);
 _r('removeImportFile',removeImportFile);
@@ -10225,7 +10401,8 @@ _r('setCoverPhoto',setCoverPhoto);
 _r('openAddModal',openAddModal);_r('closeAddModal',closeAddModal);
 _r('togglePinDropMode',togglePinDropMode);_r('openPinModal',openPinModal);_r('closePinModal',closePinModal);
 _r('geocodePinAddress',geocodePinAddress);_r('savePin',savePin);_r('dismissPinNudge',dismissPinNudge);
-_r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);_r('setAllPinCategories',setAllPinCategories);
+_r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);_r('soloPinCategory',soloPinCategory);
+_r('selectAllPinCategories',selectAllPinCategories);_r('deselectAllPinCategories',deselectAllPinCategories);
 _r('openManualEntryModal',openManualEntryModal);_r('closeManualEntryModal',closeManualEntryModal);_r('saveManualEntry',saveManualEntry);
 _r('openNLParserModal',openNLParserModal);_r('closeNLParserModal',closeNLParserModal);
 _r('previewParsedRoute',previewParsedRoute);_r('saveParsedRoute',saveParsedRoute);_r('closeRoutePreviewMap',closeRoutePreviewMap);
