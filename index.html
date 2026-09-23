@@ -8,14 +8,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Relic">
 <title>Relic — Your life, mapped</title>
-<meta name="description" content="Every place you've been, on one map. Bring in Strava, GPX and KML, pin the places that matter, and follow your friends' adventures.">
+<meta name="description" content="Every place you've been, on one map. Bring in Strava, GPX and KML, pin the places that matter, and follow your friends' activities.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Relic">
 <meta property="og:title" content="Relic — Your life, mapped">
-<meta property="og:description" content="Every place you've been, on one map. Follow your friends' adventures.">
+<meta property="og:description" content="Every place you've been, on one map. Follow your friends' activities.">
 <!-- Crawlers want an absolute URL here: swap in the production origin once it's final -->
 <meta property="og:image" content="og-image.jpg">
 <meta property="og:image:width" content="1200">
@@ -2016,11 +2016,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <aside class="feed-side" id="feed-side">
           <div class="card side-card" id="feed-side-suggest">
             <h3>Suggested for you</h3>
-            <p>People who explore like you do.</p>
+            <p>People with similar activities.</p>
             <div class="people-list compact" id="feed-side-suggest-list"></div>
           </div>
           <div class="card side-card">
-            <h3>Relic is better with friends</h3>
+            <h3>Invite a friend</h3>
             <p>Send a link to your map. Friends can follow you in one tap.</p>
             <button class="btn-primary" style="width:100%" onclick="shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Invite friends</button>
           </div>
@@ -2243,7 +2243,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="view" id="people-view">
       <div class="profile-wrap">
         <div class="page-head">
-          <div><h1 class="page-title">People</h1><div class="page-sub">Follow friends to see their adventures in your feed.</div></div>
+          <div><h1 class="page-title">People</h1><div class="page-sub">Follow friends to see their relics in your feed.</div></div>
           <div class="seg" id="people-seg">
             <button data-tab="discover" class="active" onclick="setPeopleTab('discover')">Discover</button>
             <button data-tab="following" onclick="setPeopleTab('following')">Following<span class="seg-n" id="following-n"></span></button>
@@ -2528,7 +2528,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           </div>
           <div>
             <div class="sm-label">Narrative</div>
-            <textarea class="sm-narrative-input" id="sm-narrative" placeholder="Write about this chapter of your life..."></textarea>
+            <textarea class="sm-narrative-input" id="sm-narrative" placeholder="What happened?"></textarea>
           </div>
           <div>
             <div class="sm-label">Mood</div>
@@ -5861,7 +5861,7 @@ async function shareLink(url, title, text) {
 function shareMyProfile() {
   if (!currentUser) return;
   _lsSet('relic_invited', '1');
-  shareLink(profileLink(currentUser.id), 'My map on Relic', 'Follow my adventures on Relic' + (_profile.name ? ' — ' + _profile.name : ''));
+  shareLink(profileLink(currentUser.id), 'My map on Relic', 'Follow my map on Relic' + (_profile.name ? ' — ' + _profile.name : ''));
   const nPublic = getMoments().filter(m => m.isPublic).length;
   if (!nPublic) setTimeout(() => toast('Tip: your activities are all private, so friends will see an empty profile.', {
     duration: 7000, action: { label: 'Sharing settings', fn: () => switchView('settings') },
@@ -6301,7 +6301,7 @@ function renderGettingStarted() {
     <button class="gs-close" onclick="dismissGettingStarted()" aria-label="Hide checklist">&times;</button>
     <div class="gs-head">
       <svg class="gs-ring" viewBox="0 0 46 46"><circle cx="23" cy="23" r="${r}" fill="none" stroke="var(--paper3)" stroke-width="5"/><circle cx="23" cy="23" r="${r}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(c * pct).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 23 23)"/><text x="23" y="27.5" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)" font-family="Inter, sans-serif">${n}/${steps.length}</text></svg>
-      <div><h3>Get the most out of Relic</h3><p>A few quick steps to fill your map and bring your friends along.</p></div>
+      <div><h3>Finish setting up</h3><p>A few steps to fill in your map.</p></div>
     </div>
     ${steps.map(s => `<button class="gs-step${s.done ? ' done' : ''}" ${s.done ? 'disabled' : `onclick="${s.fn}"`}><span class="gs-check"><svg class="ic"><use href="#i-check"/></svg></span>${escapeHtml(s.label)}<svg class="ic chev"><use href="#i-chevron-right"/></svg></button>`).join('')}
   </div>`;
@@ -6520,7 +6520,7 @@ async function buildFollowingFeed(reset) {
     if (last) _feedCursor = { d: last.date_end, id: last.story_id };
     _feedDone = pageDone;
     more.innerHTML = _feedDone
-      ? `<div class="people-empty" style="text-align:center">You're all caught up ✓</div>`
+      ? `<div class="people-empty" style="text-align:center">You're all caught up</div>`
       : `<button class="btn-ghost" onclick="buildFollowingFeed(false)">Load more</button>`;
   } catch (e) {
     console.error('Feed load failed', e);
@@ -7298,7 +7298,7 @@ async function rsSaveGlyph() {
   if (!story) return;
   const svg = storyGlyphSvg(story);
   if (!svg) { toast('This relic has no GPS tracks to draw', { error: true }); return; }
-  const dismiss = toast('Making your image…', { duration: 20000 });
+  const dismiss = toast('Creating image…', { duration: 20000 });
   let blob;
   try { blob = await glyphToBlob(svg, 1024); } catch (e) { console.error(e); }
   dismiss();
@@ -7389,7 +7389,7 @@ async function renderShareCard(o) {
   return new Promise(res => cv.toBlob(res, 'image/png'));
 }
 async function shareAsImage(o) {
-  const dismiss = toast('Making your image…', { duration: 20000 });
+  const dismiss = toast('Creating image…', { duration: 20000 });
   let blob;
   try { blob = await renderShareCard(o); } catch (e) { console.error(e); }
   dismiss();
@@ -8439,7 +8439,7 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   document.getElementById('pp-body').innerHTML = stories.length
     ? stories.map(st => renderPublicStoryCard(st, profile, ppPhotos[st.story_id])).join('')
     : emptyBlock('book', own ? 'No relics yet' : `${(profile.name || 'They').split(' ')[0]} hasn't posted a relic yet`,
-        own ? 'This is how other people see your profile. Group a few activities into a relic to post it here.' : 'Relics are how people here share their trips and chapters.',
+        own ? 'This is how other people see your profile. Group a few activities into a relic to post it here.' : 'Relics are how people share trips and groups of activities here.',
         own ? `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>` : '');
   flushCanvasJobs();
   if (focusStoryId) {
