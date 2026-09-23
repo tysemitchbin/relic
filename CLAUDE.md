@@ -263,12 +263,30 @@ sidebar list both mean "this individual Moment has a written note"
   is otherwise free-form (search/type/date filters in the story modal
   already support both "this trip" and "Walks in May" style themes) — no
   code change needed there.
-- **Deferred, not built:** auto-suggesting a Story by grouping a user's
-  Moments that share an area and a time window ("relic suggestions"). The
-  user raised it as a future idea, not a request for this pass — flagging it
-  here so a future session doesn't have to rediscover the intent from
-  scratch. It would slot in naturally as a nudge on the map hero or the
-  empty-story-state CTA, once there's a grouping heuristic to build it on.
+- **Relic suggestions** (`relic-suggestions`, 2026-09-23): the above deferred
+  idea is now built. `computeRelicSuggestions()` (pure, no DOM — near
+  `renderProfileStories()`) groups a user's not-yet-storied Moments by area
+  and time window into candidate trips, rendered as dismissible cards in a
+  "Suggested relics" section above Relics on Profile
+  (`renderRelicSuggestions()`, called from `buildProfile()`). Algorithm:
+  find "home" as the densest ~20km grid cell of a user's Moment anchor
+  points (weighted by distinct days, so one big Saturday can't outweigh
+  months of routine); moments with **any** anchor more than 40km from home
+  are candidate trip material (a flight's home-side anchor doesn't disqualify
+  it — only its far end needs to clear the threshold, which is what lets a
+  departure/return flight bridge into the trip it belongs to); union-find
+  links two candidates whose nearest anchors are within 75km AND whose dates
+  are within 2 days (one rest day mid-trip); groups of 2+ become a
+  suggestion, titled from the most common `startPlace`/`endPlace` among the
+  group or else a date-range fallback. Clicking **Create relic** opens the
+  existing `openStoryModal()` pre-filled with the suggestion's Moments and
+  guessed title — a suggestion is never saved on one click, the user reviews
+  it first through the normal editor. **Dismiss** persists the suggestion's
+  id (stable — derived from its sorted Moment ids) in
+  `relic_suggest_dismissed_v1_<uid>` so it doesn't reappear on the next
+  render. Moments already inside any existing Story are excluded from
+  candidates. Extend `relicSuggestAnchors`/the link/gap constants at the top
+  of the block, not a second grouping predicate, if this needs tuning.
 
 ## Relic glyph (`relic-glyph`, 2026-09-22)
 
