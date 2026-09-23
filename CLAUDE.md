@@ -308,6 +308,26 @@ sidebar list both mean "this individual Moment has a written note"
   suggestions by that score, best first, rather than by date. The score is
   internal (sort order only, not shown as a number) — tune the weights in
   `relicSuggestionScore`, don't add a second ranking pass elsewhere.
+  **Bad-date guard**: `relicSuggestLooksDefaulted(m)` drops a Moment from
+  candidates entirely if its timestamp is exactly `00:00:00` UTC — a real
+  GPS activity essentially never starts at literal midnight, so that's
+  almost always an import default (bad GPX, a manual entry saved with no
+  time picked) rather than a real time. Without this, every mis-dated
+  activity in an account lands on the same fabricated day and the algorithm
+  suggests it as one giant "trip" — caught from a live account where a
+  suggestion was "38 activities on 1 Jan 2021".
+  **Card CSS pitfall**: the suggestion card's wrapper class is
+  `.relic-suggest-card`, deliberately NOT `.suggest-card` — that name was
+  already taken by the People/Discover "who to follow" card (`display:flex;
+  align-items:center; text-align:center`), and reusing it silently inherited
+  that centered, shrink-to-content layout instead of a plain block card
+  (caught from a screenshot: every field centered, a stats column visually
+  gone because the row had shrunk under a narrower-than-card body). Don't
+  add a new `.suggest-*`-prefixed card without checking for this collision
+  first. `#relic-suggest-view` also has to be listed in the shared
+  `#feed-view, #profile-view, …` selector (~line 525) that gives Profile-style
+  pages their scroll — a `.view` is `overflow:hidden` by default, so a new
+  full-page view left out of that list renders but can't scroll.
 
 ## Relic glyph (`relic-glyph`, 2026-09-22)
 

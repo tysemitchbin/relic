@@ -522,7 +522,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #lightbox-caption { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--warm); letter-spacing: 0.04em; text-align: center; }
 
 /* ── PAGES (shared scaffolding for Feed / Profile / People / Settings) ── */
-#feed-view, #profile-view, #people-view, #public-profile-view, #settings-view, #activities-view {
+#feed-view, #profile-view, #people-view, #public-profile-view, #settings-view, #activities-view, #relic-suggest-view {
   background: var(--bg); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 4px 0 20px; }
@@ -1189,8 +1189,14 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .profile-stories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .profile-suggest-section { margin-bottom: 20px; }
 .profile-suggest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
-.suggest-card { background: var(--surface); border: 1.5px dashed var(--accent); border-radius: var(--r-lg); box-shadow: var(--sh-1); overflow: hidden; }
-.suggest-card-badge {
+/* Deliberately NOT ".suggest-card" — that class already exists (People/
+   Discover "who to follow" cards, above) with display:flex/align-items:
+   center/text-align:center baked in. Reusing the name here silently
+   inherited that layout (centered text, shrink-to-content width) instead of
+   the plain block card these need — caught from a screenshot where every
+   relic-suggestion card came out centered with a stat column missing. */
+.relic-suggest-card { background: var(--surface); border: 1.5px dashed var(--accent); border-radius: var(--r-lg); box-shadow: var(--sh-1); overflow: hidden; }
+.relic-suggest-card .suggest-card-badge {
   display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft);
   padding: 3px 10px; border-radius: var(--r-pill); margin: 14px 16px 0;
 }
@@ -1201,7 +1207,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .suggest-activities[open] summary::before { content: '▾ '; }
 .suggest-activity-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 180px; overflow-y: auto; border-top: 1px solid var(--border); }
 .suggest-activity-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-.suggest-activity-name { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* flex:1 + min-width:0 — a flex item's default min-width is its content's
+   own width, which blocks text-overflow:ellipsis from ever kicking in
+   without this; the name (which can be arbitrarily long/user-authored)
+   needs to shrink, not the fixed-width date/type/distance meta beside it. */
+.suggest-activity-name { flex: 1 1 auto; min-width: 0; color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .suggest-activity-meta { color: var(--text-3); flex: none; white-space: nowrap; }
 .story-card {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); cursor: pointer; box-shadow: var(--sh-1);
@@ -8964,7 +8974,10 @@ function relicSuggestionFromGroup(group, home) {
 
   return {
     id: 'suggestion_' + group.map(m => m.id).sort().join('_').slice(0, 80),
-    title: place || ('Trip: ' + dateLabel),
+    // No "Trip: <dates>" fallback — the meta line right below the title
+    // already shows dateLabel, and repeating it in the title read as a
+    // rendering glitch rather than a real title.
+    title: place || 'Untitled trip',
     dateStart, dateEnd, dateLabel,
     momentIds: group.map(m => m.id),
     momentCount: group.length,
@@ -8982,11 +8995,25 @@ function relicSuggestionFromGroup(group, home) {
 // Relics by time + area, via union-find over a (time gap, spatial distance)
 // link test — the same "share an area and a time window" grouping flagged
 // as a deferred idea in CLAUDE.md.
+// A GPS-tracked activity essentially never starts at exactly midnight —
+// a timestamp of precisely 00:00:00 UTC usually means the real date/time
+// was never known and got defaulted (a common import artifact: a bad GPX
+// file, a manual entry saved with no time picked, an old bulk import), not
+// that the activity actually happened then. Treating those as real dates is
+// how one suggestion ends up being "38 activities on 1 Jan" — every
+// undated activity in the account landing on one fabricated day — instead
+// of an actual trip, so they're kept out of suggestion candidates entirely
+// rather than risk a bogus mega-cluster.
+function relicSuggestLooksDefaulted(m) {
+  const d = new Date(m.date);
+  return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+}
+
 function computeRelicSuggestions() {
   const usedIds = new Set();
   getStories().forEach(s => (s.momentIds || []).forEach(id => usedIds.add(id)));
 
-  const all = getMoments().filter(m => m.date && !usedIds.has(m.id));
+  const all = getMoments().filter(m => m.date && !usedIds.has(m.id) && !relicSuggestLooksDefaulted(m));
   const anchorsById = {};
   all.forEach(m => { anchorsById[m.id] = relicSuggestAnchors(m); });
   const withAnchors = all.filter(m => anchorsById[m.id].length);
@@ -9062,7 +9089,7 @@ function relicSuggestionCardHtml(s) {
     return `<li><span class="suggest-activity-name">${escapeHtml(m.name || 'Untitled')}</span>` +
       `<span class="suggest-activity-meta">${date} · ${TYPE_CONFIG[group]?.label || m.type}${m.distance ? ' · ' + fmtDist(m.distance) : ''}</span></li>`;
   }).join('');
-  return `<div class="suggest-card">
+  return `<div class="relic-suggest-card">
       <div class="suggest-card-badge">${s.momentCount} activities</div>
       <div class="story-card-body">
         <div class="story-card-title">${escapeHtml(s.title)}</div>
