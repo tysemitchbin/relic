@@ -4244,7 +4244,8 @@ function renderTypeLegend() {
   const el = document.getElementById('type-legend'); if (!el) return;
   const counts = {};
   getMoments().forEach(m => { const g = getGroup(m.type); counts[g] = (counts[g] || 0) + 1; });
-  const entries = Object.entries(TYPE_CONFIG).filter(([k]) => counts[k]);
+  // Most tracks first (ties keep TYPE_CONFIG order — sort is stable).
+  const entries = Object.entries(TYPE_CONFIG).filter(([k]) => counts[k]).sort((a, b) => counts[b[0]] - counts[a[0]]);
   if (!entries.length) { el.hidden = true; return; }
   el.hidden = false;
   const chips = entries.map(([k, c]) => {
