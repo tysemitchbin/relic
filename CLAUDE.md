@@ -62,6 +62,23 @@ future sessions would need.
   (Rail/Boat/Paddling) get straight lines, not road-snapped routes. The
   filter drawer's type toggles and "Track colours" only list groups the user
   has at least one track in (user's request).
+- **Users can also edit a Moment's date/time** (`relic-suggestions`,
+  2026-09-23 — added after bad-import midnight-defaulted dates were found
+  polluting Relic suggestions, see below). The pen icon next to the date in
+  the detail header (`#d-date`, now a `<button>` — its text lives in the
+  child `#d-date-text` span so setting it doesn't wipe the icon; hidden via
+  `#d-date-ic` for a Relic's derived date range, which isn't editable) opens
+  `onEditDate()`, a `uiForm` with `type=date`/`type=time` inputs. Reads/
+  writes with **UTC getters, never the browser's local timezone** — `date`
+  stores a wall-clock value with a bare `Z` suffix (see "Relic photos"
+  below: the whole app treats it as local-time-labeled-UTC, not real UTC),
+  so decoding with local getters would silently drift the value by the
+  browser's offset on every edit. An empty time field defaults to **noon**,
+  not midnight — midnight is exactly what the bad-date guard below treats as
+  "no real time," so defaulting there would immediately re-trigger it. Sets
+  `_dateEdited` / the `date_edited` column (`docs/supabase-date-edit.sql`,
+  same `strava_upsert_activities()` pattern as `type_edited` — must run
+  before this ships, or every save fails) so a resync can't revert the fix.
 
 ## Design system + social layer (`ux-social-overhaul`, 2026-09-18)
 
@@ -252,12 +269,73 @@ sidebar list both mean "this individual Moment has a written note"
   is otherwise free-form (search/type/date filters in the story modal
   already support both "this trip" and "Walks in May" style themes) — no
   code change needed there.
-- **Deferred, not built:** auto-suggesting a Story by grouping a user's
-  Moments that share an area and a time window ("relic suggestions"). The
-  user raised it as a future idea, not a request for this pass — flagging it
-  here so a future session doesn't have to rediscover the intent from
-  scratch. It would slot in naturally as a nudge on the map hero or the
-  empty-story-state CTA, once there's a grouping heuristic to build it on.
+- **Relic suggestions** (`relic-suggestions`, 2026-09-23): the above deferred
+  idea is now built. `computeRelicSuggestions()` (pure, no DOM — near
+  `renderProfileStories()`) groups a user's not-yet-storied Moments by area
+  and time window into candidate trips, rendered as dismissible cards in a
+  "Suggested relics" section above Relics on Profile
+  (`renderRelicSuggestions()`, called from `buildProfile()`). Algorithm:
+  find "home" as the densest ~20km grid cell of a user's Moment anchor
+  points (weighted by distinct days, so one big Saturday can't outweigh
+  months of routine); moments with **any** anchor more than 40km from home
+  are candidate trip material (a flight's home-side anchor doesn't disqualify
+  it — only its far end needs to clear the threshold, which is what lets a
+  departure/return flight bridge into the trip it belongs to); union-find
+  links two candidates whose nearest anchors are within 75km AND whose dates
+  are within 2 days (one rest day mid-trip); groups of 2+ become a
+  suggestion, titled from the most common `startPlace`/`endPlace` among the
+  group or else a date-range fallback. Clicking **Create relic** opens the
+  existing `openStoryModal()` pre-filled with the suggestion's Moments and
+  guessed title — a suggestion is never saved on one click, the user reviews
+  it first through the normal editor. **Dismiss** persists the suggestion's
+  id (stable — derived from its sorted Moment ids) in
+  `relic_suggest_dismissed_v1_<uid>` so it doesn't reappear on the next
+  render. Moments already inside any existing Story are excluded from
+  candidates. Extend `relicSuggestAnchors`/the link/gap constants at the top
+  of the block, not a second grouping predicate, if this needs tuning.
+  The Profile preview caps at `RELIC_SUGGEST_PREVIEW_COUNT` (3); its header's
+  "Review" / "Review all N" button routes to `#relic-suggest-view` — a real
+  page (`switchView('relic-suggest')` → `renderRelicSuggestView()`), not a
+  modal, since the point is to actually look at what's in each suggestion,
+  not glance at one in a dialog. `relicSuggestionCardHtml(s)` is the one card
+  builder both the Profile preview and the full page call, so they can't
+  quietly diverge; every card carries its own Moment list (name/date/type/
+  distance) behind a native `<details>` disclosure — a title and date range
+  alone don't say what's actually in a suggestion — using the lightweight
+  `moments` array each suggestion carries for display (not full Moment
+  objects). `dismissRelicSuggestion` re-renders whichever of the preview or
+  the full page is on screen (checks `currentView`); `openSuggestedRelicModal`
+  works the same from either.
+  **Ranked, not chronological**: `relicSuggestionScore()` gives each group a
+  confidence score — more activities, more days spanned, more variety of
+  activity type (a flight + hikes + a run reads as a trip; five laps of the
+  same park reads as routine that happens to be far from home), a resolved
+  place name, and distance from home — and `computeRelicSuggestions()` sorts
+  suggestions by that score, best first, rather than by date. The score is
+  internal (sort order only, not shown as a number) — tune the weights in
+  `relicSuggestionScore`, don't add a second ranking pass elsewhere.
+  **Bad-date guard**: `relicSuggestLooksDefaulted(m)` drops a Moment from
+  candidates entirely if its timestamp is exactly `00:00:00` UTC — a real
+  GPS activity essentially never starts at literal midnight, so that's
+  almost always an import default (bad GPX, a manual entry saved with no
+  time picked) rather than a real time. Without this, every mis-dated
+  activity in an account lands on the same fabricated day and the algorithm
+  suggests it as one giant "trip" — caught from a live account where a
+  suggestion was "38 activities on 1 Jan 2021". Excluded, not fixed —
+  fixing a genuinely bad date needs a real known date/time, which is what
+  "Users can also edit a Moment's date/time" above adds.
+  **Card CSS pitfall**: the suggestion card's wrapper class is
+  `.relic-suggest-card`, deliberately NOT `.suggest-card` — that name was
+  already taken by the People/Discover "who to follow" card (`display:flex;
+  align-items:center; text-align:center`), and reusing it silently inherited
+  that centered, shrink-to-content layout instead of a plain block card
+  (caught from a screenshot: every field centered, a stats column visually
+  gone because the row had shrunk under a narrower-than-card body). Don't
+  add a new `.suggest-*`-prefixed card without checking for this collision
+  first. `#relic-suggest-view` also has to be listed in the shared
+  `#feed-view, #profile-view, …` selector (~line 525) that gives Profile-style
+  pages their scroll — a `.view` is `overflow:hidden` by default, so a new
+  full-page view left out of that list renders but can't scroll.
 
 ## Relic glyph (`relic-glyph`, 2026-09-22)
 

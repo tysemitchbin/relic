@@ -441,7 +441,13 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .detail-name-input:hover { border-bottom-color: var(--border); }
 .detail-name-input:focus { border-bottom-color: var(--accent); }
-.detail-date { font-size: 13px; color: var(--text-3); margin-top: 6px; }
+.detail-date {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); margin-top: 6px;
+  background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; text-align: left; border-radius: var(--r-sm);
+}
+.detail-date:hover { color: var(--accent-strong); }
+.detail-date-ic { width: 13px; height: 13px; opacity: .6; }
+.detail-date:hover .detail-date-ic { opacity: 1; }
 .detail-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .detail-stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .dstat { background: var(--paper2); border-radius: var(--r-md); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -538,7 +544,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #lightbox-caption { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--warm); letter-spacing: 0.04em; text-align: center; }
 
 /* ── PAGES (shared scaffolding for Feed / Profile / People / Settings) ── */
-#feed-view, #profile-view, #people-view, #public-profile-view, #settings-view, #activities-view {
+#feed-view, #profile-view, #people-view, #public-profile-view, #settings-view, #activities-view, #relic-suggest-view {
   background: var(--bg); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 4px 0 20px; }
@@ -1194,6 +1200,32 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 /* ── PROFILE STORY CARDS ── */
 .profile-stories-section { margin-bottom: 8px; }
 .profile-stories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+.profile-suggest-section { margin-bottom: 20px; }
+.profile-suggest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+/* Deliberately NOT ".suggest-card" — that class already exists (People/
+   Discover "who to follow" cards, above) with display:flex/align-items:
+   center/text-align:center baked in. Reusing the name here silently
+   inherited that layout (centered text, shrink-to-content width) instead of
+   the plain block card these need — caught from a screenshot where every
+   relic-suggestion card came out centered with a stat column missing. */
+.relic-suggest-card { background: var(--surface); border: 1.5px dashed var(--accent); border-radius: var(--r-lg); box-shadow: var(--sh-1); overflow: hidden; }
+.relic-suggest-card .suggest-card-badge {
+  display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft);
+  padding: 3px 10px; border-radius: var(--r-pill); margin: 14px 16px 0;
+}
+.suggest-activities { margin-top: 10px; }
+.suggest-activities summary { font-size: 13px; font-weight: 600; color: var(--accent-strong); cursor: pointer; list-style: none; }
+.suggest-activities summary::-webkit-details-marker { display: none; }
+.suggest-activities summary::before { content: '▸ '; }
+.suggest-activities[open] summary::before { content: '▾ '; }
+.suggest-activity-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 180px; overflow-y: auto; border-top: 1px solid var(--border); }
+.suggest-activity-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+/* flex:1 + min-width:0 — a flex item's default min-width is its content's
+   own width, which blocks text-overflow:ellipsis from ever kicking in
+   without this; the name (which can be arbitrarily long/user-authored)
+   needs to shrink, not the fixed-width date/type/distance meta beside it. */
+.suggest-activity-name { flex: 1 1 auto; min-width: 0; color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest-activity-meta { color: var(--text-3); flex: none; white-space: nowrap; }
 .story-card {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); cursor: pointer; box-shadow: var(--sh-1);
   transition: box-shadow .2s, transform .2s; overflow: hidden;
@@ -1898,7 +1930,10 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             <select class="detail-type-select" id="d-type-select" onchange="onTypeChange(this.value)" aria-label="Activity type" hidden></select>
           </div>
           <input class="detail-name-input" id="d-name-input" placeholder="Give it a name" oninput="onNameEdit()" aria-label="Name">
-          <div class="detail-date" id="d-date"></div>
+          <button class="detail-date" id="d-date" onclick="onEditDate()" aria-label="Edit date and time">
+            <span id="d-date-text"></span>
+            <svg class="ic detail-date-ic" id="d-date-ic"><use href="#i-pen"/></svg>
+          </button>
         </div>
         <div class="detail-body" id="detail-body">
           <div class="detail-stats-grid" id="d-stats"></div>
@@ -2038,6 +2073,15 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       </div>
     </div>
 
+    <!-- RELIC SUGGESTIONS VIEW — a full page, not a modal, since the point is
+         to actually look at what's in each candidate trip before deciding. -->
+    <div class="view" id="relic-suggest-view">
+      <div class="profile-wrap">
+        <button class="pp-back" onclick="switchView('profile')"><svg class="ic"><use href="#i-chevron-left"/></svg>Back</button>
+        <div class="page-head"><div><h1 class="page-title">Suggested relics</h1><div class="page-sub" id="relic-suggest-view-sub"></div></div></div>
+        <div class="profile-suggest-grid" id="relic-suggest-view-grid"></div>
+      </div>
+    </div>
 
     <!-- PROFILE VIEW (your own) -->
     <div class="view" id="profile-view">
@@ -2076,6 +2120,14 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             <button class="btn-primary btn-sm" onclick="dismissPinNudge();openAddModal()">Add a pin</button>
             <button class="btn-ghost btn-sm" onclick="dismissPinNudge()" aria-label="Dismiss">Not now</button>
           </div>
+        </div>
+
+        <div class="profile-suggest-section" id="profile-suggest-section" hidden>
+          <div class="profile-stories-header">
+            <div class="profile-stories-title">Suggested relics</div>
+            <button class="btn-ghost btn-sm" onclick="switchView('relic-suggest')">Review all</button>
+          </div>
+          <div class="profile-suggest-grid" id="profile-suggest-grid"></div>
         </div>
 
         <div class="profile-stories-section" id="profile-stories-section">
@@ -2934,7 +2986,7 @@ function rowToMoment(r) {
     startLat: r.start_lat, startLng: r.start_lng,
     note: r.note || '', mood: r.mood || null, photos: [],
     isPublic: !!r.is_public, privacyRadiusM: r.privacy_radius_m || 0, privateNote: '',
-    customColor: r.custom_color || null, _nameEdited: !!r.name_edited, _typeEdited: !!r.type_edited,
+    customColor: r.custom_color || null, _nameEdited: !!r.name_edited, _typeEdited: !!r.type_edited, _dateEdited: !!r.date_edited,
     avgHR: r.avg_hr, maxHR: r.max_hr, calories: r.calories, avgSpeed: r.avg_speed,
     maxSpeed: r.max_speed, avgCadence: r.avg_cadence, avgWatts: r.avg_watts,
     weightedWatts: r.weighted_watts, sufferScore: r.suffer_score,
@@ -2960,7 +3012,7 @@ function momentToRow(m) {
     // fallback for every Strava/GPX track.)
     end_lat: m.endLat ?? getCoords(m)?.at(-1)?.[1] ?? null, end_lng: m.endLng ?? getCoords(m)?.at(-1)?.[0] ?? null,
     note: m.note || '', mood: m.mood || null, is_public: !!m.isPublic, privacy_radius_m: m.privacyRadiusM || 0,
-    custom_color: m.customColor || null, name_edited: !!m._nameEdited, type_edited: !!m._typeEdited,
+    custom_color: m.customColor || null, name_edited: !!m._nameEdited, type_edited: !!m._typeEdited, date_edited: !!m._dateEdited,
     avg_hr: m.avgHR ?? null, max_hr: m.maxHR ?? null, calories: m.calories ?? null,
     avg_speed: m.avgSpeed ?? null, max_speed: m.maxSpeed ?? null, avg_cadence: m.avgCadence ?? null,
     avg_watts: m.avgWatts ?? null, weighted_watts: m.weightedWatts ?? null, suffer_score: m.sufferScore ?? null,
@@ -4306,7 +4358,8 @@ function showDetail(memId) {
   if (!pinCat) typeSel.innerHTML = typeOptionsHtml(mem.type);
   document.getElementById('d-name-input').value=mem.name;
   document.getElementById('d-name-input').oninput=onNameEdit;
-  document.getElementById('d-date').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
+  document.getElementById('d-date-text').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
+  document.getElementById('d-date-ic').hidden = false;
   const hasTrack = !!(mem._polyline || (Array.isArray(mem.coords)&&mem.coords.length>1));
   document.getElementById('d-stats').innerHTML=[
     {val:mem.distance?fmtDist(mem.distance):'—',label:'Distance'},
@@ -4420,7 +4473,10 @@ function showStoryDetail(storyId) {
     ? new Date(story.dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) +
       ' — ' + new Date(story.dateEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
-  document.getElementById('d-date').textContent = dateRange;
+  document.getElementById('d-date-text').textContent = dateRange;
+  // A Relic's date range is derived from its Moments, not stored on it
+  // directly — nothing here to edit.
+  document.getElementById('d-date-ic').hidden = true;
 
   // Stats
   document.getElementById('d-stats').innerHTML = [
@@ -4569,6 +4625,42 @@ function closeDetail() {
   document.getElementById('d-delete-row').style.display = '';
 }
 function onNameEdit() { if(!selectedId) return; db[selectedId].name=document.getElementById('d-name-input').value; db[selectedId]._nameEdited=true; markDirty(selectedId); }
+// The date row's pen icon opens this. Reads/writes with UTC getters, not the
+// browser's local timezone — `date` stores a wall-clock value with a bare
+// "Z" suffix (see the relic-photos section of CLAUDE.md: the whole app
+// treats it as local-time-labeled-UTC, not real UTC), so decoding it with
+// local getters would drift the value by the browser's offset on every
+// edit. _dateEdited (date_edited column) stops a later Strava resync from
+// silently reverting the fix — same pattern as _nameEdited/_typeEdited.
+async function onEditDate() {
+  if (!selectedId) return;
+  const mem = db[selectedId];
+  if (!mem || isStory(mem)) return;
+  const pad = n => String(n).padStart(2, '0');
+  const d = mem.date ? new Date(mem.date) : new Date();
+  const dateVal = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+  const timeVal = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  const result = await uiForm({
+    title: 'Edit date & time',
+    sub: 'When this actually happened.',
+    bodyHtml: `<div style="display:flex;gap:10px">
+      <input class="modal-input" type="date" name="date" value="${dateVal}" style="flex:1.3" required>
+      <input class="modal-input" type="time" name="time" value="${timeVal}" style="flex:1">
+    </div>`,
+    ok: 'Save',
+    validate: v => !!v.date,
+  });
+  if (!result) return;
+  // An empty time field defaults to noon, not midnight — midnight is exactly
+  // what relicSuggestLooksDefaulted() treats as "no real time," so
+  // defaulting there would immediately undo the fix by making this activity
+  // look defaulted again. Same choice saveManualEntry() already makes.
+  mem.date = `${result.date}T${result.time || '12:00'}:00Z`;
+  mem._dateEdited = true;
+  markDirty(mem.id);
+  applyFilters(); renderList();
+  showDetail(mem.id);
+}
 // User re-typed a track. _typeEdited (type_edited column) stops a later Strava
 // sync from overwriting it — same idea as _nameEdited.
 async function onTypeChange(val) {
@@ -7897,6 +7989,7 @@ async function buildProfile() {
   const row = document.getElementById('profile-stats-row');
   row.innerHTML = statsHtml('…', '…');
   renderProfileStories();
+  renderRelicSuggestions();
   updatePinNudge();
   // The follow counts are a network call — render everything else first, and
   // never let a failure here blank the page.
@@ -8764,6 +8857,298 @@ async function showInviteBanner() {
   } catch (e) {}
 }
 
+// ════════════════════════════════════════
+// RELIC SUGGESTIONS
+// ════════════════════════════════════════
+// The deferred idea noted in CLAUDE.md under "Profile = Stories only": group
+// a user's Moments that share an area and a time window into a suggested
+// Relic, so importing years of Strava history doesn't leave a new user
+// staring at an empty Profile. Pure/no DOM — computeRelicSuggestions() can
+// be called from a render function or a test alike; only render/accept/
+// dismiss below touch the page.
+const RELIC_SUGGEST_HOME_CELL_KM = 20;  // grid cell size used to find "home"
+const RELIC_SUGGEST_AWAY_KM = 40;       // must clear home by more than this to count as a trip
+const RELIC_SUGGEST_GAP_DAYS = 2;       // max days between two linked moments (covers one rest day)
+const RELIC_SUGGEST_LINK_KM = 75;       // max distance between two linked moments' nearest anchor points
+const RELIC_SUGGEST_MIN_SIZE = 2;       // a single stray activity isn't worth prompting for
+
+// Anchor points to cluster on. Start AND end (when they differ) so a flight
+// bridges the airport it left from to the one it landed at, rather than only
+// ever linking on its departure point — without this a flight plus the days
+// spent at the destination would never join into one suggested trip.
+function relicSuggestAnchors(m) {
+  const pts = [];
+  if (m.startLat != null && m.startLng != null) pts.push([m.startLat, m.startLng]);
+  if (m.endLat != null && m.endLng != null) pts.push([m.endLat, m.endLng]);
+  if (!pts.length) {
+    const c = getCoords(m);
+    if (c && c.length) { pts.push([c[0][1], c[0][0]]); pts.push([c[c.length - 1][1], c[c.length - 1][0]]); }
+  }
+  return pts;
+}
+
+// Cheap mode-seeking rather than real clustering: bucket every anchor into a
+// ~20km grid cell and take the densest cell — by distinct days, not raw
+// activity count, so one very active Saturday can't outweigh months of an
+// ordinary commute/training routine — as "home".
+function relicSuggestHome(candidates) {
+  const cellKm = RELIC_SUGGEST_HOME_CELL_KM;
+  const cells = {};
+  candidates.forEach(m => {
+    const day = (m.date || '').substring(0, 10);
+    relicSuggestAnchors(m).forEach(([lat, lng]) => {
+      const key = Math.round(lat * 111 / cellKm) + ',' + Math.round(lng * 111 * Math.cos(lat * Math.PI / 180) / cellKm);
+      const c = cells[key] || (cells[key] = { lat: 0, lng: 0, n: 0, days: new Set() });
+      c.lat += lat; c.lng += lng; c.n++;
+      if (day) c.days.add(day);
+    });
+  });
+  let best = null;
+  Object.values(cells).forEach(c => { if (!best || c.days.size > best.days.size) best = c; });
+  return (best && best.n) ? { lat: best.lat / best.n, lng: best.lng / best.n } : null;
+}
+
+function relicSuggestIsAway(anchors, home) {
+  if (!home) return true; // no detectable home base — everything is candidate trip material
+  // "some", not "every": a flight's departure anchor is usually right at
+  // home — that's expected, not a reason to drop the flight itself from the
+  // trip it belongs to. Only its destination anchor needs to clear the
+  // away threshold.
+  return anchors.some(([lat, lng]) => haversine(lat, lng, home.lat, home.lng) / 1000 > RELIC_SUGGEST_AWAY_KM);
+}
+
+// Rough "how confident should we be this is a real trip, not noise" score,
+// used only to sort suggestions best-first — not shown as a raw number.
+// Every factor is something a real trip tends to have more of than a
+// coincidental cluster of away-from-home activities: more days, more
+// activities, more variety of activity type (a flight + hikes + a run reads
+// as a trip; five laps of the same reservoir reads as routine that just
+// happens to be far from home), a resolved place name (manual entries and
+// flights tend to have one; a raw GPS import usually doesn't, so a suggestion
+// that already knows where it happened is more likely to be a genuine one),
+// and distance from home (further = more clearly not routine).
+function relicSuggestionScore(group, home, dateStart, dateEnd, place, typeBreakdown) {
+  const daySpan = Math.round((Date.parse(dateEnd) - Date.parse(dateStart)) / 86400000) + 1;
+  let maxAwayKm = 0;
+  if (home) {
+    group.forEach(m => relicSuggestAnchors(m).forEach(([lat, lng]) => {
+      const km = haversine(lat, lng, home.lat, home.lng) / 1000;
+      if (km > maxAwayKm) maxAwayKm = km;
+    }));
+  }
+  return group.length * 8 + daySpan * 12 + Object.keys(typeBreakdown).length * 6 +
+    (place ? 20 : 0) + Math.min(maxAwayKm, 500) / 10;
+}
+
+function relicSuggestionFromGroup(group, home) {
+  group.sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1);
+  const dateStart = group[0].date.substring(0, 10);
+  const dateEnd = group[group.length - 1].date.substring(0, 10);
+  let dist = 0, elev = 0, dur = 0;
+  const typeBreakdown = {}, placeCounts = {};
+  group.forEach(m => {
+    dist += m.distance || 0; elev += m.elevation || 0; dur += m.duration || 0;
+    const g = getGroup(m.type);
+    typeBreakdown[g] = (typeBreakdown[g] || 0) + 1;
+    [m.startPlace, m.endPlace].forEach(p => {
+      if (!p) return;
+      const short = p.split(',')[0].trim();
+      if (short) placeCounts[short] = (placeCounts[short] || 0) + 1;
+    });
+  });
+  let place = null, placeN = 0;
+  Object.entries(placeCounts).forEach(([p, n]) => { if (n > placeN) { place = p; placeN = n; } });
+
+  const dateLabel = dateStart === dateEnd
+    ? new Date(dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : new Date(dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' – ' +
+      new Date(dateEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return {
+    id: 'suggestion_' + group.map(m => m.id).sort().join('_').slice(0, 80),
+    // No "Trip: <dates>" fallback — the meta line right below the title
+    // already shows dateLabel, and repeating it in the title read as a
+    // rendering glitch rather than a real title.
+    title: place || 'Untitled trip',
+    dateStart, dateEnd, dateLabel,
+    momentIds: group.map(m => m.id),
+    momentCount: group.length,
+    totalDistance: dist, totalElevation: elev, totalDuration: dur,
+    typeBreakdown,
+    score: relicSuggestionScore(group, home, dateStart, dateEnd, place, typeBreakdown),
+    // Lightweight, display-only — a title/date-range alone doesn't tell
+    // anyone what's actually in a suggestion, so the card needs to list
+    // these without holding onto full Moment objects.
+    moments: group.map(m => ({ id: m.id, name: m.name, date: m.date, type: m.type, distance: m.distance }))
+  };
+}
+
+// Groups every not-yet-storied Moment that's away from home into candidate
+// Relics by time + area, via union-find over a (time gap, spatial distance)
+// link test — the same "share an area and a time window" grouping flagged
+// as a deferred idea in CLAUDE.md.
+// A GPS-tracked activity essentially never starts at exactly midnight —
+// a timestamp of precisely 00:00:00 UTC usually means the real date/time
+// was never known and got defaulted (a common import artifact: a bad GPX
+// file, a manual entry saved with no time picked, an old bulk import), not
+// that the activity actually happened then. Treating those as real dates is
+// how one suggestion ends up being "38 activities on 1 Jan" — every
+// undated activity in the account landing on one fabricated day — instead
+// of an actual trip, so they're kept out of suggestion candidates entirely
+// rather than risk a bogus mega-cluster.
+function relicSuggestLooksDefaulted(m) {
+  const d = new Date(m.date);
+  return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
+}
+
+function computeRelicSuggestions() {
+  const usedIds = new Set();
+  getStories().forEach(s => (s.momentIds || []).forEach(id => usedIds.add(id)));
+
+  const all = getMoments().filter(m => m.date && !usedIds.has(m.id) && !relicSuggestLooksDefaulted(m));
+  const anchorsById = {};
+  all.forEach(m => { anchorsById[m.id] = relicSuggestAnchors(m); });
+  const withAnchors = all.filter(m => anchorsById[m.id].length);
+
+  const home = relicSuggestHome(withAnchors);
+  const candidates = withAnchors.filter(m => relicSuggestIsAway(anchorsById[m.id], home));
+  if (candidates.length < RELIC_SUGGEST_MIN_SIZE) return [];
+
+  candidates.sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1);
+  const times = candidates.map(m => Date.parse(m.date));
+
+  const parent = candidates.map((_, i) => i);
+  function find(i) { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; }
+  function union(i, j) { const a = find(i), b = find(j); if (a !== b) parent[a] = b; }
+
+  const gapMs = RELIC_SUGGEST_GAP_DAYS * 86400000;
+  for (let i = 0; i < candidates.length; i++) {
+    for (let j = i + 1; j < candidates.length; j++) {
+      if (times[j] - times[i] > gapMs) break; // sorted ascending — nothing further can be in range either
+      let linked = false;
+      for (const [lat1, lng1] of anchorsById[candidates[i].id]) {
+        for (const [lat2, lng2] of anchorsById[candidates[j].id]) {
+          if (haversine(lat1, lng1, lat2, lng2) / 1000 <= RELIC_SUGGEST_LINK_KM) { linked = true; break; }
+        }
+        if (linked) break;
+      }
+      if (linked) union(i, j);
+    }
+  }
+
+  const groups = {};
+  candidates.forEach((m, i) => { const root = find(i); (groups[root] = groups[root] || []).push(m); });
+
+  return Object.values(groups)
+    .filter(g => g.length >= RELIC_SUGGEST_MIN_SIZE)
+    .map(g => relicSuggestionFromGroup(g, home))
+    // Best-first: highest-confidence trips (see relicSuggestionScore) surface
+    // before the more marginal ones, rather than plain recency.
+    .sort((a, b) => b.score - a.score);
+}
+
+// Dismissals persist per-user (suggestion ids are stable — derived from the
+// sorted Moment ids that make up the group) so recomputing on every render
+// doesn't bring a dismissed trip straight back.
+function relicSuggestDismissKey() { return 'relic_suggest_dismissed_v1_' + (currentUser?.id || 'anon'); }
+function getDismissedRelicSuggestions() {
+  try { return new Set(JSON.parse(localStorage.getItem(relicSuggestDismissKey()) || '[]')); } catch (e) { return new Set(); }
+}
+function dismissRelicSuggestion(id) {
+  const set = getDismissedRelicSuggestions();
+  set.add(id);
+  try { localStorage.setItem(relicSuggestDismissKey(), JSON.stringify([...set])); } catch (e) {}
+  renderRelicSuggestions();
+  // Keep the full-page view's own list in step if it's the one on screen
+  // when a card gets dismissed from it — it has no separate dismiss state.
+  if (currentView === 'relic-suggest') renderRelicSuggestView();
+}
+
+// Shared by the Profile preview grid and the full-page review, so the two
+// never quietly diverge the way the feed's two card builders once did.
+// A title and a date range don't say what's actually in a suggestion, so
+// every card carries its own Moment list behind a native <details> —
+// no per-card JS state needed to expand/collapse it.
+function relicSuggestionCardHtml(s) {
+  const dist = s.totalDistance > 0 ? fmtDist(s.totalDistance) : '—';
+  const elev = s.totalElevation > 0 ? fmtElev(s.totalElevation) : '—';
+  const dur = s.totalDuration > 0 ? formatDur(s.totalDuration) : '—';
+  const typeDots = Object.keys(s.typeBreakdown).map(k =>
+    `<div class="story-card-type-dot" style="background:${TYPE_CONFIG[k]?.color || '#92400e'}" title="${TYPE_CONFIG[k]?.label || k}"></div>`).join('');
+  const activityRows = (s.moments || []).map(m => {
+    const date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+    const group = getGroup(m.type);
+    return `<li><span class="suggest-activity-name">${escapeHtml(m.name || 'Untitled')}</span>` +
+      `<span class="suggest-activity-meta">${date} · ${TYPE_CONFIG[group]?.label || m.type}${m.distance ? ' · ' + fmtDist(m.distance) : ''}</span></li>`;
+  }).join('');
+  return `<div class="relic-suggest-card">
+      <div class="suggest-card-badge">${s.momentCount} activities</div>
+      <div class="story-card-body">
+        <div class="story-card-title">${escapeHtml(s.title)}</div>
+        <div class="story-card-meta">${s.dateLabel}</div>
+        <div class="story-card-stats">
+          <div class="story-card-stat"><div class="story-card-stat-val">${dist}</div><div class="story-card-stat-label">Distance</div></div>
+          <div class="story-card-stat"><div class="story-card-stat-val">${elev}</div><div class="story-card-stat-label">Elevation</div></div>
+          <div class="story-card-stat"><div class="story-card-stat-val">${dur}</div><div class="story-card-stat-label">Time</div></div>
+        </div>
+        <div class="story-card-types">${typeDots}</div>
+        <details class="suggest-activities">
+          <summary>What's in this?</summary>
+          <ul class="suggest-activity-list">${activityRows}</ul>
+        </details>
+        <div class="story-card-actions">
+          <button class="btn-primary btn-sm" onclick="openSuggestedRelicModal(${jsAttr(s.id)})">Create relic</button>
+          <button class="story-card-btn" onclick="dismissRelicSuggestion(${jsAttr(s.id)})">Dismiss</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+const RELIC_SUGGEST_PREVIEW_COUNT = 3; // Profile shows a taste; the full-page review (below) shows every one
+
+function renderRelicSuggestions() {
+  const section = document.getElementById('profile-suggest-section');
+  const grid = document.getElementById('profile-suggest-grid');
+  if (!section || !grid) return;
+  const dismissed = getDismissedRelicSuggestions();
+  const suggestions = computeRelicSuggestions().filter(s => !dismissed.has(s.id));
+  if (!suggestions.length) { section.hidden = true; grid.innerHTML = ''; return; }
+  section.hidden = false;
+  const reviewBtn = section.querySelector('.profile-stories-header .btn-ghost');
+  if (reviewBtn) reviewBtn.textContent = suggestions.length > RELIC_SUGGEST_PREVIEW_COUNT
+    ? `Review all ${suggestions.length}` : 'Review';
+  grid.innerHTML = suggestions.slice(0, RELIC_SUGGEST_PREVIEW_COUNT).map(relicSuggestionCardHtml).join('');
+}
+
+// The full-page, uncapped review — reachable via the "Review all" button
+// next to the Profile preview. A full page rather than a modal because the
+// whole point is to actually look at what's in each candidate trip (the
+// per-card activity list) before deciding, not a quick glance in a dialog.
+function renderRelicSuggestView() {
+  const grid = document.getElementById('relic-suggest-view-grid');
+  const sub = document.getElementById('relic-suggest-view-sub');
+  if (!grid || !sub) return;
+  const dismissed = getDismissedRelicSuggestions();
+  const suggestions = computeRelicSuggestions().filter(s => !dismissed.has(s.id));
+  sub.textContent = suggestions.length
+    ? `${suggestions.length} possible relic${suggestions.length === 1 ? '' : 's'} found in your activity history.`
+    : 'No suggestions left to review — dismissed and created ones won’t come back.';
+  grid.innerHTML = suggestions.map(relicSuggestionCardHtml).join('');
+}
+
+// Opens the existing Relic editor pre-filled with the suggestion's Moments
+// and a guessed title, so the user reviews/tweaks before it's actually
+// saved rather than a suggestion silently becoming a Relic on one click.
+function openSuggestedRelicModal(suggestionId) {
+  const s = computeRelicSuggestions().find(x => x.id === suggestionId);
+  if (!s) { toast('That suggestion is out of date.', { error: true }); renderRelicSuggestions(); return; }
+  openStoryModal();
+  storySelectedIds = new Set(s.momentIds);
+  document.getElementById('sm-title').value = s.title;
+  renderStoryMomentList();
+  updateStoryPreview();
+}
+
 function renderProfileStories() {
   const section = document.getElementById('profile-stories-section');
   const grid = document.getElementById('profile-stories-grid');
@@ -9598,6 +9983,7 @@ function switchView(view) {
   if(view==='profile') buildProfile();
   if(view==='people') buildPeople();
   if(view==='settings') buildSettings();
+  if(view==='relic-suggest') renderRelicSuggestView();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
 }
 
@@ -9771,7 +10157,7 @@ _r('setAnalyticsConsent',setAnalyticsConsent);
 _r('exportMyData',exportMyData);_r('openDeleteAccountModal',openDeleteAccountModal);_r('closeDeleteAccountModal',closeDeleteAccountModal);
 _r('onDeleteAccountConfirmInput',onDeleteAccountConfirmInput);_r('deleteMyAccount',deleteMyAccount);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
-_r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onTypeChange',onTypeChange);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
+_r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onTypeChange',onTypeChange);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);_r('onEditDate',onEditDate);
 _r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
 _r('setPrivacyUnit',setPrivacyUnit);_r('onPrivacyRadiusEdit',onPrivacyRadiusEdit);
 _r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
@@ -9798,6 +10184,8 @@ _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
 _r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
+_r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
+_r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
 _r('showStoryDetail',showStoryDetail);
 _r('renderFeedMomentCard',renderFeedMomentCard);_r('renderFeedStoryCard',renderFeedStoryCard);
