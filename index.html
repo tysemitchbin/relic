@@ -4965,7 +4965,14 @@ function dismissPinNudge() { localStorage.setItem('relic_pin_nudge_v1','1'); doc
 function offerFirstRelic() {
   if (getStories().length || getMoments().length < 2 || _lsGet('relic_relic_offered')) return;
   _lsSet('relic_relic_offered', '1');
-  toast('Your history is in. Turn a trip or a season into a relic?', { icon: 'book', duration: 14000, action: { label: 'Make a relic', fn: () => openStoryModal() } });
+  // If the suggestion engine already spotted trips, send them straight to those
+  // (one tap to accept) rather than to an empty builder.
+  let hasSuggestions = false;
+  try { hasSuggestions = computeRelicSuggestions().length > 0; } catch (e) {}
+  toast('Your history is in. Turn a trip or a season into a relic?', {
+    icon: 'book', duration: 14000,
+    action: hasSuggestions ? { label: 'See suggestions', fn: () => switchView('relic-suggest') } : { label: 'Make a relic', fn: () => openStoryModal() },
+  });
 }
 function updatePinNudge() {
   const el = document.getElementById('pin-nudge'); if (!el) return;
