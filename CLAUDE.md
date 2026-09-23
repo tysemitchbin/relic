@@ -529,15 +529,43 @@ bug, this is what replaced them:
   still lets you expand/collapse freely within that one open. Don't
   reintroduce a "remember what was open" or "expand active sections"
   behavior here without being asked again.
-- **Section order in `buildFilterDrawer()`** (also reordered 2026-09-23,
-  user feedback): Activity type → Date → Distance → Duration → Elevation
-  gain → Heart rate → Mood → Attributes → Source → Pins → Track colours →
-  Track thickness. Logic: what, then when, then the four numeric stats
-  grouped together, then the more qualitative ones (mood/attributes), then
-  Source (the one people touch least), then Pins (a different kind of thing
-  — points, not tracks), then appearance last since colour/thickness don't
-  hide or show anything. Preserve this ordering logic when adding a new
-  section rather than appending it at the end by default.
+- **The drawer is progressive disclosure, not one flat list of 12 sections**
+  (redesigned 2026-09-23, user feedback: "an overwhelming amount of
+  filters" / "this needs a redesign"). **Core** (always visible, in this
+  order): Activity type → Date → Distance → Duration → Elevation gain →
+  Pin type. **Advanced** (Heart rate/Mood/Attributes/Source): hidden by
+  default behind a "+ Add filter" chip row in `buildFilterDrawer()` — the
+  `ADV` array there, each with `applicable()` (Heart rate needs
+  `filterBounds.hasHR`, Source needs 2+ sources) and `active()` (does it
+  already have a value). An advanced section renders inline, in `ADV`'s
+  order, right where the "+ Add filter" row would otherwise sit, once it's
+  either in `_fdExtraShown` (user clicked "+ X") or `active()` (already has
+  a value — an existing filter must never silently vanish behind the
+  disclosure). Each shown advanced section gets a `sec(..., removable:
+  true)` **"Remove"** link next to its title (`removeExtraFilterSection`)
+  that clears its own filter value(s) *and* folds it back behind "+ Add
+  filter" — a hidden-but-still-filtering section would be worse than the
+  wall of sections this replaced. `_fdExtraShown` persists in
+  `relic_mapprefs_v1_<uid>` (see below) so a returning user doesn't have to
+  re-add a filter they were mid-way through setting; `clearFilters()` resets
+  it too, since "Clear all" wiping the values but leaving the section
+  visible-but-empty would be its own confusion. **Appearance** (Track
+  colours, Track thickness) sits below a `.fd-group-label` "Appearance"
+  divider, visually broken out from the filters above it — colour/thickness
+  don't hide or show anything, and living inside "Filters" with no visual
+  distinction read as "two more filters" (user feedback). Preserve this
+  core/advanced/appearance shape when adding a new filterable field: decide
+  which tier it belongs in rather than defaulting it into "core" (that's
+  exactly how this got to 12 sections the first time).
+- **The section formerly called "Pins" is now "Pin type"** (renamed
+  2026-09-23, alongside "Activity type" for consistency — a user-visible
+  label change only; `PIN_CATEGORIES`/`activePinCategories`/
+  `soloPinCategory()`/etc. all keep their names, same "UI label vs. code"
+  split as the Story/Relic rename above).
+- **`#filter-drawer` is wider at desktop widths**: `460px` at `min-width:
+  860px` vs. the `380px` default (tuned for the `max-width: 768px` mobile
+  bottom-sheet breakpoint) — added 2026-09-23 alongside the redesign above,
+  user feedback that it "can expand larger to be easier to use" on desktop.
 - **`clearFilters()` ("Clear all") also resets `activePinCategories`** back
   to every key in `PIN_CATEGORIES`, even though Pins live outside the
   `filters` object. Before this it silently left Pins untouched, so soloing
@@ -555,9 +583,11 @@ bug, this is what replaced them:
   is a real "every pin category off" choice, not "nothing saved yet." This
   was already true for `filters`/`sidebarSort`/`trackWidth` before
   2026-09-23; Pins were the one piece of drawer state that didn't survive a
-  reload. If a new drawer-adjacent piece of state is added outside
-  `filters` (like Pins or Track thickness), persist it here too rather than
-  assuming `filters` alone covers "what the user last had shown."
+  reload. `_fdExtraShown` (the advanced-filter disclosure set above) is
+  saved/restored the same way, as `fdExtraShown`. If a new drawer-adjacent
+  piece of state is added outside `filters` (like Pins, Track thickness, or
+  `_fdExtraShown`), persist it here too rather than assuming `filters` alone
+  covers "what the user last had shown."
 - **Activities view** (`#activities-view`, `renderActivitiesView()`) is a
   sortable table reachable from the header nav (desktop) / mobile hamburger
   menu, and since 2026-09-20 also from the account-avatar dropdown
