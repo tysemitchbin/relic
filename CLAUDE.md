@@ -287,6 +287,16 @@ sidebar list both mean "this individual Moment has a written note"
   render. Moments already inside any existing Story are excluded from
   candidates. Extend `relicSuggestAnchors`/the link/gap constants at the top
   of the block, not a second grouping predicate, if this needs tuning.
+  The Profile preview caps at `RELIC_SUGGEST_PREVIEW_COUNT` (3); its header's
+  "Review" / "Review all N" button (`openAllRelicSuggestionsModal`) opens
+  `#relic-suggest-modal`, an uncapped list in the same `.suggest-card`
+  markup — `relicSuggestionCardHtml(s)` is the one card builder both the
+  preview grid and the modal call, so they can't quietly diverge.
+  Create/Dismiss inside the modal reuse `openSuggestedRelicModal`/
+  `dismissRelicSuggestion` as-is; `dismissRelicSuggestion` re-renders the
+  modal's own grid too when it's open, and `openSuggestedRelicModal` closes
+  the suggestions modal before opening the relic editor rather than stacking
+  two modals.
 
 ## Relic glyph (`relic-glyph`, 2026-09-22)
 

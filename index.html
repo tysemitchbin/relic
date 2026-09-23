@@ -1104,6 +1104,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 
 /* ── STORY MODAL ── */
 .story-modal { width: 860px; max-width: 100%; padding: 0; display: flex; flex-direction: column; max-height: 88vh; overflow: hidden; }
+.suggest-modal { width: 760px; max-width: 100%; }
+.suggest-modal .profile-suggest-grid { margin-top: 4px; }
 .story-modal-header { padding: 22px 26px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .story-modal-header .modal-sub { margin-bottom: 0; }
 .story-modal-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
@@ -2107,6 +2109,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <div class="profile-suggest-section" id="profile-suggest-section" hidden>
           <div class="profile-stories-header">
             <div class="profile-stories-title">Suggested relics</div>
+            <button class="btn-ghost btn-sm" onclick="openAllRelicSuggestionsModal()">Review all</button>
           </div>
           <div class="profile-suggest-grid" id="profile-suggest-grid"></div>
         </div>
@@ -2508,6 +2511,15 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <button class="btn-ghost" onclick="rsShareLink()"><svg class="ic"><use href="#i-share"/></svg>Share a link</button>
     </div>
     <div class="modal-actions"><button class="btn-ghost" onclick="closeRelicShare()">Cancel</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="relic-suggest-modal" onclick="if(event.target===this)closeAllRelicSuggestions()">
+  <div class="modal suggest-modal">
+    <div class="modal-title">Suggested relics</div>
+    <div class="modal-sub" id="relic-suggest-modal-sub"></div>
+    <div class="profile-suggest-grid" id="relic-suggest-modal-grid"></div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeAllRelicSuggestions()">Close</button></div>
   </div>
 </div>
 
@@ -8991,23 +9003,20 @@ function dismissRelicSuggestion(id) {
   set.add(id);
   try { localStorage.setItem(relicSuggestDismissKey(), JSON.stringify([...set])); } catch (e) {}
   renderRelicSuggestions();
+  // Keep the "review all" modal's own list in step if it's open when a card
+  // inside it gets dismissed — it has no separate dismiss state of its own.
+  if (document.getElementById('relic-suggest-modal')?.classList.contains('open')) renderAllRelicSuggestionsModal();
 }
 
-function renderRelicSuggestions() {
-  const section = document.getElementById('profile-suggest-section');
-  const grid = document.getElementById('profile-suggest-grid');
-  if (!section || !grid) return;
-  const dismissed = getDismissedRelicSuggestions();
-  const suggestions = computeRelicSuggestions().filter(s => !dismissed.has(s.id)).slice(0, 6);
-  if (!suggestions.length) { section.hidden = true; grid.innerHTML = ''; return; }
-  section.hidden = false;
-  grid.innerHTML = suggestions.map(s => {
-    const dist = s.totalDistance > 0 ? fmtDist(s.totalDistance) : '—';
-    const elev = s.totalElevation > 0 ? fmtElev(s.totalElevation) : '—';
-    const dur = s.totalDuration > 0 ? formatDur(s.totalDuration) : '—';
-    const typeDots = Object.keys(s.typeBreakdown).map(k =>
-      `<div class="story-card-type-dot" style="background:${TYPE_CONFIG[k]?.color || '#92400e'}" title="${TYPE_CONFIG[k]?.label || k}"></div>`).join('');
-    return `<div class="suggest-card">
+// Shared by the Profile preview grid and the "review all" modal so the two
+// never quietly diverge the way the feed's two card builders once did.
+function relicSuggestionCardHtml(s) {
+  const dist = s.totalDistance > 0 ? fmtDist(s.totalDistance) : '—';
+  const elev = s.totalElevation > 0 ? fmtElev(s.totalElevation) : '—';
+  const dur = s.totalDuration > 0 ? formatDur(s.totalDuration) : '—';
+  const typeDots = Object.keys(s.typeBreakdown).map(k =>
+    `<div class="story-card-type-dot" style="background:${TYPE_CONFIG[k]?.color || '#92400e'}" title="${TYPE_CONFIG[k]?.label || k}"></div>`).join('');
+  return `<div class="suggest-card">
       <div class="suggest-card-badge">${s.momentCount} activities</div>
       <div class="story-card-body">
         <div class="story-card-title">${escapeHtml(s.title)}</div>
@@ -9024,7 +9033,44 @@ function renderRelicSuggestions() {
         </div>
       </div>
     </div>`;
-  }).join('');
+}
+
+const RELIC_SUGGEST_PREVIEW_COUNT = 3; // Profile shows a taste; "Review all" (below) shows every one
+
+function renderRelicSuggestions() {
+  const section = document.getElementById('profile-suggest-section');
+  const grid = document.getElementById('profile-suggest-grid');
+  if (!section || !grid) return;
+  const dismissed = getDismissedRelicSuggestions();
+  const suggestions = computeRelicSuggestions().filter(s => !dismissed.has(s.id));
+  if (!suggestions.length) { section.hidden = true; grid.innerHTML = ''; return; }
+  section.hidden = false;
+  const reviewBtn = section.querySelector('.profile-stories-header .btn-ghost');
+  if (reviewBtn) reviewBtn.textContent = suggestions.length > RELIC_SUGGEST_PREVIEW_COUNT
+    ? `Review all ${suggestions.length}` : 'Review';
+  grid.innerHTML = suggestions.slice(0, RELIC_SUGGEST_PREVIEW_COUNT).map(relicSuggestionCardHtml).join('');
+}
+
+// The full, uncapped list — reachable via the "Review all" button next to
+// the Profile preview, for anyone with more suggestions than the preview
+// shows (or who just wants to work through all of them in one place).
+function renderAllRelicSuggestionsModal() {
+  const grid = document.getElementById('relic-suggest-modal-grid');
+  const sub = document.getElementById('relic-suggest-modal-sub');
+  if (!grid || !sub) return;
+  const dismissed = getDismissedRelicSuggestions();
+  const suggestions = computeRelicSuggestions().filter(s => !dismissed.has(s.id));
+  sub.textContent = suggestions.length
+    ? `${suggestions.length} possible relic${suggestions.length === 1 ? '' : 's'} found in your activity history.`
+    : 'No suggestions left to review — dismissed and created ones won’t come back.';
+  grid.innerHTML = suggestions.map(relicSuggestionCardHtml).join('');
+}
+function openAllRelicSuggestionsModal() {
+  renderAllRelicSuggestionsModal();
+  document.getElementById('relic-suggest-modal').classList.add('open');
+}
+function closeAllRelicSuggestions() {
+  document.getElementById('relic-suggest-modal').classList.remove('open');
 }
 
 // Opens the existing Relic editor pre-filled with the suggestion's Moments
@@ -9033,6 +9079,7 @@ function renderRelicSuggestions() {
 function openSuggestedRelicModal(suggestionId) {
   const s = computeRelicSuggestions().find(x => x.id === suggestionId);
   if (!s) { toast('That suggestion is out of date.', { error: true }); renderRelicSuggestions(); return; }
+  closeAllRelicSuggestions();
   openStoryModal();
   storySelectedIds = new Set(s.momentIds);
   document.getElementById('sm-title').value = s.title;
@@ -10087,6 +10134,7 @@ _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
 _r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
+_r('openAllRelicSuggestionsModal',openAllRelicSuggestionsModal);_r('closeAllRelicSuggestions',closeAllRelicSuggestions);_r('renderAllRelicSuggestionsModal',renderAllRelicSuggestionsModal);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
 _r('showStoryDetail',showStoryDetail);
 _r('renderFeedMomentCard',renderFeedMomentCard);_r('renderFeedStoryCard',renderFeedStoryCard);
