@@ -3618,7 +3618,6 @@ async function renderAll() {
 let _emptyDismissed = false;
 function dismissEmptyState() {
   _emptyDismissed = true;
-  _lsSet('relic_empty_dismissed', '1');
   const el = document.getElementById('empty-state');
   if (el) el.hidden = true;
 }
@@ -3629,10 +3628,18 @@ function updateEmptyState() {
   const empty = allMemories.length === 0 && allStories.length === 0;
   const hasPins = getPins().length > 0;
   if (!empty) _emptyDismissed = false; // reset so it can guide again if they clear everything
-  // A returning user whose archive is only pins has already been through this;
-  // don't greet them again every session once they've closed it.
-  const seenBefore = hasPins && _lsGet('relic_empty_dismissed');
-  el.hidden = !(empty && !_emptyDismissed && !seenBefore);
+  // Welcome card is for a brand-new account's first session only. It's marked
+  // seen the first time it shows; a later visit (new browser session) is a
+  // returning user and never gets it. sessionStorage keeps it up across a
+  // reload in the same tab.
+  let returning = false;
+  try { returning = !!_lsGet('relic_welcome_seen') && !sessionStorage.getItem(_uKey('relic_welcome_session')); } catch (e) {}
+  const show = empty && !_emptyDismissed && !returning;
+  if (show) {
+    _lsSet('relic_welcome_seen', '1');
+    try { sessionStorage.setItem(_uKey('relic_welcome_session'), '1'); } catch (e) {}
+  }
+  el.hidden = !show;
   const first = (_profile.name || '').trim().split(/\s+/)[0];
   const title = document.getElementById('empty-title'), sub = document.getElementById('empty-sub');
   if (title) title.textContent = hasPins ? 'Nice — that’s your first pin' : (first ? 'Welcome, ' + first : 'Let’s put your life on the map');
