@@ -372,6 +372,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #tools-panel { display: none; }
 
 /* Type toggles + colour rows (used inside the filter drawer) */
+.tp-select-row { display: flex; justify-content: flex-end; align-items: center; gap: 6px; padding: 0 4px 8px; }
+.tp-select-link { background: none; border: none; font: 600 12.5px var(--font-ui); color: var(--text-2); cursor: pointer; padding: 2px 4px; -webkit-tap-highlight-color: transparent; }
+.tp-select-link:hover { color: var(--accent); }
+.tp-select-sep { color: var(--text-3); font-size: 12px; }
 .tp-type-grid { display: flex; flex-direction: column; gap: 2px; }
 .tp-type-row {
   display: flex; align-items: center; gap: 12px; padding: 8px 8px; min-height: 42px; border-radius: var(--r-sm); transition: background .1s;
@@ -1601,7 +1605,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .fd-sec-remove { font: 500 12px var(--font-ui); color: var(--text-3); flex-shrink: 0; padding: 3px 7px; border-radius: var(--r-pill); }
 .fd-sec-remove:hover { color: var(--accent); background: var(--surface); }
 .fd-addfilter { padding: 14px 22px 18px; border-bottom: 1px solid var(--border); }
-.fd-group-label { padding: 16px 22px 6px; font: 600 13px var(--font-ui); color: var(--text-3); border-top: 1px solid var(--border); margin-top: 6px; }
+/* A visibly heavier break than the 1px section-to-section borders above —
+   this is a category change (filters -> appearance), not just the next
+   section, and a same-weight divider made it read as one more filter
+   (user feedback, 2026-09-23). */
+.fd-group-label { padding: 12px 22px; font: 700 12px var(--font-ui); color: var(--text-3); background: var(--paper2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 
 .fd-input {
   width: 100%; background: var(--paper2); border: 1px solid transparent; border-radius: var(--r-md); color: var(--ink);
@@ -3910,10 +3918,22 @@ function buildFilterDrawer() {
 
   // Only the groups this user actually has tracks in — ~18 groups exist, and
   // toggles/colours for sports you never do are just noise.
+  // Select-all/Deselect-all row shared by Activity type and Pin type — both
+  // are the same "N toggles, pick which show" shape, so one bulk action
+  // beats a per-row "only" click for "show everything again" / "hide
+  // everything" (user feedback, 2026-09-23: prefers this to only per-row).
+  const selectAllRow = (selectFn, deselectFn) => `
+    <div class="tp-select-row">
+      <button class="tp-select-link" onclick="${selectFn}()">Select all</button>
+      <span class="tp-select-sep">·</span>
+      <button class="tp-select-link" onclick="${deselectFn}()">Deselect all</button>
+    </div>`;
+
   const usedGroups = new Set(getMoments().map(m => getGroup(m.type)));
   const typeEntries = Object.entries(TYPE_CONFIG).filter(([k]) => usedGroups.has(k));
   const typesHtml = !typeEntries.length ? '<div class="fd-hint">No activities yet.</div>'
-    : '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
+    : selectAllRow('selectAllFilterTypes', 'deselectAllFilterTypes')
+    + '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
     const on = !filters.types || filters.types.includes(k);
     const solo = filters.types && filters.types.length === 1 && filters.types[0] === k;
     return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
@@ -3975,7 +3995,8 @@ function buildFilterDrawer() {
   // distance/duration/HR filters make no sense for a point pin), so this
   // section drives activePinCategories + PIN_CATEGORIES colors directly,
   // same as the rest of the app's pin-visibility toggle.
-  const pinsHtml = '<div class="tp-type-grid">' + Object.entries(PIN_CATEGORIES).map(([k,c]) => {
+  const pinsHtml = selectAllRow('selectAllPinCategories', 'deselectAllPinCategories')
+    + '<div class="tp-type-grid">' + Object.entries(PIN_CATEGORIES).map(([k,c]) => {
     const on = activePinCategories.has(k);
     const solo = activePinCategories.size === 1 && activePinCategories.has(k);
     return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
@@ -4075,6 +4096,19 @@ function _soloTypeSet(field, allKeys, key) {
 }
 function soloFilterType(k) {
   _soloTypeSet('types', Object.keys(TYPE_CONFIG), k);
+  buildFilterDrawer(); applyFilters();
+}
+// Bulk actions on the whole Activity type grid (preferred over per-row
+// "only" for "show everything again" / "hide everything" — user feedback,
+// 2026-09-23). `filters.types = []` (not null) is deliberate: matchMoment's
+// `.includes()` check on an empty array matches nothing, which is exactly
+// "deselect all"; null means "no filter, show every type."
+function selectAllFilterTypes() {
+  filters.types = null;
+  buildFilterDrawer(); applyFilters();
+}
+function deselectAllFilterTypes() {
+  filters.types = [];
   buildFilterDrawer(); applyFilters();
 }
 function toggleFilterSource(s) {
@@ -4264,6 +4298,18 @@ function soloPinCategory(key) {
   const allKeys = Object.keys(PIN_CATEGORIES);
   const isSolo = activePinCategories.size === 1 && activePinCategories.has(key);
   activePinCategories = new Set(isSolo ? allKeys : [key]);
+  buildFilterDrawer();
+  renderPinMarkers();
+}
+// Bulk actions on the whole Pin type grid — same rationale as
+// selectAllFilterTypes/deselectAllFilterTypes above.
+function selectAllPinCategories() {
+  activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
+  buildFilterDrawer();
+  renderPinMarkers();
+}
+function deselectAllPinCategories() {
+  activePinCategories = new Set();
   buildFilterDrawer();
   renderPinMarkers();
 }
@@ -9996,6 +10042,7 @@ _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobil
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
 _r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
 _r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);_r('soloFilterType',soloFilterType);
+_r('selectAllFilterTypes',selectAllFilterTypes);_r('deselectAllFilterTypes',deselectAllFilterTypes);
 _r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);_r('setTrackWidth',setTrackWidth);
 _r('addExtraFilterSection',addExtraFilterSection);_r('removeExtraFilterSection',removeExtraFilterSection);
 _r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
@@ -10038,6 +10085,7 @@ _r('openAddModal',openAddModal);_r('closeAddModal',closeAddModal);
 _r('togglePinDropMode',togglePinDropMode);_r('openPinModal',openPinModal);_r('closePinModal',closePinModal);
 _r('geocodePinAddress',geocodePinAddress);_r('savePin',savePin);_r('dismissPinNudge',dismissPinNudge);
 _r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);_r('soloPinCategory',soloPinCategory);
+_r('selectAllPinCategories',selectAllPinCategories);_r('deselectAllPinCategories',deselectAllPinCategories);
 _r('openManualEntryModal',openManualEntryModal);_r('closeManualEntryModal',closeManualEntryModal);_r('saveManualEntry',saveManualEntry);
 _r('openNLParserModal',openNLParserModal);_r('closeNLParserModal',closeNLParserModal);
 _r('previewParsedRoute',previewParsedRoute);_r('saveParsedRoute',saveParsedRoute);_r('closeRoutePreviewMap',closeRoutePreviewMap);

@@ -504,7 +504,7 @@ bug, this is what replaced them:
   hit`) and the draw-route tool's own line are deliberately **not** scaled —
   different concerns (a bigger tap target; a temporary drawing aid), not
   "how thick do my tracks look."
-- **`.tp-type-row` rows (Activity type, Pins) have a "solo" gesture**
+- **`.tp-type-row` rows (Activity type, Pin type) have a "solo" gesture**
   (`soloFilterType()`/`soloPinCategory()`, 2026-09-23 map-UX pass): clicking
   the dot/label/`.tp-type-only` "only" button shows just that one row (click
   again to restore "all"); the separate `.tp-type-toggle` pill keeps the old
@@ -513,6 +513,24 @@ bug, this is what replaced them:
   filter action in the app. Give a new `.tp-type-row`-based section
   (Source/Mood are still plain `.fd-chip` multi-select, not rows) both click
   targets the same way rather than only wiring the toggle.
+- **Both `.tp-type-grid` sections (Activity type, Pin type) also have a
+  bulk "Select all · Deselect all" row** above the grid
+  (`selectAllFilterTypes()`/`deselectAllFilterTypes()`,
+  `selectAllPinCategories()`/`deselectAllPinCategories()`, `.tp-select-row`
+  — added same day, user preferred this over per-row "only" for "show
+  everything" / "hide everything"). **"Deselect all" sets `filters.types =
+  []`, not `null`** — deliberately different values: `null` means "no
+  filter, everything matches" (the `_setTypeSet`/`matchMoment` convention
+  used everywhere else), while `[]` is a real filter whose `.includes()`
+  check matches nothing, i.e. an explicit "hide everything." Don't
+  normalize `[]` to `null` here or "Deselect all" stops deselecting
+  anything. Pins use the equivalent empty-`Set` convention
+  (`activePinCategories = new Set()`). Both bulk actions coexist with the
+  solo gesture and the per-row toggle without special-casing — they're just
+  three different ways to end up setting the same `filters.types`/
+  `activePinCategories` state, and every read site (`matchMoment`,
+  `renderPinMarkers`, `buildFilterDrawer`'s own `on`/`solo` checks) already
+  works off that state rather than off which gesture set it.
 - **The map's Filters button is `.mt-filter-btn`** (`#tools-toggle-btn`), a
   labeled pill — icon + "Filters" + count — living as its own child of
   `#map-tools`, not inside the icon-only `.mt-group` camera/layer cluster.
@@ -553,9 +571,20 @@ bug, this is what replaced them:
   colours, Track thickness) sits below a `.fd-group-label` "Appearance"
   divider, visually broken out from the filters above it — colour/thickness
   don't hide or show anything, and living inside "Filters" with no visual
-  distinction read as "two more filters" (user feedback). Preserve this
-  core/advanced/appearance shape when adding a new filterable field: decide
-  which tier it belongs in rather than defaulting it into "core" (that's
+  distinction read as "two more filters" (user feedback). **`.fd-group-label`
+  is a filled band** (`background: var(--paper2)`, border on both top and
+  bottom, bold sentence-case label — not uppercase/letter-spaced, per this
+  file's button-copy rule above) rather than a plain 1px divider —
+  the first version used the same 1px `border-top` every `.fd-section`
+  already has between its own sections, so "Appearance" read as just another
+  section, not a category change, and Pin type (the section right above it)
+  got roped into looking like part of "Appearance" too (user feedback,
+  same day: "in particular the break and appearance section, also the pin
+  type"). A same-weight divider is not enough separation between tiers —
+  give a break between groups real visual weight (fill + double border),
+  not just a hairline. Preserve this core/advanced/appearance shape when
+  adding a new filterable field: decide which tier it belongs in rather
+  than defaulting it into "core" (that's
   exactly how this got to 12 sections the first time).
 - **The section formerly called "Pins" is now "Pin type"** (renamed
   2026-09-23, alongside "Activity type" for consistency — a user-visible
