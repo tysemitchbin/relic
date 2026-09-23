@@ -62,6 +62,23 @@ future sessions would need.
   (Rail/Boat/Paddling) get straight lines, not road-snapped routes. The
   filter drawer's type toggles and "Track colours" only list groups the user
   has at least one track in (user's request).
+- **Users can also edit a Moment's date/time** (`relic-suggestions`,
+  2026-09-23 — added after bad-import midnight-defaulted dates were found
+  polluting Relic suggestions, see below). The pen icon next to the date in
+  the detail header (`#d-date`, now a `<button>` — its text lives in the
+  child `#d-date-text` span so setting it doesn't wipe the icon; hidden via
+  `#d-date-ic` for a Relic's derived date range, which isn't editable) opens
+  `onEditDate()`, a `uiForm` with `type=date`/`type=time` inputs. Reads/
+  writes with **UTC getters, never the browser's local timezone** — `date`
+  stores a wall-clock value with a bare `Z` suffix (see "Relic photos"
+  below: the whole app treats it as local-time-labeled-UTC, not real UTC),
+  so decoding with local getters would silently drift the value by the
+  browser's offset on every edit. An empty time field defaults to **noon**,
+  not midnight — midnight is exactly what the bad-date guard below treats as
+  "no real time," so defaulting there would immediately re-trigger it. Sets
+  `_dateEdited` / the `date_edited` column (`docs/supabase-date-edit.sql`,
+  same `strava_upsert_activities()` pattern as `type_edited` — must run
+  before this ships, or every save fails) so a resync can't revert the fix.
 
 ## Design system + social layer (`ux-social-overhaul`, 2026-09-18)
 
@@ -315,7 +332,9 @@ sidebar list both mean "this individual Moment has a written note"
   time picked) rather than a real time. Without this, every mis-dated
   activity in an account lands on the same fabricated day and the algorithm
   suggests it as one giant "trip" — caught from a live account where a
-  suggestion was "38 activities on 1 Jan 2021".
+  suggestion was "38 activities on 1 Jan 2021". Excluded, not fixed —
+  fixing a genuinely bad date needs a real known date/time, which is what
+  "Users can also edit a Moment's date/time" above adds.
   **Card CSS pitfall**: the suggestion card's wrapper class is
   `.relic-suggest-card`, deliberately NOT `.suggest-card` — that name was
   already taken by the People/Discover "who to follow" card (`display:flex;

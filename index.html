@@ -425,7 +425,13 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .detail-name-input:hover { border-bottom-color: var(--border); }
 .detail-name-input:focus { border-bottom-color: var(--accent); }
-.detail-date { font-size: 13px; color: var(--text-3); margin-top: 6px; }
+.detail-date {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); margin-top: 6px;
+  background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; text-align: left; border-radius: var(--r-sm);
+}
+.detail-date:hover { color: var(--accent-strong); }
+.detail-date-ic { width: 13px; height: 13px; opacity: .6; }
+.detail-date:hover .detail-date-ic { opacity: 1; }
 .detail-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .detail-stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
 .dstat { background: var(--paper2); border-radius: var(--r-md); padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -1944,7 +1950,10 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             <select class="detail-type-select" id="d-type-select" onchange="onTypeChange(this.value)" aria-label="Activity type" hidden></select>
           </div>
           <input class="detail-name-input" id="d-name-input" placeholder="Give it a name" oninput="onNameEdit()" aria-label="Name">
-          <div class="detail-date" id="d-date"></div>
+          <button class="detail-date" id="d-date" onclick="onEditDate()" aria-label="Edit date and time">
+            <span id="d-date-text"></span>
+            <svg class="ic detail-date-ic" id="d-date-ic"><use href="#i-pen"/></svg>
+          </button>
         </div>
         <div class="detail-body" id="detail-body">
           <div class="detail-stats-grid" id="d-stats"></div>
@@ -3035,7 +3044,7 @@ function rowToMoment(r) {
     startLat: r.start_lat, startLng: r.start_lng,
     note: r.note || '', mood: r.mood || null, photos: [],
     isPublic: !!r.is_public, privacyRadiusM: r.privacy_radius_m || 0, privateNote: '',
-    customColor: r.custom_color || null, _nameEdited: !!r.name_edited, _typeEdited: !!r.type_edited,
+    customColor: r.custom_color || null, _nameEdited: !!r.name_edited, _typeEdited: !!r.type_edited, _dateEdited: !!r.date_edited,
     avgHR: r.avg_hr, maxHR: r.max_hr, calories: r.calories, avgSpeed: r.avg_speed,
     maxSpeed: r.max_speed, avgCadence: r.avg_cadence, avgWatts: r.avg_watts,
     weightedWatts: r.weighted_watts, sufferScore: r.suffer_score,
@@ -3061,7 +3070,7 @@ function momentToRow(m) {
     // fallback for every Strava/GPX track.)
     end_lat: m.endLat ?? getCoords(m)?.at(-1)?.[1] ?? null, end_lng: m.endLng ?? getCoords(m)?.at(-1)?.[0] ?? null,
     note: m.note || '', mood: m.mood || null, is_public: !!m.isPublic, privacy_radius_m: m.privacyRadiusM || 0,
-    custom_color: m.customColor || null, name_edited: !!m._nameEdited, type_edited: !!m._typeEdited,
+    custom_color: m.customColor || null, name_edited: !!m._nameEdited, type_edited: !!m._typeEdited, date_edited: !!m._dateEdited,
     avg_hr: m.avgHR ?? null, max_hr: m.maxHR ?? null, calories: m.calories ?? null,
     avg_speed: m.avgSpeed ?? null, max_speed: m.maxSpeed ?? null, avg_cadence: m.avgCadence ?? null,
     avg_watts: m.avgWatts ?? null, weighted_watts: m.weightedWatts ?? null, suffer_score: m.sufferScore ?? null,
@@ -4310,7 +4319,8 @@ function showDetail(memId) {
   if (!pinCat) typeSel.innerHTML = typeOptionsHtml(mem.type);
   document.getElementById('d-name-input').value=mem.name;
   document.getElementById('d-name-input').oninput=onNameEdit;
-  document.getElementById('d-date').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
+  document.getElementById('d-date-text').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
+  document.getElementById('d-date-ic').hidden = false;
   const hasTrack = !!(mem._polyline || (Array.isArray(mem.coords)&&mem.coords.length>1));
   document.getElementById('d-stats').innerHTML=[
     {val:mem.distance?fmtDist(mem.distance):'—',label:'Distance'},
@@ -4424,7 +4434,10 @@ function showStoryDetail(storyId) {
     ? new Date(story.dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) +
       ' — ' + new Date(story.dateEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
-  document.getElementById('d-date').textContent = dateRange;
+  document.getElementById('d-date-text').textContent = dateRange;
+  // A Relic's date range is derived from its Moments, not stored on it
+  // directly — nothing here to edit.
+  document.getElementById('d-date-ic').hidden = true;
 
   // Stats
   document.getElementById('d-stats').innerHTML = [
@@ -4573,6 +4586,42 @@ function closeDetail() {
   document.getElementById('d-delete-row').style.display = '';
 }
 function onNameEdit() { if(!selectedId) return; db[selectedId].name=document.getElementById('d-name-input').value; db[selectedId]._nameEdited=true; markDirty(selectedId); }
+// The date row's pen icon opens this. Reads/writes with UTC getters, not the
+// browser's local timezone — `date` stores a wall-clock value with a bare
+// "Z" suffix (see the relic-photos section of CLAUDE.md: the whole app
+// treats it as local-time-labeled-UTC, not real UTC), so decoding it with
+// local getters would drift the value by the browser's offset on every
+// edit. _dateEdited (date_edited column) stops a later Strava resync from
+// silently reverting the fix — same pattern as _nameEdited/_typeEdited.
+async function onEditDate() {
+  if (!selectedId) return;
+  const mem = db[selectedId];
+  if (!mem || isStory(mem)) return;
+  const pad = n => String(n).padStart(2, '0');
+  const d = mem.date ? new Date(mem.date) : new Date();
+  const dateVal = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+  const timeVal = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  const result = await uiForm({
+    title: 'Edit date & time',
+    sub: 'When this actually happened.',
+    bodyHtml: `<div style="display:flex;gap:10px">
+      <input class="modal-input" type="date" name="date" value="${dateVal}" style="flex:1.3" required>
+      <input class="modal-input" type="time" name="time" value="${timeVal}" style="flex:1">
+    </div>`,
+    ok: 'Save',
+    validate: v => !!v.date,
+  });
+  if (!result) return;
+  // An empty time field defaults to noon, not midnight — midnight is exactly
+  // what relicSuggestLooksDefaulted() treats as "no real time," so
+  // defaulting there would immediately undo the fix by making this activity
+  // look defaulted again. Same choice saveManualEntry() already makes.
+  mem.date = `${result.date}T${result.time || '12:00'}:00Z`;
+  mem._dateEdited = true;
+  markDirty(mem.id);
+  applyFilters(); renderList();
+  showDetail(mem.id);
+}
 // User re-typed a track. _typeEdited (type_edited column) stops a later Strava
 // sync from overwriting it — same idea as _nameEdited.
 async function onTypeChange(val) {
@@ -10175,7 +10224,7 @@ _r('setAnalyticsConsent',setAnalyticsConsent);
 _r('exportMyData',exportMyData);_r('openDeleteAccountModal',openDeleteAccountModal);_r('closeDeleteAccountModal',closeDeleteAccountModal);
 _r('onDeleteAccountConfirmInput',onDeleteAccountConfirmInput);_r('deleteMyAccount',deleteMyAccount);
 _r('removePhoto',removePhoto);_r('openLightbox',openLightbox);_r('closeLightbox',closeLightbox);
-_r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onTypeChange',onTypeChange);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);
+_r('setMood',setMood);_r('onNameEdit',onNameEdit);_r('onTypeChange',onTypeChange);_r('onNoteEdit',onNoteEdit);_r('updateTypeColor',updateTypeColor);_r('onEditDate',onEditDate);
 _r('onPrivateNoteEdit',onPrivateNoteEdit);_r('setVisibility',setVisibility);
 _r('setPrivacyUnit',setPrivacyUnit);_r('onPrivacyRadiusEdit',onPrivacyRadiusEdit);
 _r('updateTrackHighlight',updateTrackHighlight);_r('goToActivity',goToActivity);
