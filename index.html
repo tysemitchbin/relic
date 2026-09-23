@@ -3203,9 +3203,19 @@ async function loadFromSupabase() {
   // A story is "public" iff it has a story_public snapshot (no column on
   // stories). Tolerates the table not existing yet (migration not run).
   try {
-    const { data: pubStories, error: psErr } = await sb.from('story_public').select('story_id').eq('user_id', currentUser.id);
+    const { data: pubStories, error: psErr } = await sb.from('story_public').select('story_id,glyph_tracks').eq('user_id', currentUser.id);
     if (psErr) { if (isMissingTable(psErr)) _socialOff.stories = true; }
-    else (pubStories || []).forEach(r => { if (db[r.story_id]) db[r.story_id].isPublic = true; });
+    else {
+      const stale = [];
+      (pubStories || []).forEach(r => {
+        if (!db[r.story_id]) return;
+        db[r.story_id].isPublic = true;
+        // Snapshots from before glyph_tracks carried activity ids can't be
+        // matched to a clicked track; rebuild them once in the background.
+        if ((r.glyph_tracks || []).some(t => !t.a)) stale.push(r.story_id);
+      });
+      if (stale.length && !DEMO) setTimeout(() => stale.forEach(refreshStorySnapshot), 4000);
+    }
   } catch (e) {}
   privNotes.forEach(r => { if (db[r.activity_id]) db[r.activity_id].privateNote = r.note || ''; });
 
@@ -3889,7 +3899,7 @@ function initMapLayers() {
     // Invisible fat line so you don't have to land a tap on a 2px stroke.
     map.addLayer({id:'tracks-hit',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
       paint:{'line-color':'#000','line-opacity':0,'line-width':18}});
-    map.on('click','tracks-hit',e=>{if(_pinDropMode||_drawMode)return;const id=e.features[0].properties.id;showDetail(id);flyToTrack(db[id]);});
+    map.on('click','tracks-hit',e=>{if(_pinDropMode||_drawMode||overViewingTrack(e.point))return;const id=e.features[0].properties.id;showDetail(id);flyToTrack(db[id]);});
     map.on('contextmenu','tracks-hit',e=>{e.preventDefault();showTrackPreviewPopup(e.features[0].properties.id,e.lngLat);});
     map.on('mouseenter','tracks-hit',()=>{if(!_pinDropMode&&!_drawMode)map.getCanvas().style.cursor='pointer';});
     map.on('mouseleave','tracks-hit',()=>map.getCanvas().style.cursor='');
@@ -4546,6 +4556,7 @@ async function toggleFriendsLayer() {
       map.addLayer({ id: 'friends-hit', type: 'line', source: 'friends', paint: { 'line-color': '#000', 'line-opacity': 0, 'line-width': 16 } }, below);
       map.on('click', 'friends-hit', e => {
         if (_pinDropMode || _drawMode) return;
+        if (overViewingTrack(e.point)) return; // the map you're viewing wins
         if (map.queryRenderedFeatures(e.point, { layers: ['tracks-hit'] }).length) return; // your own track wins
         const f = e.features[0].properties;
         if (_friendsPopup) _friendsPopup.remove();
@@ -6613,7 +6624,7 @@ const DemoSocial = (() => {
     // that const is declared further down the file, so naming it here throws
     // on the temporal dead zone and takes the whole demo seed with it
     glyph_style: 'accurate', glyph_colour: 'shade', glyph_ink: '#2A3324',
-    glyph_tracks: kaiRides.map(r => ({ p: r.polylines, c: '#2196F3', k: 'Ride' })),
+    glyph_tracks: kaiRides.map(r => ({ p: r.polylines, c: '#2196F3', k: 'Ride', a: r.activity_id })),
     photos: [1, 2, 3].map(n => 'data:image/svg+xml;utf8,' + encodeURIComponent(
       '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><rect width="120" height="120" fill="hsl(' +
       (n * 74 % 360) + ',48%,62%)"/></svg>')),
@@ -7907,6 +7918,7 @@ function buildStorySnapshotRow(story) {
       p: redactTrackForPrivacy(getCoords(m) || [], m.privacyRadiusM || 500),
       c: m.customColor || getColor(m.type),
       k: getGroup(m.type),
+      a: m.id,   // which activity this is, so a click on it can find its relic
     })).filter(t => t.p.length),
     // Storage paths, not URLs — the reader signs them, so nothing long-lived
     // ends up sitting in the snapshot.
@@ -8854,7 +8866,7 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   if (currentView !== 'public-profile') _ppReturnView = currentView;
   ppViewingUserId = userId;
   _ppProfile = null;
-  _ppActs = [];
+  _ppActs = []; _ppStories = [];
   document.getElementById('pp-avatar').innerHTML = '';
   document.getElementById('pp-name').textContent = '';
   document.getElementById('pp-bio').textContent = '';
@@ -8878,7 +8890,7 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   const profile = profRows[0];
   if (!profile) { document.getElementById('pp-body').innerHTML = emptyBlock('user', 'Profile not found', 'This account may have been deleted.', ''); document.getElementById('pp-cover').innerHTML = ''; return; }
   _ppProfile = profile;
-  _ppActs = acts;
+  _ppActs = acts; _ppStories = stories;
   document.getElementById('pp-avatar').innerHTML = profile.avatarUrl ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="">` : escapeHtml(initials(profile.name));
   const h = _hue(userId);
   document.getElementById('pp-avatar').style.cssText = profile.avatarUrl ? '' : `background:hsl(${h} 42% 88%);color:hsl(${h} 38% 30%)`;
@@ -8940,6 +8952,14 @@ function renderPublicCover(acts) {
 // their tracks on top of it via the `viewing` source/layer.
 // ════════════════════════════════════════
 let _viewingProfile = null, _viewingFeats = [], viewingOpacity = 0.85, _viewingHidden = new Set();
+let _viewingRelics = {};   // activity_id -> [their public story_public rows containing it]
+let _ppStories = [];
+// While viewing someone's map, a click on their track belongs to them — not to
+// your own track underneath or the friends layer's duplicate of it.
+function overViewingTrack(point) {
+  if (!_viewingProfile || !map.getLayer('viewing-hit')) return false;
+  try { return map.queryRenderedFeatures(point, { layers: ['viewing-hit'] }).length > 0; } catch (e) { return false; }
+}
 // isOwnContext must come from the caller, not from userId === currentUser.id:
 // you can land on YOUR OWN public-profile page (deep link to your own shared
 // activity, or "View on profile" from your own map popup), and that must
@@ -8961,6 +8981,10 @@ async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
     if (c.length > 1) feats.push({ type: 'Feature', properties: { id: a.activity_id, name: a.name || 'Untitled', date: a.date || '', color: a.custom_color || getColor(a.type), group: getGroup(a.type) }, geometry: { type: 'LineString', coordinates: c } });
   }));
   if (!feats.length) { toast('Nothing to show on their map yet', { icon: 'map' }); return; }
+  let stories = (ppViewingUserId === userId) ? _ppStories : [];
+  if (!stories.length && ppViewingUserId !== userId) { try { stories = await Social.stories([userId], 50); } catch (e) { stories = []; } }
+  _viewingRelics = {};
+  stories.forEach(st => (st.glyph_tracks || []).forEach(t => { if (t.a) (_viewingRelics[t.a] = _viewingRelics[t.a] || []).push(st); }));
   _viewingProfile = { userId, name: _ppProfile?.name || 'Their' };
   _viewingFeats = feats;
   _viewingHidden = new Set();
@@ -8993,8 +9017,13 @@ function renderViewingLayer() {
     map.on('click', 'viewing-hit', e => {
       if (_pinDropMode || _drawMode) return;
       const f = e.features[0].properties;
+      // Part of one of their public relics → open it (one relic: straight
+      // there; several: pick in the popup). Otherwise just identify the track.
+      const relics = _viewingRelics[f.id] || [];
+      if (relics.length === 1) { openPublicProfile(_viewingProfile.userId, null, relics[0].story_id); return; }
+      const relicBtns = relics.map(st => `<button class="btn-primary btn-sm" style="margin-top:6px;width:100%" onclick="openPublicProfile(${jsAttr(_viewingProfile.userId)},null,${jsAttr(st.story_id)})">Open relic: ${escapeHtml(st.title || 'Untitled')}</button>`).join('');
       new mapboxgl.Popup({ closeButton: true, maxWidth: '260px', className: 'friend-pop' }).setLngLat(e.lngLat)
-        .setHTML(`<div class="fp-who">${escapeHtml(_viewingProfile?.name || '')}</div><div class="fp-name">${escapeHtml(f.name)}</div><div class="fp-date">${escapeHtml(activityWhen(f.date))}</div>`).addTo(map);
+        .setHTML(`<div class="fp-who">${escapeHtml(_viewingProfile?.name || '')}</div><div class="fp-name">${escapeHtml(f.name)}</div><div class="fp-date">${escapeHtml(activityWhen(f.date))}</div>${relicBtns}`).addTo(map);
     });
     map.on('mouseenter', 'viewing-hit', () => { if (!_pinDropMode && !_drawMode) map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'viewing-hit', () => map.getCanvas().style.cursor = '');
