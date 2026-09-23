@@ -2926,6 +2926,7 @@ function saveMapPrefs() {
     try {
       localStorage.setItem(k, JSON.stringify({
         v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, trackWidth, camera: _lastCamera,
+        activePinCategories: [...activePinCategories],
       }));
     } catch (e) { /* quota — prefs just won't persist */ }
   }, 400);
@@ -2947,6 +2948,13 @@ function applyStoredFilters(p) {
   }
   if (p.sidebarSort) sidebarSort = p.sidebarSort;
   if (typeof p.trackWidth === 'number' && p.trackWidth >= 0.5 && p.trackWidth <= 3) trackWidth = p.trackWidth;
+  // Array (not Set) in storage; an empty array is a real "all pin categories
+  // off" choice, so check for the key rather than truthiness. Filter against
+  // PIN_CATEGORIES in case a category was renamed/removed since the save.
+  if (Array.isArray(p.activePinCategories)) {
+    const known = new Set(Object.keys(PIN_CATEGORIES));
+    activePinCategories = new Set(p.activePinCategories.filter(k => known.has(k)));
+  }
 }
 function restoreBasemap(p) {
   if (_basemapRestored || !p || DEMO) return;
@@ -3833,16 +3841,17 @@ function setSidebarSort(sort) {
 // ════════════════════════════════════════
 // FILTER DRAWER
 // ════════════════════════════════════════
+// Every section id buildFilterDrawer() can render, including the
+// conditional ones (Source/Heart rate/Track colours only show up if the
+// user has that kind of data) — harmless to list unconditionally since
+// _fdCollapsed is just "don't render this one open," not "this exists."
+const FD_SECTION_IDS = ['fd-sec-type','fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-pins','fd-sec-color','fd-sec-thickness'];
 function openFilterDrawer() {
+  // Every section starts collapsed on open, every time — no auto-expand,
+  // no carrying over which sections were left open last time. Within one
+  // open, toggleFilterSection() still lets you expand/collapse freely.
+  _fdCollapsed = new Set(FD_SECTION_IDS);
   buildFilterDrawer();
-  // Auto-expand any section that already has a filter set, so reopening
-  // the drawer shows *what's* filtered without an extra click per section —
-  // but only sections the user hasn't deliberately collapsed themselves.
-  document.querySelectorAll('#fd-body .fd-section.has-active.collapsed').forEach(el => {
-    if (_fdUserCollapsed.has(el.id)) return;
-    _fdCollapsed.delete(el.id);
-    el.classList.remove('collapsed');
-  });
   document.getElementById('filter-drawer').classList.add('open');
   document.getElementById('filter-backdrop').classList.add('open');
 }
@@ -3851,15 +3860,9 @@ function closeFilterDrawer() {
   document.getElementById('filter-backdrop').classList.remove('open');
 }
 
-// Which sections start collapsed (persists across rebuilds within a session)
-let _fdCollapsed = new Set(['fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-color','fd-sec-thickness']);
-// Sections the user explicitly collapsed by hand — openFilterDrawer()'s
-// auto-expand-if-active pass skips these, so collapsing a section stays
-// collapsed even if it still has a filter set.
-let _fdUserCollapsed = new Set();
+let _fdCollapsed = new Set(FD_SECTION_IDS);
 function toggleFilterSection(id) {
-  if (_fdCollapsed.has(id)) { _fdCollapsed.delete(id); _fdUserCollapsed.delete(id); }
-  else { _fdCollapsed.add(id); _fdUserCollapsed.add(id); }
+  if (_fdCollapsed.has(id)) _fdCollapsed.delete(id); else _fdCollapsed.add(id);
   document.getElementById(id)?.classList.toggle('collapsed');
 }
 
@@ -3966,8 +3969,12 @@ function buildFilterDrawer() {
     </div>`;
   }).join('') + '</div>';
 
+  // Order: what (type) -> when (date) -> how much (the four numeric stats,
+  // grouped together) -> how it felt (mood/attributes) -> where it came
+  // from (source, the one people touch least) -> Pins (a different kind of
+  // thing entirely — points, not tracks) -> appearance last, since colour
+  // and thickness don't hide/show anything.
   let html = sec('fd-sec-type', 'Activity type', typesHtml, !!filters.types);
-  if (filterBounds.sources.length > 1) html += sec('fd-sec-source', 'Source', srcHtml, !!filters.sources);
   html += sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
   html += sec('fd-sec-dist', 'Distance', _fdRange('distKm','Distance','km'), rangeActive(filters.distKm));
   html += sec('fd-sec-dur', 'Duration', _fdRange('durMin','Moving time','minutes'), rangeActive(filters.durMin));
@@ -3975,6 +3982,7 @@ function buildFilterDrawer() {
   if (filterBounds.hasHR) html += sec('fd-sec-hr', 'Heart rate', _fdRange('hr','Average HR','bpm'), rangeActive(filters.hr));
   html += sec('fd-sec-mood', 'Mood', moodHtml, !!filters.moods);
   html += sec('fd-sec-attr', 'Attributes', attrHtml, filters.hasPhotos != null || filters.hasNote != null || filters.commute != null);
+  if (filterBounds.sources.length > 1) html += sec('fd-sec-source', 'Source', srcHtml, !!filters.sources);
   html += sec('fd-sec-pins', 'Pins', pinsHtml, activePinCategories.size < Object.keys(PIN_CATEGORIES).length);
   if (typeEntries.length) html += sec('fd-sec-color', 'Track colours', colorHtml, false);
   html += sec('fd-sec-thickness', 'Track thickness', thicknessHtml, trackWidth !== 1);
@@ -4037,8 +4045,13 @@ function setAttrFilter(key, val) {
 }
 function clearFilters() {
   filters = defaultFilters();
+  // Pins aren't part of `filters` (see buildFilterDrawer's Pins section),
+  // but they're still a visibility toggle in the same drawer under the same
+  // "Clear all" — leaving them out here meant soloing a pin category and
+  // hitting "Clear all" looked like the button had done nothing.
+  activePinCategories = new Set(Object.keys(PIN_CATEGORIES));
   ['search','av-search'].forEach(i => { const e = document.getElementById(i); if (e) e.value = ''; });
-  buildFilterDrawer(); applyFilters();
+  buildFilterDrawer(); applyFilters(); renderPinMarkers();
 }
 
 // Active-filter chip bar (rendered into both the map sidebar and the Activities view)

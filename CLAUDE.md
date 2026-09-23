@@ -519,13 +519,45 @@ bug, this is what replaced them:
   It was folded into that cluster as a bare icon before 2026-09-23; moved out
   so it reads as a peer of the "Activities" pill (both answer "what's
   shown") rather than map chrome. `#mt-filter-badge`/`.mt-fcount` mirrors
-  Activities view's `#av-fcount` pattern. `openFilterDrawer()` also
-  auto-expands any drawer section that already has a filter set
-  (`.fd-section.has-active.collapsed`) on open, unless the user explicitly
-  collapsed that section themselves this session (`_fdUserCollapsed` — set
-  by `toggleFilterSection()`) — so reopening the drawer shows what's already
-  filtered without an extra click per section, but a deliberate collapse
-  still sticks.
+  Activities view's `#av-fcount` pattern.
+- **Every drawer section starts collapsed, every time the drawer opens** —
+  an auto-expand-if-active behavior was tried right after the 2026-09-23
+  pass above and reverted the same day per user feedback ("when I open the
+  filters they should all be collapsed"). `openFilterDrawer()` resets
+  `_fdCollapsed` to `FD_SECTION_IDS` (the full list of section ids,
+  including the conditional ones) on every open; `toggleFilterSection()`
+  still lets you expand/collapse freely within that one open. Don't
+  reintroduce a "remember what was open" or "expand active sections"
+  behavior here without being asked again.
+- **Section order in `buildFilterDrawer()`** (also reordered 2026-09-23,
+  user feedback): Activity type → Date → Distance → Duration → Elevation
+  gain → Heart rate → Mood → Attributes → Source → Pins → Track colours →
+  Track thickness. Logic: what, then when, then the four numeric stats
+  grouped together, then the more qualitative ones (mood/attributes), then
+  Source (the one people touch least), then Pins (a different kind of thing
+  — points, not tracks), then appearance last since colour/thickness don't
+  hide or show anything. Preserve this ordering logic when adding a new
+  section rather than appending it at the end by default.
+- **`clearFilters()` ("Clear all") also resets `activePinCategories`** back
+  to every key in `PIN_CATEGORIES`, even though Pins live outside the
+  `filters` object. Before this it silently left Pins untouched, so soloing
+  a pin category (the "only" gesture above) and then hitting the drawer's
+  one and only "Clear all" looked broken — reported as a bug 2026-09-23.
+  Track colours/thickness are still deliberately excluded (appearance, not
+  visibility — same precedent as `activeFilterCount()`).
+- **`activePinCategories` persists in `relic_mapprefs_v1_<uid>`** alongside
+  `filters`/`sidebarSort`/`trackWidth` (added 2026-09-23, user feedback:
+  "my filter settings should persist when I reload the page ... never
+  reset"). Saved as an array (`saveMapPrefs()`); `applyStoredFilters()`
+  restores it as a Set, filtered against the current `PIN_CATEGORIES` keys
+  so a renamed/removed category in storage doesn't resurrect a stale
+  category. Checked via `Array.isArray()`, not truthiness — an empty array
+  is a real "every pin category off" choice, not "nothing saved yet." This
+  was already true for `filters`/`sidebarSort`/`trackWidth` before
+  2026-09-23; Pins were the one piece of drawer state that didn't survive a
+  reload. If a new drawer-adjacent piece of state is added outside
+  `filters` (like Pins or Track thickness), persist it here too rather than
+  assuming `filters` alone covers "what the user last had shown."
 - **Activities view** (`#activities-view`, `renderActivitiesView()`) is a
   sortable table reachable from the header nav (desktop) / mobile hamburger
   menu, and since 2026-09-20 also from the account-avatar dropdown
