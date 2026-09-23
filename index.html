@@ -1783,7 +1783,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
   <symbol id="i-chevron-left" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></symbol>
-  <symbol id="i-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
   <symbol id="i-chevron-right" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
   <symbol id="i-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
@@ -1962,7 +1961,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <label class="viewing-op">Theirs<input type="range" id="viewing-opacity" min="0.1" max="1" step="0.05" value="0.85" oninput="setViewingOpacity(this.value)" title="Their track opacity" aria-label="Their track opacity"></label>
         <label class="viewing-op">Mine<input type="range" id="viewing-mine-opacity" min="0.1" max="1" step="0.05" value="0.85" oninput="setTrackOpacity(this.value)" title="Your track opacity" aria-label="Your track opacity"></label>
         <button class="viewing-banner-close" onclick="exitProfileView()" aria-label="Stop viewing their map" title="Stop viewing"><svg class="ic"><use href="#i-x"/></svg></button>
-        <div class="viewing-legend" id="viewing-legend" role="group" aria-label="Their activity types — tap to show or hide"></div>
       </div>
 
       <!-- First-connect reveal: import counter, then fly the archive onto the map -->
@@ -2058,11 +2056,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <button class="map-pill" id="list-toggle" onclick="toggleSidebar()" aria-label="Show activity list">
         <svg class="ic"><use href="#i-list"/></svg>Activities <span class="pill-count" id="list-toggle-count"></span>
       </button>
-
-      <!-- Activity-type legend + show/hide (bottom left), collapsible. Replaces
-           the "Activity type" section that used to live in the filter drawer;
-           state is still filters.types. -->
-      <div id="type-legend" class="type-legend" hidden></div>
 
       <!-- Map controls (top right) -->
       <div id="map-tools">
@@ -3996,7 +3989,6 @@ function applyFilters() {
   renderList();
   renderActivitiesView();
   renderFilterChips();
-  renderTypeLegend();
   saveMapPrefs();
 }
 
@@ -4087,6 +4079,17 @@ function buildFilterDrawer() {
 
   const usedGroups = new Set(getMoments().map(m => getGroup(m.type)));
   const typeEntries = Object.entries(TYPE_CONFIG).filter(([k]) => usedGroups.has(k));
+  const typesHtml = !typeEntries.length ? '<div class="fd-hint">No activities yet.</div>'
+    : selectAllRow('selectAllFilterTypes', 'deselectAllFilterTypes')
+    + '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
+    const on = !filters.types || filters.types.includes(k);
+    const solo = filters.types && filters.types.length === 1 && filters.types[0] === k;
+    return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
+      <div class="tp-type-dot" style="background:${c.color}" onclick="soloFilterType('${k}')"></div>
+      <div class="tp-type-label" onclick="soloFilterType('${k}')" title="Click to show only ${escapeHtml(c.label)}">${c.label}</div>
+      <button class="tp-type-only" onclick="soloFilterType('${k}')">${solo ? 'showing only' : 'only'}</button>
+      <div class="tp-type-toggle ${on ? 'on' : ''}" onclick="toggleFilterType('${k}')"></div></div>`;
+  }).join('') + '</div>';
 
   const srcHtml = '<div class="fd-chips">' + filterBounds.sources.map(s => {
     const on = !filters.sources || filters.sources.includes(s);
@@ -4162,8 +4165,8 @@ function buildFilterDrawer() {
 
   // Core filters: always visible, the ones people actually touch often.
   // Order: what (type) -> when (date) -> how much (the three track stats).
-  // (Activity type moved to the map's bottom-left legend — see renderTypeLegend.)
-  let html = sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
+  let html = sec('fd-sec-type', 'Activity type', typesHtml, !!filters.types);
+  html += sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
   html += sec('fd-sec-dist', 'Distance', _fdRange('distKm','Distance','km'), rangeActive(filters.distKm));
   html += sec('fd-sec-dur', 'Duration', _fdRange('durMin','Moving time','minutes'), rangeActive(filters.durMin));
   html += sec('fd-sec-elev', 'Elevation gain', _fdRange('elevM','Elevation gain','metres'), rangeActive(filters.elevM));
@@ -4606,7 +4609,7 @@ function updateTypeColor(typeKey, color) {
   TYPE_CONFIG[typeKey].color = color;
   const sw = document.getElementById(`swatch-${typeKey}`); if(sw) sw.style.background=color;
   if(map && map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
-  renderActivitiesView(); renderTypeLegend();
+  renderActivitiesView();
   const saved = JSON.parse(localStorage.getItem(COLORS_KEY)||'{}'); saved[typeKey]=color; localStorage.setItem(COLORS_KEY,JSON.stringify(saved));
 }
 
@@ -8938,7 +8941,7 @@ function renderPublicCover(acts) {
 // satellite, 3D, pins, photos…) intact, and for someone else, overlays
 // their tracks on top of it via the `viewing` source/layer.
 // ════════════════════════════════════════
-let _viewingProfile = null, _viewingFeats = [], viewingOpacity = 0.85, _viewingHidden = new Set();
+let _viewingProfile = null, _viewingFeats = [], viewingOpacity = 0.85;
 // isOwnContext must come from the caller, not from userId === currentUser.id:
 // you can land on YOUR OWN public-profile page (deep link to your own shared
 // activity, or "View on profile" from your own map popup), and that must
@@ -8957,16 +8960,13 @@ async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
   const feats = [];
   acts.forEach(a => (a.polylines || []).forEach(p => {
     let c; try { c = decodePolyline(p); } catch (e) { return; }
-    if (c.length > 1) feats.push({ type: 'Feature', properties: { id: a.activity_id, name: a.name || 'Untitled', date: a.date || '', color: a.custom_color || getColor(a.type), group: getGroup(a.type) }, geometry: { type: 'LineString', coordinates: c } });
+    if (c.length > 1) feats.push({ type: 'Feature', properties: { id: a.activity_id, name: a.name || 'Untitled', date: a.date || '', color: a.custom_color || getColor(a.type) }, geometry: { type: 'LineString', coordinates: c } });
   }));
   if (!feats.length) { toast('Nothing to show on their map yet', { icon: 'map' }); return; }
   _viewingProfile = { userId, name: _ppProfile?.name || 'Their' };
   _viewingFeats = feats;
-  _viewingHidden = new Set();
   switchView('map');
   renderViewingLayer();
-  renderViewingLegend();
-  renderTypeLegend();
   const b = new mapboxgl.LngLatBounds();
   feats.forEach(f => f.geometry.coordinates.forEach(c => b.extend(c)));
   try { map.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 }); } catch (e) {}
@@ -9030,10 +9030,8 @@ function setViewingOpacity(v) {
 // The × on the banner, or navigating away from Map view (see switchView).
 function exitProfileView() {
   if (!_viewingProfile) return;
-  _viewingProfile = null; _viewingFeats = []; _viewingHidden = new Set();
-  try { map.setFilter('viewing-layer', null); map.setFilter('viewing-hit', null); } catch (e) {}
+  _viewingProfile = null; _viewingFeats = [];
   document.getElementById('viewing-banner').hidden = true;
-  renderTypeLegend();
   try { map.setLayoutProperty('viewing-layer', 'visibility', 'none'); map.setLayoutProperty('viewing-hit', 'visibility', 'none'); } catch (e) {}
 }
 function closePublicProfile() {
