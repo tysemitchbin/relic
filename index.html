@@ -8,14 +8,14 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Relic">
 <title>Relic — Your life, mapped</title>
-<meta name="description" content="Every place you've been, on one map. Bring in Strava, GPX and KML, pin the places that matter, and follow your friends' adventures.">
+<meta name="description" content="Every place you've been, on one map. Bring in Strava, GPX and KML, pin the places that matter, and follow your friends' activities.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Relic">
 <meta property="og:title" content="Relic — Your life, mapped">
-<meta property="og:description" content="Every place you've been, on one map. Follow your friends' adventures.">
+<meta property="og:description" content="Every place you've been, on one map. Follow your friends' activities.">
 <!-- Crawlers want an absolute URL here: swap in the production origin once it's final -->
 <meta property="og:image" content="og-image.jpg">
 <meta property="og:image:width" content="1200">
@@ -1268,31 +1268,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .sd-moment-dist { font: 600 13px var(--font-ui); color: var(--ink); flex-shrink: 0; align-self: center; }
 .sd-actions { padding: 14px 20px; display: flex; gap: 8px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 
-/* ── HAMBURGER / MOBILE ── */
-.hamburger {
-  display: none; background: none; border: none; padding: 0 16px; cursor: pointer;
-  flex-direction: column; justify-content: center; gap: 4px; align-items: center; border-left: 1px solid var(--border);
-}
-.hamburger span { display: block; width: 18px; height: 1.5px; background: var(--ink); transition: all 0.25s ease; }
-.hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(3px, 3px); }
-.hamburger.open span:nth-child(2) { opacity: 0; }
-.hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(3px, -3px); }
-.mobile-menu {
-  display: none; position: fixed; top: 52px; left: 0; right: 0; bottom: 0;
-  background: var(--paper); z-index: 400; flex-direction: column; overflow-y: auto; animation: menuSlide 0.25s ease;
-}
-.mobile-menu.open { display: flex; }
-@keyframes menuSlide { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
-.mobile-menu-item {
-  display: flex; align-items: center; gap: 10px; padding: 16px 24px;
-  border-bottom: 1px solid var(--border); font-family: var(--font-ui);
-  font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
-  background: none; border-left: none; border-right: none; border-top: none;
-  cursor: pointer; width: 100%; text-align: left; transition: all 0.15s;
-}
-.mobile-menu-item:hover, .mobile-menu-item.active { background: var(--paper2); color: var(--ink); }
-.mobile-menu-item.active { border-left: 3px solid var(--accent); padding-left: 21px; }
-
 /* ── BOTTOM TAB BAR (mobile nav) ── */
 #mobile-tabbar { display: none; }
 .tab-item {
@@ -1335,7 +1310,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   .wordmark-r { font-size: 21px; }
   .wordmark-mark { width: 28px; height: 28px; }
   .header-nav, .add-btn { display: none !important; }
-  .hamburger, #mobile-menu { display: none !important; }
 
   /* Header, main and tab bar are all normal flex children of #app (which is
      100dvh). No position:fixed for layout — that fought iOS Safari's dynamic
@@ -1813,9 +1787,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <button class="icon-btn" id="notif-btn" onclick="openNotifications()" aria-label="Notifications" title="Notifications"><svg class="ic"><use href="#i-bell"/></svg><span class="notif-dot" id="notif-dot" hidden></span></button>
       <button class="avatar-btn" id="avatar-btn" onclick="toggleAccountMenu(event)" aria-label="Account menu" title="You"></button>
     </div>
-    <button class="hamburger" id="hamburger-btn" onclick="toggleMobileMenu()">
-      <span></span><span></span><span></span>
-    </button>
   </div>
 
   <!-- Account menu (avatar dropdown) -->
@@ -1829,17 +1800,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <button class="menu-item" onclick="closeAccountMenu();openFeedback()"><svg class="ic"><use href="#i-message-square"/></svg>Send feedback</button>
     <div class="menu-sep"></div>
     <button class="menu-item danger" onclick="signOut()"><svg class="ic"><use href="#i-log-out"/></svg>Sign out</button>
-  </div>
-
-  <div class="mobile-menu" id="mobile-menu">
-    <button class="mobile-menu-item active" data-view="map" onclick="mobileNav('map')">◈ Map</button>
-    <button class="mobile-menu-item" data-view="feed" onclick="mobileNav('feed')">◇ Feed</button>
-    <button class="mobile-menu-item" data-view="activities" onclick="mobileNav('activities')">◇ Activities</button>
-    <button class="mobile-menu-item" data-view="profile" onclick="mobileNav('profile')">◇ Profile</button>
-    <button class="mobile-menu-item" data-view="people" onclick="mobileNav('people')">◇ People</button>
-    <button class="mobile-menu-item" onclick="mobileNav(null); openAddModal()">+ Add</button>
-    <button class="mobile-menu-item" onclick="mobileNav(null); openImport()">+ Import</button>
-    <button class="mobile-menu-item" data-view="settings" onclick="mobileNav('settings')">◇ Settings</button>
   </div>
 
   <div id="main">
@@ -2019,11 +1979,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <aside class="feed-side" id="feed-side">
           <div class="card side-card" id="feed-side-suggest">
             <h3>Suggested for you</h3>
-            <p>People who explore like you do.</p>
+            <p>People with similar activities.</p>
             <div class="people-list compact" id="feed-side-suggest-list"></div>
           </div>
           <div class="card side-card">
-            <h3>Relic is better with friends</h3>
+            <h3>Invite a friend</h3>
             <p>Send a link to your map. Friends can follow you in one tap.</p>
             <button class="btn-primary" style="width:100%" onclick="shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Invite friends</button>
           </div>
@@ -2246,7 +2206,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="view" id="people-view">
       <div class="profile-wrap">
         <div class="page-head">
-          <div><h1 class="page-title">People</h1><div class="page-sub">Follow friends to see their adventures in your feed.</div></div>
+          <div><h1 class="page-title">People</h1><div class="page-sub">Follow friends to see their relics in your feed.</div></div>
           <div class="seg" id="people-seg">
             <button data-tab="discover" class="active" onclick="setPeopleTab('discover')">Discover</button>
             <button data-tab="following" onclick="setPeopleTab('following')">Following<span class="seg-n" id="following-n"></span></button>
@@ -2531,7 +2491,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
           </div>
           <div>
             <div class="sm-label">Narrative</div>
-            <textarea class="sm-narrative-input" id="sm-narrative" placeholder="Write about this chapter of your life..."></textarea>
+            <textarea class="sm-narrative-input" id="sm-narrative" placeholder="What happened?"></textarea>
           </div>
           <div>
             <div class="sm-label">Mood</div>
@@ -4116,8 +4076,6 @@ function renderList() {
 function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   sb.classList.toggle('collapsed');
-  // On mobile, close hamburger menu if open
-  if(window.innerWidth <= 768) closeMobileMenu();
 }
 
 // Pins are not part of the `filters` object (that's for tracked Moments —
@@ -5873,7 +5831,7 @@ async function shareLink(url, title, text) {
 function shareMyProfile() {
   if (!currentUser) return;
   _lsSet('relic_invited', '1');
-  shareLink(profileLink(currentUser.id), 'My map on Relic', 'Follow my adventures on Relic' + (_profile.name ? ' — ' + _profile.name : ''));
+  shareLink(profileLink(currentUser.id), 'My map on Relic', 'Follow my map on Relic' + (_profile.name ? ' — ' + _profile.name : ''));
   const nPublic = getMoments().filter(m => m.isPublic).length;
   if (!nPublic) setTimeout(() => toast('Tip: your activities are all private, so friends will see an empty profile.', {
     duration: 7000, action: { label: 'Sharing settings', fn: () => switchView('settings') },
@@ -6313,7 +6271,7 @@ function renderGettingStarted() {
     <button class="gs-close" onclick="dismissGettingStarted()" aria-label="Hide checklist">&times;</button>
     <div class="gs-head">
       <svg class="gs-ring" viewBox="0 0 46 46"><circle cx="23" cy="23" r="${r}" fill="none" stroke="var(--paper3)" stroke-width="5"/><circle cx="23" cy="23" r="${r}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(c * pct).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 23 23)"/><text x="23" y="27.5" text-anchor="middle" font-size="13" font-weight="700" fill="var(--ink)" font-family="Inter, sans-serif">${n}/${steps.length}</text></svg>
-      <div><h3>Get the most out of Relic</h3><p>A few quick steps to fill your map and bring your friends along.</p></div>
+      <div><h3>Finish setting up</h3><p>A few steps to fill in your map.</p></div>
     </div>
     ${steps.map(s => `<button class="gs-step${s.done ? ' done' : ''}" ${s.done ? 'disabled' : `onclick="${s.fn}"`}><span class="gs-check"><svg class="ic"><use href="#i-check"/></svg></span>${escapeHtml(s.label)}<svg class="ic chev"><use href="#i-chevron-right"/></svg></button>`).join('')}
   </div>`;
@@ -6532,7 +6490,7 @@ async function buildFollowingFeed(reset) {
     if (last) _feedCursor = { d: last.date_end, id: last.story_id };
     _feedDone = pageDone;
     more.innerHTML = _feedDone
-      ? `<div class="people-empty" style="text-align:center">You're all caught up ✓</div>`
+      ? `<div class="people-empty" style="text-align:center">You're all caught up</div>`
       : `<button class="btn-ghost" onclick="buildFollowingFeed(false)">Load more</button>`;
   } catch (e) {
     console.error('Feed load failed', e);
@@ -7310,7 +7268,7 @@ async function rsSaveGlyph() {
   if (!story) return;
   const svg = storyGlyphSvg(story);
   if (!svg) { toast('This relic has no GPS tracks to draw', { error: true }); return; }
-  const dismiss = toast('Making your image…', { duration: 20000 });
+  const dismiss = toast('Creating image…', { duration: 20000 });
   let blob;
   try { blob = await glyphToBlob(svg, 1024); } catch (e) { console.error(e); }
   dismiss();
@@ -7401,7 +7359,7 @@ async function renderShareCard(o) {
   return new Promise(res => cv.toBlob(res, 'image/png'));
 }
 async function shareAsImage(o) {
-  const dismiss = toast('Making your image…', { duration: 20000 });
+  const dismiss = toast('Creating image…', { duration: 20000 });
   let blob;
   try { blob = await renderShareCard(o); } catch (e) { console.error(e); }
   dismiss();
@@ -8452,7 +8410,7 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   document.getElementById('pp-body').innerHTML = stories.length
     ? stories.map(st => renderPublicStoryCard(st, profile, ppPhotos[st.story_id])).join('')
     : emptyBlock('book', own ? 'No relics yet' : `${(profile.name || 'They').split(' ')[0]} hasn't posted a relic yet`,
-        own ? 'This is how other people see your profile. Group a few activities into a relic to post it here.' : 'Relics are how people here share their trips and chapters.',
+        own ? 'This is how other people see your profile. Group a few activities into a relic to post it here.' : 'Relics are how people share trips and groups of activities here.',
         own ? `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>` : '');
   flushCanvasJobs();
   if (focusStoryId) {
@@ -9557,7 +9515,6 @@ function switchView(view) {
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(`${view}-view`).classList.add('active');
   document.getElementById(`nav-${view}`)?.classList.add('active');
-  document.querySelectorAll('.mobile-menu-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   document.querySelectorAll('.tab-item').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
   if(view==='activities') renderActivitiesView();
   if(view==='feed') buildFeed();
@@ -9629,17 +9586,6 @@ async function sendFeedback() {
   }
 }
 
-function toggleMobileMenu() {
-  const menu=document.getElementById('mobile-menu');const btn=document.getElementById('hamburger-btn');
-  menu.classList.toggle('open');btn.classList.toggle('open');
-}
-function closeMobileMenu() { document.getElementById('mobile-menu').classList.remove('open'); document.getElementById('hamburger-btn').classList.remove('open'); }
-
-function mobileNav(view) {
-  closeMobileMenu();
-  document.getElementById('sidebar').classList.add('collapsed');
-  if(view) switchView(view);
-}
 async function signOut() { try { posthog.reset(); } catch(e){} try { await sb.auth.signOut(); } catch(e){} location.reload(); }
 
 // ── GDPR: export my data ──
@@ -9733,8 +9679,13 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
+<<<<<<< HEAD
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
 window.addEventListener('resize', () => { if (map) map.resize(); });
+=======
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
+window.addEventListener('resize', () => { if (map) map.resize(); if (_pmmMap) _pmmMap.resize(); });
+>>>>>>> 9c0c2f70bff15747889eefdf3297d0160c3accd1
 
 // Register all functions
 const _fns={};
@@ -9757,7 +9708,6 @@ _r('onPeopleSearchInput',onPeopleSearchInput);_r('toggleFollow',toggleFollow);
 _r('openPublicProfile',openPublicProfile);_r('closePublicProfile',closePublicProfile);
 _r('viewProfileOnMainMap',viewProfileOnMainMap);_r('exitProfileView',exitProfileView);_r('setViewingOpacity',setViewingOpacity);
 _r('togglePublicProfileFollow',togglePublicProfileFollow);
-_r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
 _r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
 _r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);_r('setAllFilterTypes',setAllFilterTypes);
