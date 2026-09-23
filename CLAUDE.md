@@ -597,7 +597,7 @@ bug, this is what replaced them:
   hit`) and the draw-route tool's own line are deliberately **not** scaled —
   different concerns (a bigger tap target; a temporary drawing aid), not
   "how thick do my tracks look."
-- **Activity type is no longer in the filter drawer** (2026-09-24): it is a full-width row of pill buttons along the map bottom (on = accent, off = white, not collapsible) (`#type-legend`, `renderTypeLegend()`, called from `applyFilters()`), chips toggle `filters.types` via `toggleFilterType`/`soloFilterType` (shift-click = solo), stays visible (labelled "Mine") while viewing someone else's map, whose legend ("Theirs") (`renderViewingLegend`, `_viewingHidden`, tap to hide a type, filters `viewing-layer`/`viewing-hit`). Pin type is still a drawer section. Where the notes below say the drawer's Activity type grid / Select all row, read "the legend".
+- **Activity type is in the filter drawer, most tracks first** (2026-09-24; a bottom-of-map pill legend for your own types was tried and reverted the same day — the user wanted it back under Filters, but kept the ordering). Rows show a per-type count and are sorted by it (ties keep `TYPE_CONFIG` order). The *other* person's map still has its own legend (`renderViewingLegend`, `_viewingHidden`, chips labelled "Theirs": tap to hide a type, filters `viewing-layer`/`viewing-hit`). Pin type is unchanged.
 - **`.tp-type-row` rows (Activity type, Pin type) have a "solo" gesture**
   (`soloFilterType()`/`soloPinCategory()`, 2026-09-23 map-UX pass): clicking
   the dot/label/`.tp-type-only` "only" button shows just that one row (click

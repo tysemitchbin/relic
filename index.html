@@ -282,18 +282,6 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .map-pill:hover { box-shadow: var(--sh-3); }
 .map-pill .ic { width: 18px; height: 18px; }
 .map-pill .pill-count { font-weight: 500; color: var(--text-3); }
-.type-legend {
-  position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 110; pointer-events: none;
-  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 4px 0; justify-content: center;
-}
-.type-legend::-webkit-scrollbar { display: none; }
-.type-legend > * { pointer-events: auto; }
-.type-legend[hidden] { display: none; }
-#detail-panel.open ~ .type-legend { right: calc(var(--detail-w) + 26px); justify-content: flex-start; }
-@media (max-width: 1100px) { .type-legend { justify-content: flex-start; } }
-.tl-all { flex-shrink: 0; border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-pill); padding: 6px 12px; font: 600 13px var(--font-ui); color: var(--accent); cursor: pointer; box-shadow: var(--sh-2); }
-/* Banners sit above the legend bar */
-#mode-banner, #viewing-banner { bottom: 68px; }
 #map-tools {
   position: absolute; top: 14px; right: 14px; z-index: 110;
   display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
@@ -381,6 +369,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .viewing-legend-chip.off { background: var(--surface); border-color: var(--border); color: var(--text-2); }
 .viewing-legend-chip.off i { box-shadow: none; }
 .viewing-legend-chip.off span { color: var(--text-3); opacity: 1; }
+.tp-type-count { color: var(--text-3); font-weight: 500; }
 .viewing-legend-label { align-self: center; font: 600 12px var(--font-ui); color: var(--text-3); padding-right: 2px; }
 .viewing-banner-close {
   width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--paper2); color: var(--ink);
@@ -2058,11 +2047,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <button class="map-pill" id="list-toggle" onclick="toggleSidebar()" aria-label="Show activity list">
         <svg class="ic"><use href="#i-list"/></svg>Activities <span class="pill-count" id="list-toggle-count"></span>
       </button>
-
-      <!-- Activity-type legend + show/hide (bottom left), collapsible. Replaces
-           the "Activity type" section that used to live in the filter drawer;
-           state is still filters.types. -->
-      <div id="type-legend" class="type-legend" hidden></div>
 
       <!-- Map controls (top right) -->
       <div id="map-tools">
@@ -4006,7 +3990,6 @@ function applyFilters() {
   renderList();
   renderActivitiesView();
   renderFilterChips();
-  renderTypeLegend();
   saveMapPrefs();
 }
 
@@ -4095,8 +4078,21 @@ function buildFilterDrawer() {
       <button class="tp-select-link" onclick="${deselectFn}()">Deselect all</button>
     </div>`;
 
-  const usedGroups = new Set(getMoments().map(m => getGroup(m.type)));
-  const typeEntries = Object.entries(TYPE_CONFIG).filter(([k]) => usedGroups.has(k));
+  const typeCounts = {};
+  getMoments().forEach(m => { const g = getGroup(m.type); typeCounts[g] = (typeCounts[g] || 0) + 1; });
+  // Most tracks first (ties keep TYPE_CONFIG order — sort is stable).
+  const typeEntries = Object.entries(TYPE_CONFIG).filter(([k]) => typeCounts[k]).sort((a, b) => typeCounts[b[0]] - typeCounts[a[0]]);
+  const typesHtml = !typeEntries.length ? '<div class="fd-hint">No activities yet.</div>'
+    : selectAllRow('selectAllFilterTypes', 'deselectAllFilterTypes')
+    + '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
+    const on = !filters.types || filters.types.includes(k);
+    const solo = filters.types && filters.types.length === 1 && filters.types[0] === k;
+    return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
+      <div class="tp-type-dot" style="background:${c.color}" onclick="soloFilterType('${k}')"></div>
+      <div class="tp-type-label" onclick="soloFilterType('${k}')" title="Click to show only ${escapeHtml(c.label)}">${c.label} <span class="tp-type-count">${typeCounts[k]}</span></div>
+      <button class="tp-type-only" onclick="soloFilterType('${k}')">${solo ? 'showing only' : 'only'}</button>
+      <div class="tp-type-toggle ${on ? 'on' : ''}" onclick="toggleFilterType('${k}')"></div></div>`;
+  }).join('') + '</div>';
 
   const srcHtml = '<div class="fd-chips">' + filterBounds.sources.map(s => {
     const on = !filters.sources || filters.sources.includes(s);
@@ -4172,8 +4168,8 @@ function buildFilterDrawer() {
 
   // Core filters: always visible, the ones people actually touch often.
   // Order: what (type) -> when (date) -> how much (the three track stats).
-  // (Activity type moved to the map's bottom-left legend — see renderTypeLegend.)
-  let html = sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
+  let html = sec('fd-sec-type', 'Activity type', typesHtml, !!filters.types);
+  html += sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
   html += sec('fd-sec-dist', 'Distance', _fdRange('distKm','Distance','km'), rangeActive(filters.distKm));
   html += sec('fd-sec-dur', 'Duration', _fdRange('durMin','Moving time','minutes'), rangeActive(filters.durMin));
   html += sec('fd-sec-elev', 'Elevation gain', _fdRange('elevM','Elevation gain','metres'), rangeActive(filters.elevM));
@@ -4245,27 +4241,6 @@ function _setTypeSet(field, allKeys, key) {
   if (set.has(key)) set.delete(key); else set.add(key);
   filters[field] = (set.size === allKeys.length) ? null : [...set];
 }
-// Map legend: one chip per activity group you have, tap to show/hide (shift-
-// click = only this one). Reads/writes filters.types via the same helpers the
-// drawer's Activity type section used, so persistence, the Activities view and
-// the filter chips all keep working. Hidden while viewing someone else's map,
-// which has its own legend in #viewing-banner.
-function renderTypeLegend() {
-  const el = document.getElementById('type-legend'); if (!el) return;
-  const counts = {};
-  getMoments().forEach(m => { const g = getGroup(m.type); counts[g] = (counts[g] || 0) + 1; });
-  // Most tracks first (ties keep TYPE_CONFIG order — sort is stable).
-  const entries = Object.entries(TYPE_CONFIG).filter(([k]) => counts[k]).sort((a, b) => counts[b[0]] - counts[a[0]]);
-  if (!entries.length) { el.hidden = true; return; }
-  el.hidden = false;
-  const chips = entries.map(([k, c]) => {
-    const on = !filters.types || filters.types.includes(k);
-    return `<button class="viewing-legend-chip${on ? '' : ' off'}" style="--dot:${escapeHtml(c.color)}" aria-pressed="${on}" title="Shift-click to show only ${escapeHtml(c.label)}" onclick="onTypeLegendClick(event,${jsAttr(k)})"><i></i>${escapeHtml(c.label)} <span>${counts[k]}</span></button>`;
-  }).join('');
-  el.innerHTML = (_viewingProfile ? '<span class="viewing-legend-label">Mine</span>' : '') + chips
-    + (filters.types ? '<button class="tl-all" onclick="selectAllFilterTypes()">Show all</button>' : '');
-}
-function onTypeLegendClick(e, k) { if (e.shiftKey) soloFilterType(k); else toggleFilterType(k); }
 function toggleFilterType(k) {
   _setTypeSet('types', Object.keys(TYPE_CONFIG), k);
   buildFilterDrawer(); applyFilters();
@@ -4618,7 +4593,7 @@ function updateTypeColor(typeKey, color) {
   TYPE_CONFIG[typeKey].color = color;
   const sw = document.getElementById(`swatch-${typeKey}`); if(sw) sw.style.background=color;
   if(map && map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
-  renderActivitiesView(); renderTypeLegend();
+  renderActivitiesView();
   const saved = JSON.parse(localStorage.getItem(COLORS_KEY)||'{}'); saved[typeKey]=color; localStorage.setItem(COLORS_KEY,JSON.stringify(saved));
 }
 
@@ -8991,7 +8966,6 @@ async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
   switchView('map');
   renderViewingLayer();
   renderViewingLegend();
-  renderTypeLegend();
   const b = new mapboxgl.LngLatBounds();
   feats.forEach(f => f.geometry.coordinates.forEach(c => b.extend(c)));
   try { map.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 }); } catch (e) {}
@@ -9063,7 +9037,6 @@ function exitProfileView() {
   _viewingProfile = null; _viewingFeats = []; _viewingHidden = new Set();
   try { map.setFilter('viewing-layer', null); map.setFilter('viewing-hit', null); } catch (e) {}
   document.getElementById('viewing-banner').hidden = true;
-  renderTypeLegend();
   try { map.setLayoutProperty('viewing-layer', 'visibility', 'none'); map.setLayoutProperty('viewing-hit', 'visibility', 'none'); } catch (e) {}
 }
 function closePublicProfile() {
@@ -10596,7 +10569,7 @@ _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeS
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
-_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('relicSeeOnMap',relicSeeOnMap);_r('relicReturnFromMap',relicReturnFromMap);_r('relicMapHideReturn',relicMapHideReturn);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('onTypeLegendClick',onTypeLegendClick);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
+_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('relicSeeOnMap',relicSeeOnMap);_r('relicReturnFromMap',relicReturnFromMap);_r('relicMapHideReturn',relicMapHideReturn);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
 _r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
