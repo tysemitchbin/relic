@@ -355,7 +355,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   max-width: calc(100vw - 24px); white-space: nowrap;
 }
 #mode-banner-text { overflow: hidden; text-overflow: ellipsis; }
-#viewing-opacity { width: 90px; accent-color: var(--accent); }
+#viewing-banner { flex-wrap: wrap; row-gap: 6px; border-radius: 22px; }
+.viewing-op { display: flex; align-items: center; gap: 6px; font: 500 13px var(--font-ui); color: var(--text-2); }
+.viewing-op input[type=range] { width: 76px; accent-color: var(--accent); }
 .viewing-banner-close {
   width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--paper2); color: var(--ink);
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0;
@@ -451,6 +453,14 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   display: flex; align-items: center; justify-content: center; transition: background .15s;
 }
 .detail-close:hover { background: var(--paper3); color: var(--ink); }
+.detail-back { display: inline-flex; align-items: center; gap: 2px; margin: -4px 0 8px -6px; padding: 6px 10px 6px 4px; border: none; background: none; border-radius: var(--r-pill); font: inherit; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; }
+.appears-row { width: 100%; background: none; border: none; font: inherit; text-align: left; cursor: pointer; align-items: center; }
+.appears-row:hover .ir-key { color: var(--accent); }
+.appears-row .ic { width: 16px; height: 16px; color: var(--text-3); flex-shrink: 0; }
+.detail-back[hidden] { display: none; }
+.detail-back:hover { background: var(--paper2); }
+.detail-back .ic { width: 18px; height: 18px; }
+.detail-back + .detail-type-row { display: flex; width: fit-content; }
 .detail-type-row { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px; padding: 3px 10px 3px 8px; border-radius: var(--r-pill); background: var(--paper2); }
 .detail-type-dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(26,35,24,.25); }
 .detail-type-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
@@ -1918,7 +1928,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
            exitProfileView() (the × here, or navigating away) tears it down. -->
       <div id="viewing-banner" class="mode-banner" hidden>
         <span id="viewing-banner-text"></span>
-        <input type="range" id="viewing-opacity" min="0.15" max="1" step="0.05" value="0.85" oninput="setViewingOpacity(this.value)" title="Track opacity" aria-label="Their track opacity">
+        <label class="viewing-op">Theirs<input type="range" id="viewing-opacity" min="0.1" max="1" step="0.05" value="0.85" oninput="setViewingOpacity(this.value)" title="Their track opacity" aria-label="Their track opacity"></label>
+        <label class="viewing-op">Mine<input type="range" id="viewing-mine-opacity" min="0.1" max="1" step="0.05" value="0.85" oninput="setTrackOpacity(this.value)" title="Your track opacity" aria-label="Your track opacity"></label>
         <button class="viewing-banner-close" onclick="exitProfileView()" aria-label="Stop viewing their map" title="Stop viewing"><svg class="ic"><use href="#i-x"/></svg></button>
       </div>
 
@@ -1956,6 +1967,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <div id="detail-panel">
         <div class="detail-header">
           <button class="detail-close" onclick="closeDetail()">×</button>
+          <button class="detail-back" id="d-back" onclick="detailBack()" hidden><svg class="ic"><use href="#i-chevron-left"/></svg><span id="d-back-label">Back</span></button>
           <div class="detail-type-row">
             <div class="detail-type-dot" id="d-type-dot"></div>
             <div class="detail-type-label" id="d-type-label"></div>
@@ -2605,6 +2617,10 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             <div class="mood-row" id="sm-mood-row"></div>
           </div>
           <div>
+            <div class="sm-label">Sharing</div>
+            <div id="sm-share"></div>
+          </div>
+          <div>
             <div class="sm-label">Glyph</div>
             <div class="sm-glyph-row">
               <div class="glyph-thumb" id="sm-glyph-art"></div>
@@ -2842,6 +2858,7 @@ let db = {}, map, terrainOn = false, satelliteOn = false;
 // set in the filter drawer ("Track thickness"), applies to tracks-layer,
 // tracks-highlight and friends-layer alike. See applyTrackThickness().
 let trackWidth = 1;
+let trackOpacity = 0.85;
 let allMemories = [], filteredMemories = [], allStories = [];
 let _pinDropMode = false; // click-to-drop-pin mode (Pins feature)
 let _drawMode = false; // draw-your-route tracing mode
@@ -2930,7 +2947,7 @@ function saveMapPrefs() {
     const k = _prefsKey(); if (!k) return;
     try {
       localStorage.setItem(k, JSON.stringify({
-        v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, photosLayerOn, trackWidth, viewingOpacity, camera: _lastCamera,
+        v: 1, filters, sidebarSort, terrainOn, satelliteOn, friendsLayerOn, photosLayerOn, trackWidth, trackOpacity, viewingOpacity, camera: _lastCamera,
         activePinCategories: [...activePinCategories], fdExtraShown: [..._fdExtraShown],
       }));
     } catch (e) { /* quota — prefs just won't persist */ }
@@ -2953,7 +2970,8 @@ function applyStoredFilters(p) {
   }
   if (p.sidebarSort) sidebarSort = p.sidebarSort;
   if (typeof p.trackWidth === 'number' && p.trackWidth >= 0.5 && p.trackWidth <= 3) trackWidth = p.trackWidth;
-  if (typeof p.viewingOpacity === 'number' && p.viewingOpacity >= 0.15 && p.viewingOpacity <= 1) viewingOpacity = p.viewingOpacity;
+  if (typeof p.viewingOpacity === 'number' && p.viewingOpacity >= 0.1 && p.viewingOpacity <= 1) viewingOpacity = p.viewingOpacity;
+  if (typeof p.trackOpacity === 'number' && p.trackOpacity >= 0.1 && p.trackOpacity <= 1) trackOpacity = p.trackOpacity;
   // Array (not Set) in storage; an empty array is a real "all pin categories
   // off" choice, so check for the key rather than truthiness. Filter against
   // PIN_CATEGORIES in case a category was renamed/removed since the save.
@@ -3617,7 +3635,7 @@ function animateTracksIn() {
   try {
     map.setPaintProperty('tracks-layer', 'line-opacity-transition', { duration: 1400, delay: 0 });
     map.setPaintProperty('tracks-layer', 'line-opacity', 0);
-    setTimeout(() => { try { map.setPaintProperty('tracks-layer', 'line-opacity', 0.85); } catch (e) {} }, 80);
+    setTimeout(() => { try { map.setPaintProperty('tracks-layer', 'line-opacity', trackOpacity); } catch (e) {} }, 80);
     setTimeout(() => { try { map.setPaintProperty('tracks-layer', 'line-opacity-transition', { duration: 300, delay: 0 }); } catch (e) {} }, 1600);
   } catch (e) {}
 }
@@ -3828,7 +3846,7 @@ function initMapLayers() {
   if(map.getSource('tracks')) { map.getSource('tracks').setData(tracksGeoJSON); } else {
     map.addSource('tracks',{type:'geojson',data:tracksGeoJSON,tolerance:0.5,buffer:0});
     map.addLayer({id:'tracks-layer',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
-      paint:{'line-color':['get','color'],'line-width':tracksLineWidthExpr(trackWidth),'line-opacity':0.85}});
+      paint:{'line-color':['get','color'],'line-width':tracksLineWidthExpr(trackWidth),'line-opacity':trackOpacity}});
     map.addLayer({id:'tracks-highlight',type:'line',source:'tracks',layout:{'line-join':'round','line-cap':'round'},
       filter:['==',['get','id'],''],paint:{'line-color':['get','color'],'line-width':5*trackWidth,'line-opacity':1}});
     // Invisible fat line so you don't have to land a tap on a 2px stroke.
@@ -3864,7 +3882,7 @@ function updateTrackHighlight(memId) {
     map.setPaintProperty('tracks-layer','line-opacity',['case',['==',['get','id'],memId],1,0.2]);
     map.setPaintProperty('tracks-layer','line-width',['case',['==',['get','id'],memId],5*trackWidth,1.5*trackWidth]);
   } else {
-    map.setPaintProperty('tracks-layer','line-opacity',0.85);
+    map.setPaintProperty('tracks-layer','line-opacity',trackOpacity);
     map.setPaintProperty('tracks-layer','line-width',tracksLineWidthExpr(trackWidth));
   }
 }
@@ -3891,6 +3909,23 @@ function applyTrackThickness() {
   if (map.getLayer('friends-layer')) {
     map.setPaintProperty('friends-layer', 'line-width', ['interpolate', ['linear'], ['zoom'], 3, 1 * trackWidth, 10, 2.2 * trackWidth, 14, 3 * trackWidth]);
   }
+}
+// Opacity of your own tracks — an Appearance setting like thickness (not a
+// filter), always applied; also surfaced as "Mine" in #viewing-banner while
+// viewing someone's map so the two sets can be compared. Skipped while a
+// Moment/Story is highlighted, since those set their own per-feature opacity
+// expression on the same paint property; clearing the highlight
+// (updateTrackHighlight(null)) puts trackOpacity back.
+function setTrackOpacity(val) {
+  trackOpacity = Math.max(0.1, Math.min(1, parseFloat(val) || 0.85));
+  if (!selectedId && map && map.getLayer && map.getLayer('tracks-layer')) {
+    try { map.setPaintProperty('tracks-layer', 'line-opacity', trackOpacity); } catch (e) {}
+  }
+  saveMapPrefs();
+  const label = document.getElementById('fd-opacity-val');
+  if (label) label.textContent = Math.round(trackOpacity * 100) + '%';
+  const drawer = document.getElementById('fd-opacity-slider'); if (drawer && drawer.value != trackOpacity) drawer.value = trackOpacity;
+  const banner = document.getElementById('viewing-mine-opacity'); if (banner && banner.value != trackOpacity) banner.value = trackOpacity;
 }
 function setTrackWidth(val) {
   trackWidth = Math.max(0.5, Math.min(3, parseFloat(val) || 1));
@@ -3949,7 +3984,7 @@ function setSidebarSort(sort) {
 // conditional ones (Source/Heart rate/Track colours only show up if the
 // user has that kind of data) — harmless to list unconditionally since
 // _fdCollapsed is just "don't render this one open," not "this exists."
-const FD_SECTION_IDS = ['fd-sec-type','fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-pins','fd-sec-color','fd-sec-thickness'];
+const FD_SECTION_IDS = ['fd-sec-type','fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-pins','fd-sec-color','fd-sec-thickness','fd-sec-opacity'];
 function openFilterDrawer() {
   // Every section starts collapsed on open, every time — no auto-expand,
   // no carrying over which sections were left open last time. Within one
@@ -4066,6 +4101,13 @@ function buildFilterDrawer() {
         <input type="color" value="${c.color}" oninput="updateTypeColor('${k}',this.value)"></div>
       <div class="tp-color-label">${c.label}</div></div>`).join('');
 
+  const opacityHtml = `
+    <div class="fd-thickness-row">
+      <input class="fd-thickness-slider" id="fd-opacity-slider" type="range" min="0.1" max="1" step="0.05" value="${trackOpacity}" oninput="setTrackOpacity(this.value)">
+      <span class="fd-thickness-val" id="fd-opacity-val">${Math.round(trackOpacity * 100)}%</span>
+    </div>
+    <div class="fd-hint">How solid your tracks are. Handy for seeing the basemap through a dense map — and when you're viewing someone else's map, there's a matching slider at the bottom to compare theirs against yours.</div>`;
+
   const thicknessLabel = trackWidth.toFixed(2).replace(/0+$/, '').replace(/\.$/, '') + '×';
   const thicknessHtml = `
     <div class="fd-thickness-row">
@@ -4136,6 +4178,7 @@ function buildFilterDrawer() {
   html += '<div class="fd-group-label">Appearance</div>';
   if (typeEntries.length) html += sec('fd-sec-color', 'Track colours', colorHtml, false);
   html += sec('fd-sec-thickness', 'Track thickness', thicknessHtml, trackWidth !== 1);
+  html += sec('fd-sec-opacity', 'Track opacity', opacityHtml, trackOpacity !== 0.85);
   body.innerHTML = html;
 }
 // "+ Add filter" — reveal a hidden advanced section, expanded, so adding it
@@ -4523,8 +4566,29 @@ function updateTypeColor(typeKey, color) {
 // ════════════════════════════════════════
 // DETAIL PANEL
 // ════════════════════════════════════════
-function showDetail(memId) {
-  const obj=db[memId]; if(!obj) return; selectedId=memId; renderList();
+// Where the detail panel's back button goes ({label, fn}, or null). Set by the
+// caller that opened this item (a relic from Profile, an activity from a
+// relic); re-rendering the same item keeps it, opening a different one via
+// the map/list clears it.
+let _detailBack = null;
+function updateDetailBack() {
+  const b = document.getElementById('d-back'); if (!b) return;
+  b.hidden = !_detailBack;
+  if (_detailBack) document.getElementById('d-back-label').textContent = _detailBack.label;
+}
+function openRelicFromActivity(storyId, memId) {
+  const story = db[storyId], m = db[memId]; if (!story || !m) return;
+  const actBack = _detailBack;
+  showDetail(storyId, { label: m.name || 'Activity', fn: function() { showDetail(memId, actBack); if (m.startLat) flyToTrack(m); } });
+  highlightStoryOnMap(story);
+}
+function detailBack() { const b = _detailBack; if (b) b.fn(); }
+function showDetail(memId, back) {
+  const obj=db[memId]; if(!obj) return;
+  if (back !== undefined) _detailBack = back;
+  else if (memId !== selectedId) _detailBack = null;
+  updateDetailBack();
+  selectedId=memId; renderList();
 
   if (isStory(obj)) { showStoryDetail(memId); return; }
 
@@ -4572,11 +4636,21 @@ function showDetail(memId) {
   document.getElementById('d-mood').innerHTML=MOODS.map(m=>`<button class="mood-btn ${mem.mood===m.id?'active':''}" onclick="setMood('${memId}','${m.id}',this)">${m.emoji}<span>${m.label}</span></button>`).join('');
   renderPhotos(memId);
   // Restore detail body to moment layout (in case it was showing a story)
-  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(el => el.remove());
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share, #detail-body .sd-appears').forEach(el => el.remove());
   document.querySelectorAll('#detail-body .detail-section').forEach(el => el.style.display='');
   document.getElementById('d-rows').style.display='';
   document.getElementById('d-strava-link').style.display='';
   document.getElementById('d-delete-row').style.display='';
+  // "Appears on": the relics this activity belongs to. Opening one comes back
+  // here via the panel's back button.
+  const inRelics = getStories().filter(s => (s.momentIds || []).includes(memId));
+  if (inRelics.length) {
+    const ap = document.createElement('div');
+    ap.className = 'sd-appears detail-section';
+    ap.innerHTML = '<div class="detail-section-title">Appears on</div><div class="info-rows">' +
+      inRelics.map(s => `<button class="info-row appears-row" onclick="openRelicFromActivity(${jsAttr(s.id)},${jsAttr(memId)})"><span class="ir-key">${escapeHtml(s.title || 'Untitled')}</span><svg class="ic"><use href="#i-chevron-right"/></svg></button>`).join('') + '</div>';
+    document.getElementById('detail-body').insertBefore(ap, document.getElementById('d-rows'));
+  }
   // Airport pins show computed visit metadata instead of the (meaningless,
   // zeroed) activity stat tiles — always derived fresh from the underlying
   // Flight Moments, never stored on the pin (see syncAirportPins).
@@ -4675,7 +4749,7 @@ function showStoryDetail(storyId) {
   document.getElementById('d-delete-row').style.display = 'none';
 
   // Remove any previous story detail elements
-  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share, #detail-body .sd-appears').forEach(function(el) { el.remove(); });
 
   const body = document.getElementById('detail-body');
 
@@ -4780,7 +4854,10 @@ function showStoryDetail(storyId) {
       '</div>' +
       '<div class="sd-moment-dist">' + dist + '</div>';
     entry.onclick = function() {
-      showDetail(m.id);
+      // Back returns to this relic (and its own back target), re-highlighting
+      // its tracks — opening the activity reset that highlight.
+      var relicBack = _detailBack;
+      showDetail(m.id, { label: story.title || 'Relic', fn: function() { showDetail(story.id, relicBack); highlightStoryOnMap(story); } });
       if (m.startLat) map.flyTo({ center: [m.startLng, m.startLat], zoom: 13, pitch: terrainOn ? 50 : 0, duration: 1000 });
     };
     timelineDiv.appendChild(entry);
@@ -4795,11 +4872,12 @@ function showStoryDetail(storyId) {
 function closeDetail() {
   var wasStory = selectedId && db[selectedId] && isStory(db[selectedId]);
   selectedId=null;
+  _detailBack = null; updateDetailBack();
   document.getElementById('detail-panel').classList.remove('open');
   renderList();
   updateTrackHighlight(null);
   // Clean up any story-injected elements from detail body
-  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share').forEach(function(el) { el.remove(); });
+  document.querySelectorAll('#detail-body .sd-glyph, #detail-body .sd-photos, #detail-body .sd-narrative, #detail-body .sd-moment-timeline, #detail-body .sd-actions, #detail-body .sd-map, #detail-body .airport-visits, #detail-body .sd-share, #detail-body .sd-appears').forEach(function(el) { el.remove(); });
   document.querySelectorAll('#detail-body .detail-section').forEach(function(el) { el.style.display = ''; });
   document.getElementById('d-rows').style.display = '';
   document.getElementById('d-strava-link').style.display = '';
@@ -7819,7 +7897,24 @@ async function setStoryVisibility(storyId, makePublic) {
     else toast('Couldn\'t update sharing — try again', { error: true });
   }
 }
+// Same Private/Shared switch, inside the edit modal. Applies immediately (it
+// has its own confirm + snapshot write), not on Save. A relic still being
+// built has no id or row to share yet.
+function renderStoryModalShare() {
+  const el = document.getElementById('sm-share'); if (!el) return;
+  const story = editingStoryId && db[editingStoryId];
+  if (!story || !isStory(story)) {
+    el.innerHTML = '<div class="detail-section-sub" style="margin:0">Private until you create it — then you can share it with your followers.</div>';
+    return;
+  }
+  const pub = !!story.isPublic;
+  el.innerHTML = `<div class="visibility-row">
+      <button type="button" class="visibility-btn ${!pub ? 'active' : ''}" onclick="setStoryVisibility(${jsAttr(story.id)},false)"><svg class="ic" style="width:15px;height:15px"><use href="#i-lock"/></svg>Private</button>
+      <button type="button" class="visibility-btn ${pub ? 'active' : ''}" onclick="setStoryVisibility(${jsAttr(story.id)},true)"><svg class="ic" style="width:15px;height:15px"><use href="#i-globe"/></svg>Shared</button>
+    </div>`;
+}
 function renderStoryShareSection(storyId) {
+  renderStoryModalShare();
   const el = document.getElementById('sd-share'); if (!el) return;
   const story = db[storyId], pub = !!story?.isPublic;
   el.innerHTML = `<div class="detail-section-title">Sharing</div>
@@ -8833,6 +8928,7 @@ async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
   try { map.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 }); } catch (e) {}
   document.getElementById('viewing-banner-text').textContent = `Viewing ${_viewingProfile.name.split(' ')[0]}'s map`;
   document.getElementById('viewing-opacity').value = viewingOpacity;
+  document.getElementById('viewing-mine-opacity').value = trackOpacity;
   document.getElementById('viewing-banner').hidden = false;
 }
 // (Re-)adds the `viewing` source/layer for whoever's currently being viewed.
@@ -9354,7 +9450,11 @@ function renderProfileStories() {
   }
   grid.innerHTML = '';
 
-  stories.sort((a, b) => (b.lastModified || b.createdAt || '') > (a.lastModified || a.createdAt || '') ? 1 : -1);
+  // By when the trip happened (newest first), not when it was last edited —
+  // editing a relic used to throw it to the top. Undated relics sink.
+  stories.forEach(computeStoryStats);
+  const _t = s => { const t = Date.parse(s.dateEnd || s.dateStart || ''); return isNaN(t) ? -Infinity : t; };
+  stories.sort((a, b) => (_t(b) === _t(a) ? 0 : _t(b) > _t(a) ? 1 : -1));
 
   stories.forEach(story => {
     computeStoryStats(story);
@@ -9457,11 +9557,23 @@ function viewStoryOnMap(storyId) {
   const story = db[storyId];
   if (!story || !isStory(story)) return;
 
+  // Remember where we came from so the panel can offer a way back (Profile,
+  // Feed…). Already on the map → no back target.
+  const from = currentView;
+  const BACK_LABELS = { profile: 'Profile', feed: 'Feed', people: 'People', activities: 'Activities', 'relic-suggest': 'Suggestions' };
+  const back = from !== 'map' && BACK_LABELS[from]
+    ? { label: BACK_LABELS[from], fn: function() { closeDetail(); switchView(from); } }
+    : null;
+
   switchView('map');
   setTimeout(function() {
-    // Show story detail panel
-    showDetail(storyId);
+    showDetail(storyId, back);
+    highlightStoryOnMap(story);
+  }, 200);
+}
 
+function highlightStoryOnMap(story) {
+  {
     // Highlight all member tracks
     const ids = story.momentIds || [];
     if (ids.length === 0) return;
@@ -9491,7 +9603,7 @@ function viewStoryOnMap(storyId) {
     if (hasBounds) {
       map.fitBounds(bounds, { padding: 60, duration: 1200, maxZoom: 14 });
     }
-  }, 200);
+  }
 }
 
 async function deleteStory(storyId) {
@@ -9690,6 +9802,7 @@ function openStoryModal(existingId) {
   document.getElementById('sm-date-to').value = '';
   document.getElementById('sm-status').textContent = '';
 
+  renderStoryModalShare();
   buildStoryTypeFilters();
   buildStoryMoodRow();
   renderStoryMomentList();
@@ -10358,7 +10471,7 @@ _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
 _r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
 _r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);_r('soloFilterType',soloFilterType);
 _r('selectAllFilterTypes',selectAllFilterTypes);_r('deselectAllFilterTypes',deselectAllFilterTypes);
-_r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);_r('setTrackWidth',setTrackWidth);
+_r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);_r('setTrackWidth',setTrackWidth);_r('setTrackOpacity',setTrackOpacity);
 _r('addExtraFilterSection',addExtraFilterSection);_r('removeExtraFilterSection',removeExtraFilterSection);
 _r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
 _r('renderActivitiesView',renderActivitiesView);_r('buildFilterDrawer',buildFilterDrawer);
@@ -10373,7 +10486,7 @@ _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeS
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
-_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
+_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('detailBack',detailBack);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
 _r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);

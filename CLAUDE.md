@@ -243,7 +243,16 @@ sidebar list both mean "this individual Moment has a written note"
   never calls `setStyle`, it just flips a baked-in `satellite-layer`'s
   visibility (see `toggleSatellite`), so `viewing-layer` never needs to be
   re-added after a basemap change the way the old per-modal map's layers
-  did.
+  did. **Your own tracks' opacity** (`trackOpacity`, `setTrackOpacity()`,
+  2026-09-23 — "reduce the opacity on MY tracks and theirs") is a general
+  Appearance setting, not viewing-only: a "Track opacity" section in the
+  filter drawer next to thickness, always applied to `tracks-layer`, and
+  *also* shown as the "Mine" slider in `#viewing-banner` beside "Theirs" so
+  the two can be compared. `setTrackOpacity()` keeps both sliders in sync and
+  skips touching `tracks-layer` while a Moment/Story is highlighted (those set
+  their own per-feature opacity expression on the same property);
+  `updateTrackHighlight(null)` restores `trackOpacity`, so any new code that
+  resets that layer's opacity should use it, not a literal 0.85.
 - **Your own individual activities have their own page**: `#activities-view`
   / `renderActivitiesView()` (a sortable table, pre-existing — see "Filters +
   Activities view" below) is reachable from the header nav *and*, since
