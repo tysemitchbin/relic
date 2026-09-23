@@ -288,15 +288,26 @@ sidebar list both mean "this individual Moment has a written note"
   candidates. Extend `relicSuggestAnchors`/the link/gap constants at the top
   of the block, not a second grouping predicate, if this needs tuning.
   The Profile preview caps at `RELIC_SUGGEST_PREVIEW_COUNT` (3); its header's
-  "Review" / "Review all N" button (`openAllRelicSuggestionsModal`) opens
-  `#relic-suggest-modal`, an uncapped list in the same `.suggest-card`
-  markup — `relicSuggestionCardHtml(s)` is the one card builder both the
-  preview grid and the modal call, so they can't quietly diverge.
-  Create/Dismiss inside the modal reuse `openSuggestedRelicModal`/
-  `dismissRelicSuggestion` as-is; `dismissRelicSuggestion` re-renders the
-  modal's own grid too when it's open, and `openSuggestedRelicModal` closes
-  the suggestions modal before opening the relic editor rather than stacking
-  two modals.
+  "Review" / "Review all N" button routes to `#relic-suggest-view` — a real
+  page (`switchView('relic-suggest')` → `renderRelicSuggestView()`), not a
+  modal, since the point is to actually look at what's in each suggestion,
+  not glance at one in a dialog. `relicSuggestionCardHtml(s)` is the one card
+  builder both the Profile preview and the full page call, so they can't
+  quietly diverge; every card carries its own Moment list (name/date/type/
+  distance) behind a native `<details>` disclosure — a title and date range
+  alone don't say what's actually in a suggestion — using the lightweight
+  `moments` array each suggestion carries for display (not full Moment
+  objects). `dismissRelicSuggestion` re-renders whichever of the preview or
+  the full page is on screen (checks `currentView`); `openSuggestedRelicModal`
+  works the same from either.
+  **Ranked, not chronological**: `relicSuggestionScore()` gives each group a
+  confidence score — more activities, more days spanned, more variety of
+  activity type (a flight + hikes + a run reads as a trip; five laps of the
+  same park reads as routine that happens to be far from home), a resolved
+  place name, and distance from home — and `computeRelicSuggestions()` sorts
+  suggestions by that score, best first, rather than by date. The score is
+  internal (sort order only, not shown as a number) — tune the weights in
+  `relicSuggestionScore`, don't add a second ranking pass elsewhere.
 
 ## Relic glyph (`relic-glyph`, 2026-09-22)
 

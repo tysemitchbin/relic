@@ -1104,8 +1104,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 
 /* ── STORY MODAL ── */
 .story-modal { width: 860px; max-width: 100%; padding: 0; display: flex; flex-direction: column; max-height: 88vh; overflow: hidden; }
-.suggest-modal { width: 760px; max-width: 100%; }
-.suggest-modal .profile-suggest-grid { margin-top: 4px; }
 .story-modal-header { padding: 22px 26px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .story-modal-header .modal-sub { margin-bottom: 0; }
 .story-modal-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
@@ -1196,6 +1194,15 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   display: inline-block; font-size: 12px; font-weight: 600; color: var(--accent-strong); background: var(--accent-soft);
   padding: 3px 10px; border-radius: var(--r-pill); margin: 14px 16px 0;
 }
+.suggest-activities { margin-top: 10px; }
+.suggest-activities summary { font-size: 13px; font-weight: 600; color: var(--accent-strong); cursor: pointer; list-style: none; }
+.suggest-activities summary::-webkit-details-marker { display: none; }
+.suggest-activities summary::before { content: '▸ '; }
+.suggest-activities[open] summary::before { content: '▾ '; }
+.suggest-activity-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 180px; overflow-y: auto; border-top: 1px solid var(--border); }
+.suggest-activity-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.suggest-activity-name { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest-activity-meta { color: var(--text-3); flex: none; white-space: nowrap; }
 .story-card {
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); cursor: pointer; box-shadow: var(--sh-1);
   transition: box-shadow .2s, transform .2s; overflow: hidden;
@@ -2066,6 +2073,15 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       </div>
     </div>
 
+    <!-- RELIC SUGGESTIONS VIEW — a full page, not a modal, since the point is
+         to actually look at what's in each candidate trip before deciding. -->
+    <div class="view" id="relic-suggest-view">
+      <div class="profile-wrap">
+        <button class="pp-back" onclick="switchView('profile')"><svg class="ic"><use href="#i-chevron-left"/></svg>Back</button>
+        <div class="page-head"><div><h1 class="page-title">Suggested relics</h1><div class="page-sub" id="relic-suggest-view-sub"></div></div></div>
+        <div class="profile-suggest-grid" id="relic-suggest-view-grid"></div>
+      </div>
+    </div>
 
     <!-- PROFILE VIEW (your own) -->
     <div class="view" id="profile-view">
@@ -2109,7 +2125,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <div class="profile-suggest-section" id="profile-suggest-section" hidden>
           <div class="profile-stories-header">
             <div class="profile-stories-title">Suggested relics</div>
-            <button class="btn-ghost btn-sm" onclick="openAllRelicSuggestionsModal()">Review all</button>
+            <button class="btn-ghost btn-sm" onclick="switchView('relic-suggest')">Review all</button>
           </div>
           <div class="profile-suggest-grid" id="profile-suggest-grid"></div>
         </div>
@@ -2511,15 +2527,6 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <button class="btn-ghost" onclick="rsShareLink()"><svg class="ic"><use href="#i-share"/></svg>Share a link</button>
     </div>
     <div class="modal-actions"><button class="btn-ghost" onclick="closeRelicShare()">Cancel</button></div>
-  </div>
-</div>
-
-<div class="modal-overlay" id="relic-suggest-modal" onclick="if(event.target===this)closeAllRelicSuggestions()">
-  <div class="modal suggest-modal">
-    <div class="modal-title">Suggested relics</div>
-    <div class="modal-sub" id="relic-suggest-modal-sub"></div>
-    <div class="profile-suggest-grid" id="relic-suggest-modal-grid"></div>
-    <div class="modal-actions"><button class="btn-ghost" onclick="closeAllRelicSuggestions()">Close</button></div>
   </div>
 </div>
 
@@ -8908,7 +8915,30 @@ function relicSuggestIsAway(anchors, home) {
   return anchors.some(([lat, lng]) => haversine(lat, lng, home.lat, home.lng) / 1000 > RELIC_SUGGEST_AWAY_KM);
 }
 
-function relicSuggestionFromGroup(group) {
+// Rough "how confident should we be this is a real trip, not noise" score,
+// used only to sort suggestions best-first — not shown as a raw number.
+// Every factor is something a real trip tends to have more of than a
+// coincidental cluster of away-from-home activities: more days, more
+// activities, more variety of activity type (a flight + hikes + a run reads
+// as a trip; five laps of the same reservoir reads as routine that just
+// happens to be far from home), a resolved place name (manual entries and
+// flights tend to have one; a raw GPS import usually doesn't, so a suggestion
+// that already knows where it happened is more likely to be a genuine one),
+// and distance from home (further = more clearly not routine).
+function relicSuggestionScore(group, home, dateStart, dateEnd, place, typeBreakdown) {
+  const daySpan = Math.round((Date.parse(dateEnd) - Date.parse(dateStart)) / 86400000) + 1;
+  let maxAwayKm = 0;
+  if (home) {
+    group.forEach(m => relicSuggestAnchors(m).forEach(([lat, lng]) => {
+      const km = haversine(lat, lng, home.lat, home.lng) / 1000;
+      if (km > maxAwayKm) maxAwayKm = km;
+    }));
+  }
+  return group.length * 8 + daySpan * 12 + Object.keys(typeBreakdown).length * 6 +
+    (place ? 20 : 0) + Math.min(maxAwayKm, 500) / 10;
+}
+
+function relicSuggestionFromGroup(group, home) {
   group.sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1);
   const dateStart = group[0].date.substring(0, 10);
   const dateEnd = group[group.length - 1].date.substring(0, 10);
@@ -8939,7 +8969,12 @@ function relicSuggestionFromGroup(group) {
     momentIds: group.map(m => m.id),
     momentCount: group.length,
     totalDistance: dist, totalElevation: elev, totalDuration: dur,
-    typeBreakdown
+    typeBreakdown,
+    score: relicSuggestionScore(group, home, dateStart, dateEnd, place, typeBreakdown),
+    // Lightweight, display-only — a title/date-range alone doesn't tell
+    // anyone what's actually in a suggestion, so the card needs to list
+    // these without holding onto full Moment objects.
+    moments: group.map(m => ({ id: m.id, name: m.name, date: m.date, type: m.type, distance: m.distance }))
   };
 }
 
@@ -8987,8 +9022,10 @@ function computeRelicSuggestions() {
 
   return Object.values(groups)
     .filter(g => g.length >= RELIC_SUGGEST_MIN_SIZE)
-    .map(relicSuggestionFromGroup)
-    .sort((a, b) => (b.dateEnd || '') > (a.dateEnd || '') ? 1 : -1);
+    .map(g => relicSuggestionFromGroup(g, home))
+    // Best-first: highest-confidence trips (see relicSuggestionScore) surface
+    // before the more marginal ones, rather than plain recency.
+    .sort((a, b) => b.score - a.score);
 }
 
 // Dismissals persist per-user (suggestion ids are stable — derived from the
@@ -9003,19 +9040,28 @@ function dismissRelicSuggestion(id) {
   set.add(id);
   try { localStorage.setItem(relicSuggestDismissKey(), JSON.stringify([...set])); } catch (e) {}
   renderRelicSuggestions();
-  // Keep the "review all" modal's own list in step if it's open when a card
-  // inside it gets dismissed — it has no separate dismiss state of its own.
-  if (document.getElementById('relic-suggest-modal')?.classList.contains('open')) renderAllRelicSuggestionsModal();
+  // Keep the full-page view's own list in step if it's the one on screen
+  // when a card gets dismissed from it — it has no separate dismiss state.
+  if (currentView === 'relic-suggest') renderRelicSuggestView();
 }
 
-// Shared by the Profile preview grid and the "review all" modal so the two
+// Shared by the Profile preview grid and the full-page review, so the two
 // never quietly diverge the way the feed's two card builders once did.
+// A title and a date range don't say what's actually in a suggestion, so
+// every card carries its own Moment list behind a native <details> —
+// no per-card JS state needed to expand/collapse it.
 function relicSuggestionCardHtml(s) {
   const dist = s.totalDistance > 0 ? fmtDist(s.totalDistance) : '—';
   const elev = s.totalElevation > 0 ? fmtElev(s.totalElevation) : '—';
   const dur = s.totalDuration > 0 ? formatDur(s.totalDuration) : '—';
   const typeDots = Object.keys(s.typeBreakdown).map(k =>
     `<div class="story-card-type-dot" style="background:${TYPE_CONFIG[k]?.color || '#92400e'}" title="${TYPE_CONFIG[k]?.label || k}"></div>`).join('');
+  const activityRows = (s.moments || []).map(m => {
+    const date = m.date ? new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+    const group = getGroup(m.type);
+    return `<li><span class="suggest-activity-name">${escapeHtml(m.name || 'Untitled')}</span>` +
+      `<span class="suggest-activity-meta">${date} · ${TYPE_CONFIG[group]?.label || m.type}${m.distance ? ' · ' + fmtDist(m.distance) : ''}</span></li>`;
+  }).join('');
   return `<div class="suggest-card">
       <div class="suggest-card-badge">${s.momentCount} activities</div>
       <div class="story-card-body">
@@ -9027,6 +9073,10 @@ function relicSuggestionCardHtml(s) {
           <div class="story-card-stat"><div class="story-card-stat-val">${dur}</div><div class="story-card-stat-label">Time</div></div>
         </div>
         <div class="story-card-types">${typeDots}</div>
+        <details class="suggest-activities">
+          <summary>What's in this?</summary>
+          <ul class="suggest-activity-list">${activityRows}</ul>
+        </details>
         <div class="story-card-actions">
           <button class="btn-primary btn-sm" onclick="openSuggestedRelicModal(${jsAttr(s.id)})">Create relic</button>
           <button class="story-card-btn" onclick="dismissRelicSuggestion(${jsAttr(s.id)})">Dismiss</button>
@@ -9035,7 +9085,7 @@ function relicSuggestionCardHtml(s) {
     </div>`;
 }
 
-const RELIC_SUGGEST_PREVIEW_COUNT = 3; // Profile shows a taste; "Review all" (below) shows every one
+const RELIC_SUGGEST_PREVIEW_COUNT = 3; // Profile shows a taste; the full-page review (below) shows every one
 
 function renderRelicSuggestions() {
   const section = document.getElementById('profile-suggest-section');
@@ -9051,12 +9101,13 @@ function renderRelicSuggestions() {
   grid.innerHTML = suggestions.slice(0, RELIC_SUGGEST_PREVIEW_COUNT).map(relicSuggestionCardHtml).join('');
 }
 
-// The full, uncapped list — reachable via the "Review all" button next to
-// the Profile preview, for anyone with more suggestions than the preview
-// shows (or who just wants to work through all of them in one place).
-function renderAllRelicSuggestionsModal() {
-  const grid = document.getElementById('relic-suggest-modal-grid');
-  const sub = document.getElementById('relic-suggest-modal-sub');
+// The full-page, uncapped review — reachable via the "Review all" button
+// next to the Profile preview. A full page rather than a modal because the
+// whole point is to actually look at what's in each candidate trip (the
+// per-card activity list) before deciding, not a quick glance in a dialog.
+function renderRelicSuggestView() {
+  const grid = document.getElementById('relic-suggest-view-grid');
+  const sub = document.getElementById('relic-suggest-view-sub');
   if (!grid || !sub) return;
   const dismissed = getDismissedRelicSuggestions();
   const suggestions = computeRelicSuggestions().filter(s => !dismissed.has(s.id));
@@ -9065,13 +9116,6 @@ function renderAllRelicSuggestionsModal() {
     : 'No suggestions left to review — dismissed and created ones won’t come back.';
   grid.innerHTML = suggestions.map(relicSuggestionCardHtml).join('');
 }
-function openAllRelicSuggestionsModal() {
-  renderAllRelicSuggestionsModal();
-  document.getElementById('relic-suggest-modal').classList.add('open');
-}
-function closeAllRelicSuggestions() {
-  document.getElementById('relic-suggest-modal').classList.remove('open');
-}
 
 // Opens the existing Relic editor pre-filled with the suggestion's Moments
 // and a guessed title, so the user reviews/tweaks before it's actually
@@ -9079,7 +9123,6 @@ function closeAllRelicSuggestions() {
 function openSuggestedRelicModal(suggestionId) {
   const s = computeRelicSuggestions().find(x => x.id === suggestionId);
   if (!s) { toast('That suggestion is out of date.', { error: true }); renderRelicSuggestions(); return; }
-  closeAllRelicSuggestions();
   openStoryModal();
   storySelectedIds = new Set(s.momentIds);
   document.getElementById('sm-title').value = s.title;
@@ -9920,6 +9963,7 @@ function switchView(view) {
   if(view==='profile') buildProfile();
   if(view==='people') buildPeople();
   if(view==='settings') buildSettings();
+  if(view==='relic-suggest') renderRelicSuggestView();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
 }
 
@@ -10134,7 +10178,7 @@ _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
 _r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
-_r('openAllRelicSuggestionsModal',openAllRelicSuggestionsModal);_r('closeAllRelicSuggestions',closeAllRelicSuggestions);_r('renderAllRelicSuggestionsModal',renderAllRelicSuggestionsModal);
+_r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
 _r('showStoryDetail',showStoryDetail);
 _r('renderFeedMomentCard',renderFeedMomentCard);_r('renderFeedStoryCard',renderFeedStoryCard);
