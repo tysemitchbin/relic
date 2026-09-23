@@ -8839,6 +8839,7 @@ let _ppActs = [];
 async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   if (!userId) return;
   if (currentView !== 'public-profile') _ppReturnView = currentView;
+  if (_resumeViewing && _resumeViewing.fresh) _resumeViewing.fresh = false; else _resumeViewing = null;
   ppViewingUserId = userId;
   _ppProfile = null;
   _ppActs = []; _ppStories = [];
@@ -8940,7 +8941,7 @@ function overViewingTrack(point) {
 // activity, or "View on profile" from your own map popup), and that must
 // still use the already-fetched public acts, not every private Moment you
 // have. Only the map hero on your actual Profile page opts into full access.
-async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
+async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext, resume) {
   if (!userId) return;
   if (isOwnContext) {
     // It's already your own map — nothing to overlay, just go look at it.
@@ -8948,27 +8949,34 @@ async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
     if (focusActivityId && db[focusActivityId]) { showDetail(focusActivityId); flyToTrack(db[focusActivityId]); }
     return;
   }
-  let acts = (ppViewingUserId === userId) ? _ppActs : [];
-  if (!acts.length && ppViewingUserId !== userId) { try { acts = await Social.userActivities(userId); } catch (e) { acts = []; } }
+  const cached = ppViewingUserId === userId;
+  let acts = cached ? _ppActs : [];
+  if (!acts.length && !cached) { try { acts = await Social.userActivities(userId); } catch (e) { acts = []; } }
   const feats = [];
   acts.forEach(a => (a.polylines || []).forEach(p => {
     let c; try { c = decodePolyline(p); } catch (e) { return; }
     if (c.length > 1) feats.push({ type: 'Feature', properties: { id: a.activity_id, name: a.name || 'Untitled', date: a.date || '', color: a.custom_color || getColor(a.type), group: getGroup(a.type) }, geometry: { type: 'LineString', coordinates: c } });
   }));
   if (!feats.length) { toast('Nothing to show on their map yet', { icon: 'map' }); return; }
-  let stories = (ppViewingUserId === userId) ? _ppStories : [];
-  if (!stories.length && ppViewingUserId !== userId) { try { stories = await Social.stories([userId], 50); } catch (e) { stories = []; } }
+  let stories = cached ? _ppStories : [];
+  if (!stories.length && !cached) { try { stories = await Social.stories([userId], 50); } catch (e) { stories = []; } }
   _viewingRelics = {};
   stories.forEach(st => (st.glyph_tracks || []).forEach(t => { if (t.a) (_viewingRelics[t.a] = _viewingRelics[t.a] || []).push(st); }));
   _viewingProfile = { userId, name: _ppProfile?.name || 'Their' };
   _viewingFeats = feats;
-  _viewingHidden = new Set();
+  _viewingHidden = new Set(resume ? resume.hidden : []);
   switchView('map');
   renderViewingLayer();
+  applyViewingFilter();
   renderViewingLegend();
-  const b = new mapboxgl.LngLatBounds();
-  feats.forEach(f => f.geometry.coordinates.forEach(c => b.extend(c)));
-  try { map.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 }); } catch (e) {}
+  if (resume) {
+    // Back from one of their relics: same view you left, not a re-fit.
+    try { map.jumpTo(resume.cam); } catch (e) {}
+  } else {
+    const b = new mapboxgl.LngLatBounds();
+    feats.forEach(f => f.geometry.coordinates.forEach(c => b.extend(c)));
+    try { map.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 }); } catch (e) {}
+  }
   document.getElementById('viewing-banner-text').textContent = `Viewing ${_viewingProfile.name.split(' ')[0]}'s map`;
   document.getElementById('viewing-opacity').value = viewingOpacity;
   document.getElementById('viewing-mine-opacity').value = trackOpacity;
@@ -8994,8 +9002,8 @@ function renderViewingLayer() {
       // Part of one of their public relics → open it (one relic: straight
       // there; several: pick in the popup). Otherwise just identify the track.
       const relics = _viewingRelics[f.id] || [];
-      if (relics.length === 1) { openPublicProfile(_viewingProfile.userId, null, relics[0].story_id); return; }
-      const relicBtns = relics.map(st => `<button class="btn-primary btn-sm" style="margin-top:6px;width:100%" onclick="openPublicProfile(${jsAttr(_viewingProfile.userId)},null,${jsAttr(st.story_id)})">Open relic: ${escapeHtml(st.title || 'Untitled')}</button>`).join('');
+      if (relics.length === 1) { openViewingRelic(relics[0].story_id); return; }
+      const relicBtns = relics.map(st => `<button class="btn-primary btn-sm" style="margin-top:6px;width:100%" onclick="openViewingRelic(${jsAttr(st.story_id)})">Open relic: ${escapeHtml(st.title || 'Untitled')}</button>`).join('');
       new mapboxgl.Popup({ closeButton: true, maxWidth: '260px', className: 'friend-pop' }).setLngLat(e.lngLat)
         .setHTML(`<div class="fp-who">${escapeHtml(_viewingProfile?.name || '')}</div><div class="fp-name">${escapeHtml(f.name)}</div><div class="fp-date">${escapeHtml(activityWhen(f.date))}</div>${relicBtns}`).addTo(map);
     });
@@ -9018,11 +9026,25 @@ function renderViewingLegend() {
   el.innerHTML = '<span class="viewing-legend-label">Theirs</span>' + Object.entries(groups).sort((a, b) => b[1].n - a[1].n).map(([g, v]) =>
     `<button class="viewing-legend-chip${_viewingHidden.has(g) ? ' off' : ''}" style="--dot:${escapeHtml(v.color)}" aria-pressed="${!_viewingHidden.has(g)}" onclick="toggleViewingGroup(${jsAttr(g)})"><i></i>${escapeHtml(TYPE_CONFIG[g]?.label || g)} <span>${v.n}</span></button>`).join('');
 }
-function toggleViewingGroup(g) {
-  if (_viewingHidden.has(g)) _viewingHidden.delete(g); else _viewingHidden.add(g);
+function applyViewingFilter() {
   const f = _viewingHidden.size ? ['!', ['in', ['get', 'group'], ['literal', [..._viewingHidden]]]] : null;
   try { map.setFilter('viewing-layer', f); map.setFilter('viewing-hit', f); } catch (e) {}
+}
+function toggleViewingGroup(g) {
+  if (_viewingHidden.has(g)) _viewingHidden.delete(g); else _viewingHidden.add(g);
+  applyViewingFilter();
   renderViewingLegend();
+}
+// Open one of their relics from the map. That leaves the map for their
+// profile page, so remember the overlay (whose map, hidden types, camera):
+// the profile's Back button (closePublicProfile) puts it all back.
+let _resumeViewing = null;
+function openViewingRelic(storyId) {
+  if (!_viewingProfile) return;
+  const c = map.getCenter();
+  _resumeViewing = { userId: _viewingProfile.userId, hidden: [..._viewingHidden], fresh: true,
+    cam: { center: [c.lng, c.lat], zoom: map.getZoom(), pitch: map.getPitch(), bearing: map.getBearing() } };
+  openPublicProfile(_viewingProfile.userId, null, storyId);
 }
 // User-adjustable opacity for whoever's tracks are currently overlaid (user
 // request, 2026-09-22 — "let the user decide how opaque their tracks are").
@@ -9041,8 +9063,12 @@ function exitProfileView() {
 }
 function closePublicProfile() {
   if (currentView !== 'public-profile') return;
+  const resume = _resumeViewing, uid = ppViewingUserId;
+  _resumeViewing = null;
+  const back = _ppReturnView && _ppReturnView !== 'public-profile' ? _ppReturnView : 'people';
+  if (resume && resume.userId === uid && back === 'map') { viewProfileOnMainMap(uid, null, false, resume); return; }
   ppViewingUserId = null;
-  switchView(_ppReturnView && _ppReturnView !== 'public-profile' ? _ppReturnView : 'people');
+  switchView(back);
 }
 function sharePublicProfile() {
   if (!ppViewingUserId) return;
@@ -10569,7 +10595,7 @@ _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeS
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
-_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('relicSeeOnMap',relicSeeOnMap);_r('relicReturnFromMap',relicReturnFromMap);_r('relicMapHideReturn',relicMapHideReturn);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
+_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('relicSeeOnMap',relicSeeOnMap);_r('relicReturnFromMap',relicReturnFromMap);_r('relicMapHideReturn',relicMapHideReturn);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('openViewingRelic',openViewingRelic);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
 _r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
