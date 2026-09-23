@@ -282,6 +282,19 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .map-pill:hover { box-shadow: var(--sh-3); }
 .map-pill .ic { width: 18px; height: 18px; }
 .map-pill .pill-count { font-weight: 500; color: var(--text-3); }
+.type-legend {
+  position: absolute; left: 14px; bottom: 28px; z-index: 110; max-width: min(420px, calc(100% - 28px));
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--sh-2);
+  font: 500 13px var(--font-ui); color: var(--ink);
+}
+.type-legend[hidden] { display: none; }
+.tl-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 14px; border: none; background: none; font: 600 13px var(--font-ui); color: var(--ink); cursor: pointer; border-radius: 18px; }
+.tl-head .tl-sub { font-weight: 500; color: var(--text-3); }
+.tl-head .ic { width: 16px; height: 16px; margin-left: auto; color: var(--text-3); transition: transform .15s; }
+.type-legend:not(.collapsed) .tl-head .ic { transform: rotate(180deg); }
+.tl-body { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 12px; max-height: 40vh; overflow-y: auto; }
+.type-legend.collapsed .tl-body { display: none; }
+.tl-all { border: none; background: none; padding: 4px 6px; font: 600 13px var(--font-ui); color: var(--accent); cursor: pointer; }
 #map-tools {
   position: absolute; top: 14px; right: 14px; z-index: 110;
   display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
@@ -1765,6 +1778,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
   <symbol id="i-chevron-left" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></symbol>
   <symbol id="i-chevron-right" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
   <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
   <symbol id="i-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
@@ -2033,6 +2047,11 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <button class="map-pill" id="list-toggle" onclick="toggleSidebar()" aria-label="Show activity list">
         <svg class="ic"><use href="#i-list"/></svg>Activities <span class="pill-count" id="list-toggle-count"></span>
       </button>
+
+      <!-- Activity-type legend + show/hide (bottom left), collapsible. Replaces
+           the "Activity type" section that used to live in the filter drawer;
+           state is still filters.types. -->
+      <div id="type-legend" class="type-legend" hidden></div>
 
       <!-- Map controls (top right) -->
       <div id="map-tools">
@@ -3966,6 +3985,7 @@ function applyFilters() {
   renderList();
   renderActivitiesView();
   renderFilterChips();
+  renderTypeLegend();
   saveMapPrefs();
 }
 
@@ -4056,17 +4076,6 @@ function buildFilterDrawer() {
 
   const usedGroups = new Set(getMoments().map(m => getGroup(m.type)));
   const typeEntries = Object.entries(TYPE_CONFIG).filter(([k]) => usedGroups.has(k));
-  const typesHtml = !typeEntries.length ? '<div class="fd-hint">No activities yet.</div>'
-    : selectAllRow('selectAllFilterTypes', 'deselectAllFilterTypes')
-    + '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
-    const on = !filters.types || filters.types.includes(k);
-    const solo = filters.types && filters.types.length === 1 && filters.types[0] === k;
-    return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
-      <div class="tp-type-dot" style="background:${c.color}" onclick="soloFilterType('${k}')"></div>
-      <div class="tp-type-label" onclick="soloFilterType('${k}')" title="Click to show only ${escapeHtml(c.label)}">${c.label}</div>
-      <button class="tp-type-only" onclick="soloFilterType('${k}')">${solo ? 'showing only' : 'only'}</button>
-      <div class="tp-type-toggle ${on ? 'on' : ''}" onclick="toggleFilterType('${k}')"></div></div>`;
-  }).join('') + '</div>';
 
   const srcHtml = '<div class="fd-chips">' + filterBounds.sources.map(s => {
     const on = !filters.sources || filters.sources.includes(s);
@@ -4142,8 +4151,8 @@ function buildFilterDrawer() {
 
   // Core filters: always visible, the ones people actually touch often.
   // Order: what (type) -> when (date) -> how much (the three track stats).
-  let html = sec('fd-sec-type', 'Activity type', typesHtml, !!filters.types);
-  html += sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
+  // (Activity type moved to the map's bottom-left legend — see renderTypeLegend.)
+  let html = sec('fd-sec-date', 'Date', dateHtml, !!(filters.dateFrom || filters.dateTo));
   html += sec('fd-sec-dist', 'Distance', _fdRange('distKm','Distance','km'), rangeActive(filters.distKm));
   html += sec('fd-sec-dur', 'Duration', _fdRange('durMin','Moving time','minutes'), rangeActive(filters.durMin));
   html += sec('fd-sec-elev', 'Elevation gain', _fdRange('elevM','Elevation gain','metres'), rangeActive(filters.elevM));
@@ -4215,6 +4224,34 @@ function _setTypeSet(field, allKeys, key) {
   if (set.has(key)) set.delete(key); else set.add(key);
   filters[field] = (set.size === allKeys.length) ? null : [...set];
 }
+// Map legend: one chip per activity group you have, tap to show/hide (shift-
+// click = only this one). Reads/writes filters.types via the same helpers the
+// drawer's Activity type section used, so persistence, the Activities view and
+// the filter chips all keep working. Hidden while viewing someone else's map,
+// which has its own legend in #viewing-banner.
+let _typeLegendCollapsed = (() => { try { return localStorage.getItem('relic_typelegend_collapsed') === '1'; } catch (e) { return false; } })();
+function renderTypeLegend() {
+  const el = document.getElementById('type-legend'); if (!el) return;
+  const counts = {};
+  getMoments().forEach(m => { const g = getGroup(m.type); counts[g] = (counts[g] || 0) + 1; });
+  const entries = Object.entries(TYPE_CONFIG).filter(([k]) => counts[k]);
+  if (!entries.length || _viewingProfile) { el.hidden = true; return; }
+  el.hidden = false;
+  el.classList.toggle('collapsed', _typeLegendCollapsed);
+  const shown = entries.filter(([k]) => !filters.types || filters.types.includes(k)).length;
+  const chips = entries.map(([k, c]) => {
+    const on = !filters.types || filters.types.includes(k);
+    return `<button class="viewing-legend-chip${on ? '' : ' off'}" style="--dot:${escapeHtml(c.color)}" aria-pressed="${on}" title="Shift-click to show only ${escapeHtml(c.label)}" onclick="onTypeLegendClick(event,${jsAttr(k)})"><i></i>${escapeHtml(c.label)} <span>${counts[k]}</span></button>`;
+  }).join('');
+  el.innerHTML = `<button class="tl-head" onclick="toggleTypeLegend()" aria-expanded="${!_typeLegendCollapsed}">Activity types <span class="tl-sub">${shown === entries.length ? '' : shown + ' of ' + entries.length + ' shown'}</span><svg class="ic"><use href="#i-chevron-down"/></svg></button>
+    <div class="tl-body">${chips}${filters.types ? '<button class="tl-all" onclick="selectAllFilterTypes()">Show all</button>' : ''}</div>`;
+}
+function toggleTypeLegend() {
+  _typeLegendCollapsed = !_typeLegendCollapsed;
+  try { localStorage.setItem('relic_typelegend_collapsed', _typeLegendCollapsed ? '1' : '0'); } catch (e) {}
+  renderTypeLegend();
+}
+function onTypeLegendClick(e, k) { if (e.shiftKey) soloFilterType(k); else toggleFilterType(k); }
 function toggleFilterType(k) {
   _setTypeSet('types', Object.keys(TYPE_CONFIG), k);
   buildFilterDrawer(); applyFilters();
@@ -4566,7 +4603,7 @@ function updateTypeColor(typeKey, color) {
   TYPE_CONFIG[typeKey].color = color;
   const sw = document.getElementById(`swatch-${typeKey}`); if(sw) sw.style.background=color;
   if(map && map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
-  renderActivitiesView();
+  renderActivitiesView(); renderTypeLegend();
   const saved = JSON.parse(localStorage.getItem(COLORS_KEY)||'{}'); saved[typeKey]=color; localStorage.setItem(COLORS_KEY,JSON.stringify(saved));
 }
 
@@ -8932,6 +8969,7 @@ async function viewProfileOnMainMap(userId, focusActivityId, isOwnContext) {
   switchView('map');
   renderViewingLayer();
   renderViewingLegend();
+  renderTypeLegend();
   const b = new mapboxgl.LngLatBounds();
   feats.forEach(f => f.geometry.coordinates.forEach(c => b.extend(c)));
   try { map.fitBounds(b, { padding: window.innerWidth < 768 ? 40 : 90, maxZoom: 13, duration: 900 }); } catch (e) {}
@@ -8998,6 +9036,7 @@ function exitProfileView() {
   _viewingProfile = null; _viewingFeats = []; _viewingHidden = new Set();
   try { map.setFilter('viewing-layer', null); map.setFilter('viewing-hit', null); } catch (e) {}
   document.getElementById('viewing-banner').hidden = true;
+  renderTypeLegend();
   try { map.setLayoutProperty('viewing-layer', 'visibility', 'none'); map.setLayoutProperty('viewing-hit', 'visibility', 'none'); } catch (e) {}
 }
 function closePublicProfile() {
@@ -10515,7 +10554,7 @@ _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeS
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
-_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
+_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('toggleTypeLegend',toggleTypeLegend);_r('onTypeLegendClick',onTypeLegendClick);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
 _r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
