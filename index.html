@@ -282,8 +282,6 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .map-pill:hover { box-shadow: var(--sh-3); }
 .map-pill .ic { width: 18px; height: 18px; }
 .map-pill .pill-count { font-weight: 500; color: var(--text-3); }
-<<<<<<< Updated upstream
-=======
 .type-legend {
   position: absolute; left: 14px; right: 14px; bottom: 16px; z-index: 110; pointer-events: none;
   display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 4px 0; justify-content: center;
@@ -296,7 +294,6 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tl-all { flex-shrink: 0; border: 1px solid var(--border); background: var(--surface); border-radius: var(--r-pill); padding: 6px 12px; font: 600 13px var(--font-ui); color: var(--accent); cursor: pointer; box-shadow: var(--sh-2); }
 /* Banners sit above the legend bar */
 #mode-banner, #viewing-banner { bottom: 68px; }
->>>>>>> Stashed changes
 #map-tools {
   position: absolute; top: 14px; right: 14px; z-index: 110;
   display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
@@ -376,8 +373,6 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #viewing-banner { flex-wrap: wrap; row-gap: 6px; border-radius: 22px; }
 .viewing-op { display: flex; align-items: center; gap: 6px; font: 500 13px var(--font-ui); color: var(--text-2); }
 .viewing-op input[type=range] { width: 76px; accent-color: var(--accent); }
-<<<<<<< Updated upstream
-=======
 .viewing-legend { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 6px 0; white-space: normal; }
 /* Legend chips (own map + someone else's): on = accent, off = white. */
 .viewing-legend-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--r-pill); border: 1px solid var(--accent); background: var(--accent); font: 600 13px var(--font-ui); color: #fff; cursor: pointer; white-space: nowrap; flex-shrink: 0; box-shadow: var(--sh-2); }
@@ -387,7 +382,6 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .viewing-legend-chip.off i { box-shadow: none; }
 .viewing-legend-chip.off span { color: var(--text-3); opacity: 1; }
 .viewing-legend-label { align-self: center; font: 600 12px var(--font-ui); color: var(--text-3); padding-right: 2px; }
->>>>>>> Stashed changes
 .viewing-banner-close {
   width: 28px; height: 28px; border-radius: 50%; border: none; background: var(--paper2); color: var(--ink);
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0;
@@ -4244,8 +4238,6 @@ function _setTypeSet(field, allKeys, key) {
   if (set.has(key)) set.delete(key); else set.add(key);
   filters[field] = (set.size === allKeys.length) ? null : [...set];
 }
-<<<<<<< Updated upstream
-=======
 // Map legend: one chip per activity group you have, tap to show/hide (shift-
 // click = only this one). Reads/writes filters.types via the same helpers the
 // drawer's Activity type section used, so persistence, the Activities view and
@@ -4266,7 +4258,6 @@ function renderTypeLegend() {
     + (filters.types ? '<button class="tl-all" onclick="selectAllFilterTypes()">Show all</button>' : '');
 }
 function onTypeLegendClick(e, k) { if (e.shiftKey) soloFilterType(k); else toggleFilterType(k); }
->>>>>>> Stashed changes
 function toggleFilterType(k) {
   _setTypeSet('types', Object.keys(TYPE_CONFIG), k);
   buildFilterDrawer(); applyFilters();
@@ -9010,8 +9001,6 @@ function renderViewingLayer() {
   map.setLayoutProperty('viewing-layer', 'visibility', 'visible');
   map.setLayoutProperty('viewing-hit', 'visibility', 'visible');
 }
-<<<<<<< Updated upstream
-=======
 // Legend + type filter for the overlaid tracks: one chip per activity group
 // they have, tap to hide/show (someone's flights can bury everything else).
 // Filters both the drawn and hit layers so hidden lines aren't clickable.
@@ -9031,7 +9020,6 @@ function toggleViewingGroup(g) {
   try { map.setFilter('viewing-layer', f); map.setFilter('viewing-hit', f); } catch (e) {}
   renderViewingLegend();
 }
->>>>>>> Stashed changes
 // User-adjustable opacity for whoever's tracks are currently overlaid (user
 // request, 2026-09-22 — "let the user decide how opaque their tracks are").
 function setViewingOpacity(v) {
@@ -10576,11 +10564,7 @@ _r('storySelectAllVisible',storySelectAllVisible);_r('removeStoryMoment',removeS
 _r('updateStoryPreview',updateStoryPreview);_r('saveStory',saveStory);
 _r('toggleStoryTypeFilter',toggleStoryTypeFilter);_r('setStoryMood',setStoryMood);
 _r('buildStoryTypeFilters',buildStoryTypeFilters);
-<<<<<<< Updated upstream
-_r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('detailBack',detailBack);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
-=======
 _r('renderProfileStories',renderProfileStories);_r('viewStoryOnMap',viewStoryOnMap);_r('relicSeeOnMap',relicSeeOnMap);_r('relicReturnFromMap',relicReturnFromMap);_r('relicMapHideReturn',relicMapHideReturn);_r('detailBack',detailBack);_r('toggleViewingGroup',toggleViewingGroup);_r('onTypeLegendClick',onTypeLegendClick);_r('openRelicFromActivity',openRelicFromActivity);_r('highlightStoryOnMap',highlightStoryOnMap);
->>>>>>> Stashed changes
 _r('renderRelicSuggestions',renderRelicSuggestions);_r('openSuggestedRelicModal',openSuggestedRelicModal);_r('dismissRelicSuggestion',dismissRelicSuggestion);
 _r('renderRelicSuggestView',renderRelicSuggestView);
 _r('deleteStory',deleteStory);_r('deleteMoment',deleteMoment);_r('drawStoryCardMap',drawStoryCardMap);
