@@ -799,7 +799,14 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .empty-hero { width: 72px; height: 72px; margin: 0 auto 16px; display: block; }
 .empty-title { font: 600 26px/1.2 var(--font-display); letter-spacing: -0.01em; color: var(--ink); margin-bottom: 8px; }
 .empty-sub { font-size: 15px; line-height: 1.5; color: var(--text-2); margin-bottom: 22px; }
+.empty-home { display: flex; gap: 8px; margin-bottom: 14px; }
+.empty-home[hidden] { display: none; }
+.empty-home input { flex: 1; min-width: 0; height: 46px; padding: 0 14px; font: 15px var(--font-ui); border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--ink); }
+.empty-home input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.empty-home .btn-primary { height: 46px; padding: 0 20px; }
+.empty-or { font-size: 12px; color: var(--text-3); margin-bottom: 12px; }
 .empty-actions { display: flex; flex-direction: column; gap: 10px; }
+#empty-state .empty-inner { max-height: calc(100% - 32px); overflow-y: auto; }
 .empty-actions button {
   font: 600 15px var(--font-ui); height: 46px; padding: 0 18px; border-radius: var(--r-pill);
   border: 1px solid var(--ink); background: var(--ink); color: #fff; cursor: pointer; transition: filter .15s, background .15s;
@@ -1812,8 +1819,13 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <div class="empty-inner">
           <button class="empty-close" onclick="dismissEmptyState()" title="Dismiss">&times;</button>
           <svg class="empty-hero" viewBox="0 0 32 32" aria-hidden="true"><use href="#logo-mark"/></svg>
-          <div class="empty-title">Let's put your life on the map</div>
-          <div class="empty-sub">Bring in your history from Strava or GPX files, or start by pinning places that matter to you.</div>
+          <div class="empty-title" id="empty-title">Let's put your life on the map</div>
+          <div class="empty-sub" id="empty-sub">Start with somewhere you know — it takes ten seconds.</div>
+          <form class="empty-home" id="empty-home" onsubmit="pinHomeFromEmpty();return false">
+            <input type="text" id="empty-home-input" placeholder="Where's home? City or address" autocomplete="off" aria-label="Where's home?">
+            <button type="submit" id="empty-home-btn" class="btn-primary">Pin it</button>
+          </form>
+          <div class="empty-or" id="empty-or">or bring in where you've been</div>
           <div class="empty-actions">
             <button class="strava" onclick="connectStrava()">Connect Strava</button>
             <button class="ghost" onclick="openImport()"><svg class="ic"><use href="#i-upload"/></svg>Import GPX / KML</button>
@@ -3553,10 +3565,54 @@ function dismissEmptyState() {
 function updateEmptyState() {
   const el = document.getElementById('empty-state');
   if (!el) return;
-  const empty = allMemories.length === 0 && allStories.length === 0 && getPins().length === 0;
+  // Pins alone don't end onboarding: a lone Home pin is a start, not a map.
+  const empty = allMemories.length === 0 && allStories.length === 0;
+  const hasPins = getPins().length > 0;
   if (!empty) _emptyDismissed = false; // reset so it can guide again if they clear everything
   el.hidden = !(empty && !_emptyDismissed);
+  const first = (_profile.name || '').trim().split(/\s+/)[0];
+  const title = document.getElementById('empty-title'), sub = document.getElementById('empty-sub');
+  if (title) title.textContent = hasPins ? 'Nice — that’s your first pin' : (first ? 'Welcome, ' + first : 'Let’s put your life on the map');
+  if (sub) sub.textContent = hasPins ? 'Now add somewhere you’ve been: import your history, or describe a trip.'
+    : 'Start with somewhere you know — it takes ten seconds.';
+  document.getElementById('empty-home').hidden = hasPins;
+  document.getElementById('empty-or').hidden = hasPins;
   updatePinNudge();
+}
+
+// The fastest way to see something on the map: one field, one pin, the camera
+// flies there. No files, no accounts to connect.
+async function pinHomeFromEmpty() {
+  const inp = document.getElementById('empty-home-input'), btn = document.getElementById('empty-home-btn');
+  const q = inp.value.trim();
+  if (!q) { inp.focus(); return; }
+  btn.disabled = true; btn.textContent = 'Finding…';
+  const r = await geocodeAddress(q);
+  if (!r) {
+    btn.disabled = false; btn.textContent = 'Pin it';
+    toast('Couldn’t find that place. Try a city name.', { error: true });
+    return;
+  }
+  const id = 'pin_' + crypto.randomUUID();
+  const entry = {
+    id, name: 'Home', type: 'Other', isPin: true, pinCategory: 'home',
+    date: new Date().toISOString(), source: 'manual',
+    startLat: r.lat, startLng: r.lng, startPlace: r.placeName,
+    coords: null, _polyline: null, distance: 0, duration: 0, elevation: 0,
+    note: '', mood: null, photos: [], customColor: null,
+  };
+  db[id] = entry;
+  initMapLayers(); updateEmptyState();
+  try { map.flyTo({ center: [r.lng, r.lat], zoom: 11, duration: 1800 }); } catch (e) {}
+  const result = await persistMoments([entry]);
+  btn.disabled = false; btn.textContent = 'Pin it';
+  if (!result.ok) {
+    delete db[id]; initMapLayers(); updateEmptyState();
+    toast('Couldn’t save your pin: ' + (result.error || 'unknown error'), { error: true });
+    return;
+  }
+  inp.value = '';
+  toast('Home is on your map', { icon: 'check' });
 }
 
 function buildTracksGeoJSON(memories) {
@@ -3739,6 +3795,7 @@ function applyFilters() {
 
   if(map && map.getSource('tracks')) map.getSource('tracks').setData(buildTracksGeoJSON(filteredMemories));
   renderPhotoMarkers();
+  updateEmptyState(); // every "add something" path ends here, so the welcome card clears itself
   const countEl = document.getElementById('result-count');
   if (countEl) countEl.textContent = `${filteredMemories.length} of ${allMemories.length} moments`;
   const pillCount = document.getElementById('list-toggle-count');
@@ -4855,13 +4912,13 @@ async function savePin() {
   };
   db[id] = entry;
   initMapLayers();
-  updatePinNudge();
+  updateEmptyState();
   const result = await persistMoments([entry]);
   if (result.ok) {
     document.getElementById('pin-status').textContent = 'Pin saved.';
     setTimeout(closePinModal, 700);
   } else {
-    delete db[id]; initMapLayers(); updatePinNudge();
+    delete db[id]; initMapLayers(); updateEmptyState();
     document.getElementById('pin-status').textContent = 'Save failed: ' + (result.error || 'unknown error');
   }
   btn.disabled = false;
@@ -8952,6 +9009,7 @@ async function doImport() {
     const result = await persistMoments(importedEntries);
     if(result.ok) {
       progress.textContent = `Done! ${imported} imported.`;
+      toast(`${imported} ${imported === 1 ? 'activity' : 'activities'} on your map`, { icon: 'check' });
       if (importedEntries.some(e => e.type === 'Flight')) await syncAirportPins();
     } else {
       // roll back the local copies that didn't save
@@ -9679,13 +9737,8 @@ dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
   updateImportUI();
 });
 
-<<<<<<< HEAD
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeMobileMenu();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
-window.addEventListener('resize', () => { if (map) map.resize(); });
-=======
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDetail();closeLightbox();closeImport();closeStoryModal();closeFeedback();closePublicProfile();closeAddModal();closePinModal();closeManualEntryModal();closeNLParserModal();closeRoutePreviewMap();closeDrawPicker();cancelActiveMode();closeFilterDrawer();closeDeleteAccountModal();closeBulkEditor();closeNotifications();closeAccountMenu();const lp=document.getElementById('layers-pop');if(lp)lp.hidden=true;}});
-window.addEventListener('resize', () => { if (map) map.resize(); if (_pmmMap) _pmmMap.resize(); });
->>>>>>> 9c0c2f70bff15747889eefdf3297d0160c3accd1
+window.addEventListener('resize', () => { if (map) map.resize(); });
 
 // Register all functions
 const _fns={};
@@ -9734,7 +9787,7 @@ _r('getStravaToken',getStravaToken);_r('fetchStravaStreams',fetchStravaStreams);
 _r('loadAndRenderCharts',loadAndRenderCharts);_r('drawStreamChart',drawStreamChart);
 _r('connectStrava',connectStrava);_r('syncStrava',syncStrava);_r('disconnectStrava',disconnectStrava);
 _r('renderStravaSection',renderStravaSection);_r('maybeAutoSyncStrava',maybeAutoSyncStrava);
-_r('updateEmptyState',updateEmptyState);_r('dismissEmptyState',dismissEmptyState);
+_r('updateEmptyState',updateEmptyState);_r('dismissEmptyState',dismissEmptyState);_r('pinHomeFromEmpty',pinHomeFromEmpty);
 _r('recoverAndReload',recoverAndReload);
 
 // UX + social overhaul (ux-social-overhaul branch)
@@ -9851,7 +9904,8 @@ async function startApp() {
   if (appBooted) return;
   appBooted = true;
   try { posthog.identify(currentUser.id, { email: currentUser.email }); } catch (e) {} // not initialised on localhost
-  showAnalyticsConsent();
+  // Not at t=0: on a phone the banner sits on top of the welcome card.
+  setTimeout(showAnalyticsConsent, 12000);
 
   if (!DEMO) {
     try {
@@ -9879,7 +9933,7 @@ function showOnboarding() {
   document.getElementById('login-form').hidden = true;
   document.getElementById('recovery-form').hidden = true;
   document.getElementById('onboarding-form').hidden = false;
-  setLoginHeading('Set up your profile', 'Add your name so friends can find and follow you.');
+  setLoginHeading('Welcome to Relic', 'One quick thing: your name, so friends can find you. Then you’ll put your first pin on the map.');
   document.getElementById('login').classList.add('show');
   setTimeout(() => { try { document.getElementById('onboarding-name').focus(); } catch (e) {} }, 60);
 }
