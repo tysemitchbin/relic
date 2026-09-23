@@ -504,6 +504,28 @@ bug, this is what replaced them:
   hit`) and the draw-route tool's own line are deliberately **not** scaled —
   different concerns (a bigger tap target; a temporary drawing aid), not
   "how thick do my tracks look."
+- **`.tp-type-row` rows (Activity type, Pins) have a "solo" gesture**
+  (`soloFilterType()`/`soloPinCategory()`, 2026-09-23 map-UX pass): clicking
+  the dot/label/`.tp-type-only` "only" button shows just that one row (click
+  again to restore "all"); the separate `.tp-type-toggle` pill keeps the old
+  add/remove-one-of-many behavior. This exists because isolating one sport
+  used to take N-1 clicks via the toggle alone — the single most common
+  filter action in the app. Give a new `.tp-type-row`-based section
+  (Source/Mood are still plain `.fd-chip` multi-select, not rows) both click
+  targets the same way rather than only wiring the toggle.
+- **The map's Filters button is `.mt-filter-btn`** (`#tools-toggle-btn`), a
+  labeled pill — icon + "Filters" + count — living as its own child of
+  `#map-tools`, not inside the icon-only `.mt-group` camera/layer cluster.
+  It was folded into that cluster as a bare icon before 2026-09-23; moved out
+  so it reads as a peer of the "Activities" pill (both answer "what's
+  shown") rather than map chrome. `#mt-filter-badge`/`.mt-fcount` mirrors
+  Activities view's `#av-fcount` pattern. `openFilterDrawer()` also
+  auto-expands any drawer section that already has a filter set
+  (`.fd-section.has-active.collapsed`) on open, unless the user explicitly
+  collapsed that section themselves this session (`_fdUserCollapsed` — set
+  by `toggleFilterSection()`) — so reopening the drawer shows what's already
+  filtered without an extra click per section, but a deliberate collapse
+  still sticks.
 - **Activities view** (`#activities-view`, `renderActivitiesView()`) is a
   sortable table reachable from the header nav (desktop) / mobile hamburger
   menu, and since 2026-09-20 also from the account-avatar dropdown

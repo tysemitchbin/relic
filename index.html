@@ -306,6 +306,17 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .mt-badge[hidden] { display: none; }
 
+.mt-filter-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px 0 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-pill);
+  box-shadow: var(--sh-2); font: 600 14px var(--font-ui); color: var(--ink); cursor: pointer;
+  transition: box-shadow .15s;
+}
+.mt-filter-btn:hover { box-shadow: var(--sh-3); }
+.mt-filter-btn .ic { width: 18px; height: 18px; }
+.mt-fcount { background: var(--accent); color: #fff; border-radius: var(--r-pill); padding: 0 7px; font-size: 12px; line-height: 18px; }
+.mt-fcount[hidden] { display: none; }
+
 /* Layers popover */
 .layers-pop {
   width: 236px; padding: 14px; background: var(--surface); border: 1px solid var(--border);
@@ -363,11 +374,19 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 /* Type toggles + colour rows (used inside the filter drawer) */
 .tp-type-grid { display: flex; flex-direction: column; gap: 2px; }
 .tp-type-row {
-  display: flex; align-items: center; gap: 12px; padding: 8px 8px; min-height: 42px; border-radius: var(--r-sm); cursor: pointer; transition: background .1s;
+  display: flex; align-items: center; gap: 12px; padding: 8px 8px; min-height: 42px; border-radius: var(--r-sm); transition: background .1s;
 }
 .tp-type-row:hover { background: var(--paper2); }
-.tp-type-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.tp-type-label { font-size: 14px; font-weight: 500; text-transform: none; color: var(--ink); flex: 1; }
+.tp-type-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; cursor: pointer; }
+.tp-type-label { font-size: 14px; font-weight: 500; text-transform: none; color: var(--ink); flex: 1; cursor: pointer; }
+.tp-type-only {
+  font: 600 11px var(--font-ui); color: var(--text-3); background: none; border: none; cursor: pointer;
+  padding: 3px 8px; border-radius: var(--r-pill); opacity: .5; transition: opacity .12s, color .12s, background .12s; flex-shrink: 0;
+}
+.tp-type-row:hover .tp-type-only, .tp-type-row:focus-within .tp-type-only, .tp-type-row.is-solo .tp-type-only { opacity: 1; }
+.tp-type-only:hover { color: var(--accent); background: var(--surface); }
+.tp-type-row.is-solo .tp-type-only { color: var(--accent); }
+.tp-type-row.is-solo .tp-type-label { color: var(--accent); }
 .tp-type-toggle {
   width: 40px; height: 24px; border-radius: var(--r-pill); border: none;
   background: var(--paper3); position: relative; cursor: pointer; transition: background .18s; flex-shrink: 0;
@@ -1971,9 +1990,14 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       <!-- Map controls (top right) -->
       <div id="map-tools">
         <div id="tools-panel"></div>
+        <!-- Filters gets its own labeled pill (not folded into the icon-only
+             camera/layer cluster below) so it reads as a peer of the
+             Activities pill — "what's shown" — rather than map chrome. -->
+        <button class="mt-filter-btn" id="tools-toggle-btn" onclick="openFilterDrawer()" aria-label="Filters">
+          <svg class="ic"><use href="#i-sliders"/></svg>Filters<span class="mt-fcount" id="mt-filter-badge" hidden></span>
+        </button>
         <div class="mt-group">
           <button class="mt-btn" id="layers-btn" onclick="toggleLayersPop(event)" title="Map style" aria-label="Map style"><svg class="ic"><use href="#i-layers"/></svg></button>
-          <button class="mt-btn" id="tools-toggle-btn" onclick="openFilterDrawer()" title="Filters" aria-label="Filters"><svg class="ic"><use href="#i-sliders"/></svg><span class="mt-badge" id="mt-filter-badge" hidden></span></button>
         </div>
         <div class="layers-pop" id="layers-pop" hidden>
           <div class="lp-title">Map style</div>
@@ -3811,6 +3835,14 @@ function setSidebarSort(sort) {
 // ════════════════════════════════════════
 function openFilterDrawer() {
   buildFilterDrawer();
+  // Auto-expand any section that already has a filter set, so reopening
+  // the drawer shows *what's* filtered without an extra click per section —
+  // but only sections the user hasn't deliberately collapsed themselves.
+  document.querySelectorAll('#fd-body .fd-section.has-active.collapsed').forEach(el => {
+    if (_fdUserCollapsed.has(el.id)) return;
+    _fdCollapsed.delete(el.id);
+    el.classList.remove('collapsed');
+  });
   document.getElementById('filter-drawer').classList.add('open');
   document.getElementById('filter-backdrop').classList.add('open');
 }
@@ -3821,8 +3853,13 @@ function closeFilterDrawer() {
 
 // Which sections start collapsed (persists across rebuilds within a session)
 let _fdCollapsed = new Set(['fd-sec-source','fd-sec-date','fd-sec-dist','fd-sec-dur','fd-sec-elev','fd-sec-hr','fd-sec-mood','fd-sec-attr','fd-sec-color','fd-sec-thickness']);
+// Sections the user explicitly collapsed by hand — openFilterDrawer()'s
+// auto-expand-if-active pass skips these, so collapsing a section stays
+// collapsed even if it still has a filter set.
+let _fdUserCollapsed = new Set();
 function toggleFilterSection(id) {
-  if (_fdCollapsed.has(id)) _fdCollapsed.delete(id); else _fdCollapsed.add(id);
+  if (_fdCollapsed.has(id)) { _fdCollapsed.delete(id); _fdUserCollapsed.delete(id); }
+  else { _fdCollapsed.add(id); _fdUserCollapsed.add(id); }
   document.getElementById(id)?.classList.toggle('collapsed');
 }
 
@@ -3857,10 +3894,12 @@ function buildFilterDrawer() {
   const typesHtml = !typeEntries.length ? '<div class="fd-hint">No activities yet.</div>'
     : '<div class="tp-type-grid">' + typeEntries.map(([k,c]) => {
     const on = !filters.types || filters.types.includes(k);
-    return `<div class="tp-type-row" onclick="toggleFilterType('${k}')">
-      <div class="tp-type-dot" style="background:${c.color}"></div>
-      <div class="tp-type-label">${c.label}</div>
-      <div class="tp-type-toggle ${on ? 'on' : ''}"></div></div>`;
+    const solo = filters.types && filters.types.length === 1 && filters.types[0] === k;
+    return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
+      <div class="tp-type-dot" style="background:${c.color}" onclick="soloFilterType('${k}')"></div>
+      <div class="tp-type-label" onclick="soloFilterType('${k}')" title="Click to show only ${escapeHtml(c.label)}">${c.label}</div>
+      <button class="tp-type-only" onclick="soloFilterType('${k}')">${solo ? 'showing only' : 'only'}</button>
+      <div class="tp-type-toggle ${on ? 'on' : ''}" onclick="toggleFilterType('${k}')"></div></div>`;
   }).join('') + '</div>';
 
   const srcHtml = '<div class="fd-chips">' + filterBounds.sources.map(s => {
@@ -3917,10 +3956,12 @@ function buildFilterDrawer() {
   // same as the rest of the app's pin-visibility toggle.
   const pinsHtml = '<div class="tp-type-grid">' + Object.entries(PIN_CATEGORIES).map(([k,c]) => {
     const on = activePinCategories.has(k);
-    return `<div class="tp-type-row">
+    const solo = activePinCategories.size === 1 && activePinCategories.has(k);
+    return `<div class="tp-type-row ${solo ? 'is-solo' : ''}">
       <div class="tp-color-swatch" id="pin-swatch-${k}" style="background:${c.color};width:16px;height:16px;margin-right:8px">
         <input type="color" value="${c.color}" oninput="updatePinCategoryColor('${k}',this.value)"></div>
-      <div class="tp-type-label" onclick="togglePinCategory('${k}')" style="flex:1;cursor:pointer">${c.icon} ${c.label}</div>
+      <div class="tp-type-label" onclick="soloPinCategory('${k}')" style="flex:1;cursor:pointer" title="Click to show only ${escapeHtml(c.label)}">${c.icon} ${c.label}</div>
+      <button class="tp-type-only" onclick="soloPinCategory('${k}')">${solo ? 'showing only' : 'only'}</button>
       <div class="tp-type-toggle ${on?'on':''}" id="pin-toggle-${k}" onclick="togglePinCategory('${k}')"></div>
     </div>`;
   }).join('') + '</div>';
@@ -3947,6 +3988,18 @@ function _setTypeSet(field, allKeys, key) {
 }
 function toggleFilterType(k) {
   _setTypeSet('types', Object.keys(TYPE_CONFIG), k);
+  buildFilterDrawer(); applyFilters();
+}
+// "Show only this one" — the common case (isolate one sport) used to take
+// N-1 clicks via toggleFilterType; this does it in one. Soloing an
+// already-solo'd type restores "all" rather than leaving nothing selected.
+function _soloTypeSet(field, allKeys, key) {
+  const cur = filters[field];
+  const isSolo = cur && cur.length === 1 && cur[0] === key;
+  filters[field] = isSolo ? null : [key];
+}
+function soloFilterType(k) {
+  _soloTypeSet('types', Object.keys(TYPE_CONFIG), k);
   buildFilterDrawer(); applyFilters();
 }
 function toggleFilterSource(s) {
@@ -4121,6 +4174,14 @@ function toggleSidebar() {
 function togglePinCategory(key) {
   if(activePinCategories.has(key)) activePinCategories.delete(key); else activePinCategories.add(key);
   document.getElementById(`pin-toggle-${key}`)?.classList.toggle('on');
+  renderPinMarkers();
+}
+// "Show only this one" — solo again to restore all. Same idea as soloFilterType.
+function soloPinCategory(key) {
+  const allKeys = Object.keys(PIN_CATEGORIES);
+  const isSolo = activePinCategories.size === 1 && activePinCategories.has(key);
+  activePinCategories = new Set(isSolo ? allKeys : [key]);
+  buildFilterDrawer();
   renderPinMarkers();
 }
 
@@ -9851,7 +9912,7 @@ _r('togglePublicProfileFollow',togglePublicProfileFollow);
 _r('toggleMobileMenu',toggleMobileMenu);_r('mobileNav',mobileNav);_r('closeMobileMenu',closeMobileMenu);
 _r('setSidebarSort',setSidebarSort);_r('toggleToolsPanel',toggleToolsPanel);
 _r('openFilterDrawer',openFilterDrawer);_r('closeFilterDrawer',closeFilterDrawer);_r('toggleFilterSection',toggleFilterSection);
-_r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);
+_r('toggleFilterType',toggleFilterType);_r('toggleFilterSource',toggleFilterSource);_r('toggleFilterMood',toggleFilterMood);_r('soloFilterType',soloFilterType);
 _r('setFilterRange',setFilterRange);_r('setFilterDate',setFilterDate);_r('setDatePreset',setDatePreset);_r('setAttrFilter',setAttrFilter);_r('setTrackWidth',setTrackWidth);
 _r('clearFilters',clearFilters);_r('clearOneChip',clearOneChip);_r('onSearchInput',onSearchInput);_r('setActivitiesSort',setActivitiesSort);
 _r('renderActivitiesView',renderActivitiesView);_r('buildFilterDrawer',buildFilterDrawer);
@@ -9892,7 +9953,7 @@ _r('setCoverPhoto',setCoverPhoto);
 _r('openAddModal',openAddModal);_r('closeAddModal',closeAddModal);
 _r('togglePinDropMode',togglePinDropMode);_r('openPinModal',openPinModal);_r('closePinModal',closePinModal);
 _r('geocodePinAddress',geocodePinAddress);_r('savePin',savePin);_r('dismissPinNudge',dismissPinNudge);
-_r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);
+_r('togglePinCategory',togglePinCategory);_r('updatePinCategoryColor',updatePinCategoryColor);_r('soloPinCategory',soloPinCategory);
 _r('openManualEntryModal',openManualEntryModal);_r('closeManualEntryModal',closeManualEntryModal);_r('saveManualEntry',saveManualEntry);
 _r('openNLParserModal',openNLParserModal);_r('closeNLParserModal',closeNLParserModal);
 _r('previewParsedRoute',previewParsedRoute);_r('saveParsedRoute',saveParsedRoute);_r('closeRoutePreviewMap',closeRoutePreviewMap);
