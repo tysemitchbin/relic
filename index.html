@@ -799,6 +799,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .empty-hero { width: 72px; height: 72px; margin: 0 auto 16px; display: block; }
 .empty-title { font: 600 26px/1.2 var(--font-display); letter-spacing: -0.01em; color: var(--ink); margin-bottom: 8px; }
 .empty-sub { font-size: 15px; line-height: 1.5; color: var(--text-2); margin-bottom: 22px; }
+.ob-photo { display: flex; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 4px; }
+.ob-photo-circle { width: 64px; height: 64px; border-radius: 50%; background: var(--paper2); border: 1px dashed var(--text-3); display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--text-3); flex: none; }
+.ob-photo-circle img { width: 100%; height: 100%; object-fit: cover; }
+.ob-photo-label { font-size: 14px; color: var(--text-2); }
+.ob-photo-label em { font-style: normal; color: var(--text-3); }
 .empty-home { display: flex; gap: 8px; margin-bottom: 14px; }
 .empty-home[hidden] { display: none; }
 .empty-home input { flex: 1; min-width: 0; height: 46px; padding: 0 14px; font: 15px var(--font-ui); border: 1px solid var(--border); border-radius: var(--r-pill); background: var(--surface); color: var(--ink); }
@@ -1753,6 +1758,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <button type="submit" id="recovery-btn">Save &amp; sign in</button>
   </form>
   <form id="onboarding-form" hidden>
+    <label class="ob-photo" title="Add a photo (optional)"><input type="file" id="onboarding-photo" accept="image/*" hidden><span class="ob-photo-circle" id="onboarding-photo-preview"><svg class="ic"><use href="#i-user"/></svg></span><span class="ob-photo-label">Add a photo <em>(optional)</em></span></label>
     <input type="text" id="onboarding-name" placeholder="Your name — how friends will find you" maxlength="60" autocomplete="name" required>
     <textarea id="onboarding-bio" placeholder="A short bio (optional) — e.g. “Trail runner, Oslo”" rows="2"></textarea>
     <button type="submit" id="onboarding-btn">Continue</button>
@@ -3541,7 +3547,8 @@ async function startFirstConnectReveal() {
   const b = archiveBounds();
   if (b) { try { map.fitBounds(b, { padding: 60, maxZoom: 12, duration: 2200 }); } catch (e) {} }
   animateTracksIn();
-  if (ov) setTimeout(() => { ov.classList.remove('show'); setTimeout(() => { ov.hidden = true; }, 650); }, 1500);
+  if (ov) setTimeout(() => { ov.classList.remove('show'); setTimeout(() => { ov.hidden = true; offerFirstRelic(); }, 650); }, 1500);
+  else offerFirstRelic();
 }
 
 async function renderAll() {
@@ -4857,6 +4864,13 @@ function closeAddModal() { document.getElementById('add-modal').classList.remove
 
 // ── Pins ──
 function dismissPinNudge() { localStorage.setItem('relic_pin_nudge_v1','1'); document.getElementById('pin-nudge').hidden = true; }
+// After a batch of activities lands (first Strava sync, a multi-file import) the
+// natural next step is a relic. Offered once per user, and never if they have one.
+function offerFirstRelic() {
+  if (getStories().length || getMoments().length < 2 || _lsGet('relic_relic_offered')) return;
+  _lsSet('relic_relic_offered', '1');
+  toast('Your history is in. Turn a trip or a season into a relic?', { icon: 'book', duration: 14000, action: { label: 'Make a relic', fn: () => openStoryModal() } });
+}
 function updatePinNudge() {
   const el = document.getElementById('pin-nudge'); if (!el) return;
   const dismissed = localStorage.getItem('relic_pin_nudge_v1') === '1';
@@ -9010,6 +9024,7 @@ async function doImport() {
     if(result.ok) {
       progress.textContent = `Done! ${imported} imported.`;
       toast(`${imported} ${imported === 1 ? 'activity' : 'activities'} on your map`, { icon: 'check' });
+      if (imported >= 2) setTimeout(offerFirstRelic, 3200);
       if (importedEntries.some(e => e.type === 'Flight')) await syncAirportPins();
     } else {
       // roll back the local copies that didn't save
@@ -9787,7 +9802,7 @@ _r('getStravaToken',getStravaToken);_r('fetchStravaStreams',fetchStravaStreams);
 _r('loadAndRenderCharts',loadAndRenderCharts);_r('drawStreamChart',drawStreamChart);
 _r('connectStrava',connectStrava);_r('syncStrava',syncStrava);_r('disconnectStrava',disconnectStrava);
 _r('renderStravaSection',renderStravaSection);_r('maybeAutoSyncStrava',maybeAutoSyncStrava);
-_r('updateEmptyState',updateEmptyState);_r('dismissEmptyState',dismissEmptyState);_r('pinHomeFromEmpty',pinHomeFromEmpty);
+_r('updateEmptyState',updateEmptyState);_r('dismissEmptyState',dismissEmptyState);_r('pinHomeFromEmpty',pinHomeFromEmpty);_r('offerFirstRelic',offerFirstRelic);
 _r('recoverAndReload',recoverAndReload);
 
 // UX + social overhaul (ux-social-overhaul branch)
@@ -9937,6 +9952,14 @@ function showOnboarding() {
   document.getElementById('login').classList.add('show');
   setTimeout(() => { try { document.getElementById('onboarding-name').focus(); } catch (e) {} }, 60);
 }
+let _obPhoto = null;
+document.getElementById('onboarding-photo').addEventListener('change', (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  _obPhoto = f;
+  const box = document.getElementById('onboarding-photo-preview');
+  box.innerHTML = '<img alt="">';
+  box.firstChild.src = URL.createObjectURL(f);
+});
 document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = document.getElementById('onboarding-name').value.trim();
@@ -9946,12 +9969,26 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
   btn.textContent = 'Saving…';
   try {
     const bio = document.getElementById('onboarding-bio').value.trim();
-    const { error } = await sb.from('profiles').upsert({ id: currentUser.id, name, bio });
+    let avatarPath = null, avatarUrl = null;
+    if (_obPhoto) {
+      try {
+        const blob = await resizeImageToJpeg(_obPhoto, 512, 0.85);
+        const path = `${currentUser.id}/profile/${crypto.randomUUID()}.jpg`;
+        const up = await sb.storage.from('photos').upload(path, blob, { contentType: 'image/jpeg' });
+        if (up.error) throw up.error;
+        const { data: signed } = await sb.storage.from('photos').createSignedUrl(path, SIGNED_URL_TTL);
+        avatarPath = path; avatarUrl = signed?.signedUrl || null;
+      } catch (pe) {
+        console.warn('Onboarding photo failed', pe);
+        toast('Couldn’t upload your photo. You can add it later from Profile.', { error: true });
+      }
+    }
+    const { error } = await sb.from('profiles').upsert({ id: currentUser.id, name, bio, avatar_path: avatarPath });
     if (error) throw error;
     document.getElementById('login').classList.remove('show');
     document.getElementById('login').style.display = 'none';
     document.getElementById('loading').style.display = 'flex';
-    _profile.name = name; _profile.bio = bio;
+    _profile.name = name; _profile.bio = bio; _profile.avatarPath = avatarPath; _profile.photo = avatarUrl;
     initMap();
     afterBoot();
   } catch (err) {
