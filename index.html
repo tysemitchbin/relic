@@ -3566,6 +3566,7 @@ async function renderAll() {
 let _emptyDismissed = false;
 function dismissEmptyState() {
   _emptyDismissed = true;
+  _lsSet('relic_empty_dismissed', '1');
   const el = document.getElementById('empty-state');
   if (el) el.hidden = true;
 }
@@ -3576,7 +3577,10 @@ function updateEmptyState() {
   const empty = allMemories.length === 0 && allStories.length === 0;
   const hasPins = getPins().length > 0;
   if (!empty) _emptyDismissed = false; // reset so it can guide again if they clear everything
-  el.hidden = !(empty && !_emptyDismissed);
+  // A returning user whose archive is only pins has already been through this;
+  // don't greet them again every session once they've closed it.
+  const seenBefore = hasPins && _lsGet('relic_empty_dismissed');
+  el.hidden = !(empty && !_emptyDismissed && !seenBefore);
   const first = (_profile.name || '').trim().split(/\s+/)[0];
   const title = document.getElementById('empty-title'), sub = document.getElementById('empty-sub');
   if (title) title.textContent = hasPins ? 'Nice — that’s your first pin' : (first ? 'Welcome, ' + first : 'Let’s put your life on the map');
