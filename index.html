@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#F4F0E8">
+<meta name="robots" content="noindex">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Relic">
@@ -1517,6 +1518,32 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 /* ── LOGIN ──
    Split layout on desktop: brand/value panel (dark, with a drawn map) on the left,
    the form card on the right. Stacks on mobile. */
+/* ── Signed-out relic page (a shared link opened without an account) ── */
+#public-relic { position: fixed; inset: 0; z-index: 950; overflow-y: auto; background: var(--bg); -webkit-overflow-scrolling: touch; }
+#public-relic[hidden] { display: none; }
+.pr-top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+.pr-brand { display: flex; align-items: center; gap: 8px; font: 600 20px var(--font-display); color: var(--ink); }
+.pr-brand img { width: 28px; height: 28px; border-radius: 7px; }
+.pr-wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px calc(40px + env(safe-area-inset-bottom)); }
+.pr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--sh-1); overflow: hidden; }
+.pr-author { display: flex; align-items: center; gap: 12px; padding: 16px 18px 0; }
+.pr-author b { display: block; font: 600 15px var(--font-ui); color: var(--ink); }
+.pr-author span { font-size: 13px; color: var(--text-2); }
+.pr-glyph { display: flex; justify-content: center; padding: 18px 18px 6px; }
+.pr-glyph svg { width: min(220px, 60vw); height: auto; }
+.pr-title { font: 600 28px/1.15 var(--font-display); color: var(--ink); padding: 6px 18px 0; text-align: center; }
+.pr-dates { text-align: center; color: var(--text-2); font-size: 14px; padding: 6px 18px 0; }
+.pr-note { padding: 14px 18px 0; font-size: 15px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
+.pr-map { margin: 16px 18px 0; border-radius: var(--r-md); overflow: hidden; background: var(--paper2); }
+.pr-map img { display: block; width: 100%; height: auto; }
+.pr-reactions { display: flex; gap: 16px; padding: 12px 18px 16px; color: var(--text-2); font-size: 14px; align-items: center; }
+.pr-reactions .ic { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+.pr-cta { margin-top: 18px; padding: 22px 20px; border-radius: var(--r-lg); background: var(--ink); color: #fff; text-align: center; }
+.pr-cta h2 { font: 600 22px/1.2 var(--font-display); margin: 0 0 6px; }
+.pr-cta p { margin: 0 0 16px; font-size: 14px; line-height: 1.5; opacity: .85; }
+.pr-cta .btn-primary { width: 100%; justify-content: center; }
+.pr-cta .pr-signin { display: inline-block; margin-top: 12px; color: #fff; opacity: .85; font-size: 14px; background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.pr-missing { text-align: center; padding: 60px 20px; }
 #login {
   position: fixed; inset: 0; background: var(--bg); z-index: 10000;
   display: none; align-items: stretch; justify-content: stretch; overflow-y: auto;
@@ -1791,6 +1818,10 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
 </svg>
 
+<!-- Signed-out relic page: a shared relic link opened without an account
+     (renderPublicRelicPage). Everything inside is built from the public-relic
+     edge function's response, never from the signed-in app. -->
+<div id="public-relic" hidden></div>
 <!-- LOGIN -->
 <div id="login">
   <div class="login-brand">
@@ -9324,6 +9355,87 @@ function handlePendingDeepLink() {
   if (link.u === currentUser?.id) { switchView('profile'); return; }
   openPublicProfile(link.u, link.a, link.s);
 }
+// ── Signed-out relic page ──
+// A shared relic link (?u=&s=) opened by someone without an account shows the
+// relic itself — the thing they were sent — with a sign-up CTA underneath,
+// instead of a login wall. Data comes from the public-relic edge function,
+// which answers only for that exact (owner, relic) pair. The pending link
+// stays stored, so after signing up they land on the same relic in the app.
+async function maybeShowPublicRelic() {
+  const link = readPendingLink();
+  if (!link || !link.s) return false;
+  let data;
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/public-relic?u=${encodeURIComponent(link.u)}&s=${encodeURIComponent(link.s)}`,
+      { headers: { apikey: SUPABASE_KEY } });
+    if (!r.ok) return false;          // unshared or deleted → the normal invite/login screen
+    data = await r.json();
+  } catch (e) { return false; }
+  if (!data || !data.relic) return false;
+  renderPublicRelicPage(data);
+  document.getElementById('loading').style.display = 'none';
+  track('public_relic_viewed', { photos: (data.photos || []).length, likes: data.likes || 0 });
+  return true;
+}
+function renderPublicRelicPage({ relic: r, author, photos, likes, comments }) {
+  const el = document.getElementById('public-relic');
+  const fmt = (d, y) => new Date(d).toLocaleDateString('en-GB', y ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' });
+  const range = r.date_start && r.date_end ? (r.date_start === r.date_end ? fmt(r.date_end, true) : fmt(r.date_start) + ' – ' + fmt(r.date_end, true)) : '';
+  const first = (author.name || 'Someone').split(' ')[0];
+  const types = Object.entries(r.type_counts || {});
+  const overlays = [];
+  let budget = 7200;
+  (r.polylines || []).forEach((p, i) => {
+    const seg = pathOv(p, (r.colors || [])[i] || '#C1502E', 4, 0.9);
+    if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
+  });
+  const stat = (v, l) => `<div class="fc-stat"><div class="fc-stat-val">${v}</div><div class="fc-stat-label">${l}</div></div>`;
+  el.innerHTML = `
+    <header class="pr-top">
+      <div class="pr-brand"><img src="icon.svg" alt="">Relic</div>
+      <button class="btn-ghost btn-sm" onclick="publicRelicCta('signin')">Sign in</button>
+    </header>
+    <main class="pr-wrap">
+      <article class="pr-card">
+        <div class="pr-author">${avatarHtml(author.avatarUrl, author.name, 'av-44', r.user_id)}
+          <div><b>${escapeHtml(author.name || 'Someone')}</b><span>shared a relic</span></div></div>
+        <div class="pr-glyph">${publicGlyphSvg(r)}</div>
+        <div class="pr-title">${escapeHtml(r.title || 'Untitled relic')}</div>
+        ${range ? `<div class="pr-dates">${escapeHtml(range)}</div>` : ''}
+        ${r.narrative ? `<div class="pr-note">${escapeHtml(r.narrative)}</div>` : ''}
+        ${types.length ? `<div class="fc-story-types" style="justify-content:center">${types.map(([k, n]) => `<span class="fc-story-type-pill" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}">${escapeHtml(TYPE_CONFIG[k]?.label || k)} · ${Number(n) || 0}</span>`).join('')}</div>` : ''}
+        <div class="fc-stats">
+          ${stat(r.distance > 0 ? fmtKm(r.distance) : '—', 'Distance')}
+          ${stat(r.duration > 0 ? formatDur(r.duration) : '—', 'Time')}
+          ${stat(Number(r.moment_count) || 0, 'Activities')}
+        </div>
+        ${overlays.length ? `<div class="pr-map">${mapboxStaticImg(overlays, 600, 340)}</div>` : ''}
+        ${(photos || []).length ? `<div class="fc-photos" style="margin-top:14px">${photos.slice(0, 9).map(u =>
+          `<button class="fc-photo" onclick="openLightboxUrl(${jsAttr(u)})"><img src="${escapeHtml(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+        <div class="pr-reactions">
+          <span><svg class="ic"><use href="#i-heart"/></svg>${Number(likes) || 0} ${likes === 1 ? 'like' : 'likes'}</span>
+          <span><svg class="ic"><use href="#i-message"/></svg>${Number(comments) || 0} ${comments === 1 ? 'comment' : 'comments'}</span>
+        </div>
+      </article>
+      <section class="pr-cta">
+        <h2>Make your own map on Relic</h2>
+        <p>Bring in Strava or GPX files, pin the places that matter, and turn your trips into relics like ${escapeHtml(first)}'s.</p>
+        <button class="btn-primary" onclick="publicRelicCta('signup')">Make your own map on Relic</button>
+        <button class="pr-signin" onclick="publicRelicCta('signin')">I already have an account</button>
+      </section>
+    </main>`;
+  el.hidden = false;
+  document.title = `${r.title || 'A relic'} — ${author.name || 'Someone'} on Relic`;
+}
+// Both buttons go to the normal login card; the stored link then opens this
+// relic inside the app once they're in.
+function publicRelicCta(mode) {
+  track('public_relic_cta', { action: mode });
+  document.getElementById('public-relic').hidden = true;
+  showLogin();
+  setLoginMode(mode === 'signup' ? 'signup' : 'signin');
+}
+
 // Signed-out visitor arriving from an invite link: say whose map it is.
 async function showInviteBanner() {
   const link = readPendingLink(), el = document.getElementById('login-invite');
@@ -10724,7 +10836,7 @@ _r('recoverAndReload',recoverAndReload);
 _r('toast',toast);_r('uiConfirm',uiConfirm);
 _r('toggleAccountMenu',toggleAccountMenu);_r('closeAccountMenu',closeAccountMenu);
 _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',buildFollowingFeed);
-_r('toggleLike',toggleLike);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
+_r('toggleLike',toggleLike);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
 _r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('setBlocked',setBlocked);_r('removeFollower',removeFollower);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);
@@ -10940,7 +11052,7 @@ async function bootRelic() {
   const { data: { session } } = await sb.auth.getSession();
   if (_recovering) { showPasswordRecovery(); return; }
   if (session) { currentUser = session.user; startApp(); }
-  else showLogin();
+  else if (!(await maybeShowPublicRelic())) showLogin();
 }
 
 sb.auth.onAuthStateChange((event, session) => {

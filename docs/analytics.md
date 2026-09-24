@@ -37,6 +37,8 @@ directly. `track()` is a no-op in `?demo` and on `localhost`.
 | `link_shared` | A share link went out (share sheet or clipboard) | `kind` (`own_profile`/`profile`/`activity`/`relic`), `method` | Growth loop, outbound |
 | `image_shared` | Share-as-image or glyph PNG | `kind` (`activity`/`relic`/`glyph`) | Which artwork people share |
 | `link_opened` | A signed-in person opens a shared link | `kind`, `own` | Growth loop, inbound |
+| `public_relic_viewed` | A signed-out visitor sees the public relic page | `photos`, `likes` | Growth loop: do shared links get opened? (Queued until they sign up and accept analytics) |
+| `public_relic_cta` | That visitor taps sign up / sign in | `action` (`signup`/`signin`) | Does the page convert? Pair with `onboarding_completed` `via_link: relic` |
 | `followed` | Follow succeeds | `source` (the view it happened in) | Where the graph grows |
 | `like_given` / `comment_posted` | Like / comment saved | `kind` (`activity`/`relic`) | The reward loop |
 

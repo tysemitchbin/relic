@@ -178,6 +178,26 @@ to know:
   `Social` like/comment methods take a `kind`. Relic cards get their buttons
   from `relicSocialButtons()` and counts from `hydrateSocialCounts(…,
   'relic')` — call that after rendering any list of relic cards.
+- **Shared relic links work without an account** (`growth-redesign`,
+  2026-09-24). A signed-out visitor opening `?u=&s=` sees the relic itself
+  (`#public-relic`, `maybeShowPublicRelic()` → `renderPublicRelicPage()`,
+  called from `bootRelic()` before `showLogin()`), with a "Make your own map
+  on Relic" CTA that drops into the normal sign-up card — the pending link
+  survives, so they land on the relic once in. Data comes from the
+  **`public-relic` Supabase Edge Function** (`supabase/functions/public-relic`,
+  `verify_jwt` off), deliberately *not* an anon RLS policy: it answers only
+  for an exact (owner, relic) pair, so nobody can list or browse shared
+  relics, and it signs the snapshot's own photo paths with the service role.
+  Unshared/deleted → 404 → the old invite/login screen. Everything rendered
+  is user text from someone else: escape it. The whole app is `noindex`.
+- **Link previews: Cloudflare Pages Functions** (`functions/`, routed by
+  `_routes.json` to `/` and `/og/*` only, so static files never invoke a
+  worker). `functions/index.js` rewrites `<title>`/Open Graph tags with
+  `HTMLRewriter` for relic links (and makes `og:image` absolute for all);
+  `functions/og/relic.js` serves a 1200×630 Mapbox static map of the relic's
+  redacted polylines, fetched server-side with the site origin as `Referer`
+  for the URL-restricted token, falling back to `og-image.jpg`. Test locally
+  with `wrangler pages dev . --binding PUBLIC_RELIC_FN=<mock url>`.
 - **Schema changes live in `supabase/migrations/`** from 2026-09-24 on,
   applied through the Supabase tooling so they're recorded. The older
   `docs/supabase-*.sql` files are history; don't re-run them.
