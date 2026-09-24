@@ -38,7 +38,7 @@ directly. `track()` is a no-op in `?demo` and on `localhost`.
 | `image_shared` | Share-as-image or glyph PNG | `kind` (`activity`/`relic`/`glyph`) | Which artwork people share |
 | `link_opened` | A signed-in person opens a shared link | `kind`, `own` | Growth loop, inbound |
 | `followed` | Follow succeeds | `source` (the view it happened in) | Where the graph grows |
-| `kudos_given` / `comment_posted` | Like / comment saved | — | The reward loop |
+| `like_given` / `comment_posted` | Like / comment saved | `kind` (`activity`/`relic`) | The reward loop |
 
 Adding an event: call `track()` at the point the thing has *succeeded*
 (after the save, not on the button click), add a row here, keep property

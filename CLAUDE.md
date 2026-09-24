@@ -148,13 +148,13 @@ to know:
   `jsAttr()`. Friends' content is rendered now, so a miss is cross-user XSS,
   not self-XSS.
 - **Social data layer:** all social reads/writes go through the `Social`
-  object (profiles, graph, follow, feed, stories, photos, kudos, comments,
+  object (profiles, graph, follow, feed, stories, photos, likes, comments,
   notifications, suggestions, block, report). `?demo` swaps in `DemoSocial`
   (a synthetic cast of friends) via `Object.assign(Social, DemoSocial)` —
   **add any new `Social` method to `DemoSocial` too**, or `?demo` breaks.
   UI code never branches on `DEMO`. `?demo` never writes to Supabase
   (`persistMoments` / `flushDirty` short-circuit).
-- **Tables that may not exist yet** (`kudos`, `comments`, `story_public`,
+- **Tables that may not exist yet** (`activity_likes`, `comments`, `story_public`,
   `blocks` — all in `docs/supabase-social-v2.sql`): the client detects a
   missing relation with `isMissingTable(err)` and flips `_socialOff.<x>`,
   which hides that UI. Keep new social tables optional the same way until
@@ -164,7 +164,24 @@ to know:
   `buildStorySnapshotRow`, via `redactTrackForPrivacy`). A story is public iff
   it has a `story_public` row (no column on `stories`). Never expose raw
   `activities` rows to other users.
-- **Notifications** are derived (follows/kudos/comments aimed at you, newest
+- **"Likes", never "kudos"** (`growth-redesign`, 2026-09-24 — the user:
+  kudos is Strava's word). Renamed everywhere, code and database: the table
+  is `activity_likes` (was `kudos`), `Social.likes`/`setLike`, `toggleLike`,
+  `.fc-act.like`, notification kind `'like'`. A temporary `kudos`
+  security-invoker view keeps the pre-rename client working; drop it once
+  this branch is live (see `supabase/migrations/20260924120000_*`).
+- **Likes and comments work on relics too** (`relic_likes`,
+  `relic_comments`, same RLS shape: only on a shared relic, never by someone
+  the owner blocked). One code path serves both kinds of post:
+  `SOCIAL_TABLES[kind]` names each kind's tables/columns, `socialTarget(el)`
+  reads the card (`data-story` → relic, `data-key` → activity), and the
+  `Social` like/comment methods take a `kind`. Relic cards get their buttons
+  from `relicSocialButtons()` and counts from `hydrateSocialCounts(…,
+  'relic')` — call that after rendering any list of relic cards.
+- **Schema changes live in `supabase/migrations/`** from 2026-09-24 on,
+  applied through the Supabase tooling so they're recorded. The older
+  `docs/supabase-*.sql` files are history; don't re-run them.
+- **Notifications** are derived (follows/likes/comments aimed at you, newest
   first) with a per-device "last seen" in localStorage — there is no
   notifications table. Compare timestamps with `Date.parse`, not strings.
 - **Deep links:** `?u=<user>` opens a profile, `&a=<activity>` / `&s=<story>`
@@ -482,9 +499,14 @@ copy says Relic. Don't rename the model.
 ## The feed is relics only (`relic-glyph`, 2026-09-22)
 
 **Both tabs.** `buildFollowingFeed()` reads `story_public` and nothing else,
-with **keyset pagination on `(date_end, story_id)`** — `date_end` is a *date*,
-so a plain `.lt(date_end, cursor)` permanently skips every other relic ending
-on the same day as a page boundary. The cursor is `{d, id}`; `buildOwnFeed()` (the You tab) reads `getStories()`.
+**newest share first**, with **keyset pagination on `(shared_at, story_id)`**
+(was `date_end` until 2026-09-24 — most relics are made after the trip, so
+ordering by trip date buried every retrospective one). `shared_at` is set
+when the `story_public` row is inserted and never sent by snapshot upserts,
+so editing a shared relic doesn't bump it; un-sharing deletes the row, so
+re-sharing does. Keep the id tie-break: a plain `.lt(shared_at, cursor)`
+skips rows that share a timestamp. The cursor is `{d, id}`; `buildOwnFeed()`
+(the You tab) reads `getStories()`, newest made first.
 **A public activity is still public** — it shows on its owner's profile, in
 the Activities view and on the friends map layer, and `Social.feed()` /
 `itemFromPublicRow()` still serve those — but it is not a post. The feed is

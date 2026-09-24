@@ -29,7 +29,7 @@ Don't pair a dark-mode background with light-mode text, or the reverse.
 
 | Token | Hex | Used for |
 |---|---|---|
-| `--brand-rust` (= `--accent`) | `#C1502E` | Logo mark, primary buttons, active states, kudos heart, links. 4.7:1 with white text. Never swap for another accent. |
+| `--brand-rust` (= `--accent`) | `#C1502E` | Logo mark, primary buttons, active states, like heart, links. 4.7:1 with white text. Never swap for another accent. |
 | `--accent-strong` | `#9A3B22` | Rust text on light rust tints (chips, badges) |
 | `--accent-soft` | `#F6E3D9` | Light rust tint behind chips, unread notifications, selected rows |
 | `--route-sage` | `#8FA888` | Decorative route lines on hero art only |

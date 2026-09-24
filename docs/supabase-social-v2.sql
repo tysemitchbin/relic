@@ -1,3 +1,6 @@
+-- ⚠ HISTORY — do not re-run. Since 2026-09-24 `kudos` is `activity_likes`
+-- (supabase/migrations/20260924120000_likes_and_relic_social.sql); running
+-- this again would target the temporary `kudos` view and fail.
 -- Relic — Social v2: kudos, comments, public stories, and a fix for photos on public profiles.
 -- Run in the Supabase SQL Editor AFTER supabase-social.sql and
 -- supabase-privacy-radius.sql. Safe to re-run (idempotent).

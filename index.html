@@ -664,17 +664,15 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .fc-act .ic { width: 19px; height: 19px; }
 .fc-act:hover { background: var(--paper2); color: var(--ink); }
-.fc-act.kudos.on { color: var(--accent); }
-.fc-act.kudos.on .ic { fill: currentColor; }
-.fc-act.kudos.pop .ic { animation: kudosPop .35s var(--ease); }
-@keyframes kudosPop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.fc-act.like.on { color: var(--accent); }
+.fc-act.like.on .ic { fill: currentColor; }
+.fc-act.like.pop .ic { animation: likePop .35s var(--ease); }
+@keyframes likePop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
 .fc-view-btn {
   display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: var(--r-pill);
   font: 600 13px var(--font-ui); color: var(--ink); background: var(--paper2); border: none; cursor: pointer; transition: background .15s;
 }
 .fc-view-btn:hover { background: var(--paper3); }
-.fc-kudos-line { padding: 0 18px 12px; font-size: 13px; color: var(--text-2); }
-.fc-kudos-line b { color: var(--ink); font-weight: 600; }
 .fc-comments { border-top: 1px solid var(--border); padding: 12px 18px 14px; background: var(--paper2); }
 .fc-comments[hidden] { display: none; }
 .cmt { display: flex; gap: 10px; margin-bottom: 12px; }
@@ -987,7 +985,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .notif .av { margin-top: 2px; }
 .notif-badge { position: absolute; left: 44px; top: 38px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; border: 2px solid var(--surface); }
 .notif-badge .ic { width: 11px; height: 11px; stroke-width: 2.6; }
-.notif-badge.follow { background: #2563eb; } .notif-badge.kudos { background: var(--accent); } .notif-badge.comment { background: var(--success); }
+.notif-badge.follow { background: #2563eb; } .notif-badge.like { background: var(--accent); } .notif-badge.comment { background: var(--success); }
 .notif-text { flex: 1; min-width: 0; font-size: 14px; line-height: 1.45; color: var(--text); }
 .notif-text b { font-weight: 600; color: var(--ink); }
 .notif-text q { color: var(--text-2); quotes: '“' '”'; }
@@ -2281,7 +2279,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 
         <div class="strava-section" id="blocked-section" hidden>
           <div class="strava-title">Blocked accounts</div>
-          <div class="strava-state" style="margin-bottom:8px">They can't follow you, give kudos or comment on your activities.</div>
+          <div class="strava-state" style="margin-bottom:8px">They can't follow you, like or comment on anything you share.</div>
           <div class="people-list compact" id="blocked-list"></div>
         </div>
 
@@ -6358,7 +6356,14 @@ function shareActivity(ownerId, activityId, name) {
 // branches on DEMO. Activity keys are `${ownerId}/${activityId}`.
 let myFollowingIds = new Set(), myFollowerIds = new Set(), myBlockedIds = new Set();
 const _avatarCache = {};                        // storage path → signed URL
-const _socialOff = { kudos: false, comments: false, stories: false, blocks: false }; // tables not migrated yet → hide the UI
+const _socialOff = { likes: false, comments: false, relicSocial: false, stories: false, blocks: false }; // tables not migrated yet → hide the UI
+// Likes and comments exist for two kinds of post, each with its own table
+// pair. Either way a post's key is socialKey(ownerId, postId); `off` names the
+// _socialOff flag that hides that kind's UI when its table is missing.
+const SOCIAL_TABLES = {
+  activity: { likes: 'activity_likes', comments: 'comments',       owner: 'activity_user_id', id: 'activity_id', likesOff: 'likes',       commentsOff: 'comments' },
+  relic:    { likes: 'relic_likes',    comments: 'relic_comments', owner: 'story_user_id',    id: 'story_id',    likesOff: 'relicSocial', commentsOff: 'relicSocial' },
+};
 function isMissingTable(err) {
   const m = String((err && err.message) || '') + ' ' + String((err && err.code) || '');
   return /42P01|PGRST205|does not exist|Could not find the table/i.test(m);
@@ -6456,16 +6461,18 @@ const Social = {
   // ends on the same day as a page boundary.
   async stories(authorIds, limit, cursor) {
     if (_socialOff.stories || !authorIds.length) return [];
+    // Newest *share* first: most relics are made long after the trip, so
+    // ordering by the trip's own dates buried every retrospective one.
     let q = sb.from('story_public').select('*').in('user_id', authorIds)
-      .order('date_end', { ascending: false, nullsFirst: false })
+      .order('shared_at', { ascending: false })
       .order('story_id', { ascending: false })
       .limit(limit || 20);
     if (cursor && cursor.d) {
-      // Ids go into a PostgREST filter string, so only take the compound
-      // branch when the id can't break out of it.
-      q = /^[\w.-]+$/.test(cursor.id || '')
-        ? q.or(`date_end.lt.${cursor.d},and(date_end.eq.${cursor.d},story_id.lt.${cursor.id})`)
-        : q.lt('date_end', cursor.d);
+      // Values go into a PostgREST filter string, so only take the compound
+      // branch when neither can break out of it (the timestamp is quoted).
+      q = /^[\w.-]+$/.test(cursor.id || '') && /^[\d\-T:.+Z ]+$/.test(cursor.d)
+        ? q.or(`shared_at.lt."${cursor.d}",and(shared_at.eq."${cursor.d}",story_id.lt.${cursor.id})`)
+        : q.lt('shared_at', cursor.d);
     }
     const { data, error } = await q;
     if (error) { if (isMissingTable(error)) _socialOff.stories = true; else console.warn('story feed failed', error); return []; }
@@ -6495,69 +6502,79 @@ const Social = {
     data.forEach(p => { const u = byPath[p.storage_path]; if (u) (out[socialKey(p.user_id, p.activity_id)] ||= [])[p.is_cover ? 'unshift' : 'push'](u); });
     return out;
   },
-  // Map key → { count, mine }
-  async kudos(keys) {
-    const out = new Map();
-    if (_socialOff.kudos || !keys.length) return out;
+  // Map key → { count, mine, users }. kind: 'activity' | 'relic'.
+  async likes(keys, kind = 'activity') {
+    const t = SOCIAL_TABLES[kind], out = new Map();
+    if (_socialOff[t.likesOff] || !keys.length) return out;
     const pairs = keys.map(splitKey);
-    const { data, error } = await sb.from('kudos').select('activity_user_id,activity_id,user_id')
-      .in('activity_user_id', [...new Set(pairs.map(p => p[0]))]).in('activity_id', [...new Set(pairs.map(p => p[1]))]);
-    if (error) { if (isMissingTable(error)) _socialOff.kudos = true; else console.warn('kudos load failed', error); return out; }
+    const { data, error } = await sb.from(t.likes).select(`${t.owner},${t.id},user_id`)
+      .in(t.owner, [...new Set(pairs.map(p => p[0]))]).in(t.id, [...new Set(pairs.map(p => p[1]))]);
+    if (error) { if (isMissingTable(error)) _socialOff[t.likesOff] = true; else console.warn('likes load failed', error); return out; }
     const want = new Set(keys);
     (data || []).forEach(r => {
-      const k = socialKey(r.activity_user_id, r.activity_id); if (!want.has(k)) return;
+      const k = socialKey(r[t.owner], r[t.id]); if (!want.has(k)) return;
       const v = out.get(k) || { count: 0, mine: false, users: [] };
       v.count++; v.users.push(r.user_id); if (r.user_id === currentUser.id) v.mine = true;
       out.set(k, v);
     });
     return out;
   },
-  async setKudos(ownerId, activityId, on) {
+  async setLike(kind, ownerId, postId, on) {
+    const t = SOCIAL_TABLES[kind];
     const q = on
-      ? sb.from('kudos').insert({ activity_user_id: ownerId, activity_id: activityId, user_id: currentUser.id })
-      : sb.from('kudos').delete().eq('activity_user_id', ownerId).eq('activity_id', activityId).eq('user_id', currentUser.id);
+      ? sb.from(t.likes).insert({ [t.owner]: ownerId, [t.id]: postId, user_id: currentUser.id })
+      : sb.from(t.likes).delete().eq(t.owner, ownerId).eq(t.id, postId).eq('user_id', currentUser.id);
     const { error } = await q;
     if (error && !(on && error.code === '23505')) throw error;
   },
-  async commentCounts(keys) {
-    const out = new Map();
-    if (_socialOff.comments || !keys.length) return out;
+  async commentCounts(keys, kind = 'activity') {
+    const t = SOCIAL_TABLES[kind], out = new Map();
+    if (_socialOff[t.commentsOff] || !keys.length) return out;
     const pairs = keys.map(splitKey);
-    const { data, error } = await sb.from('comments').select('activity_user_id,activity_id')
-      .in('activity_user_id', [...new Set(pairs.map(p => p[0]))]).in('activity_id', [...new Set(pairs.map(p => p[1]))]);
-    if (error) { if (isMissingTable(error)) _socialOff.comments = true; else console.warn('comment count failed', error); return out; }
+    const { data, error } = await sb.from(t.comments).select(`${t.owner},${t.id}`)
+      .in(t.owner, [...new Set(pairs.map(p => p[0]))]).in(t.id, [...new Set(pairs.map(p => p[1]))]);
+    if (error) { if (isMissingTable(error)) _socialOff[t.commentsOff] = true; else console.warn('comment count failed', error); return out; }
     const want = new Set(keys);
-    (data || []).forEach(r => { const k = socialKey(r.activity_user_id, r.activity_id); if (want.has(k)) out.set(k, (out.get(k) || 0) + 1); });
+    (data || []).forEach(r => { const k = socialKey(r[t.owner], r[t.id]); if (want.has(k)) out.set(k, (out.get(k) || 0) + 1); });
     return out;
   },
-  async comments(ownerId, activityId) {
-    const { data, error } = await sb.from('comments').select('*').eq('activity_user_id', ownerId).eq('activity_id', activityId).order('created_at');
+  async comments(kind, ownerId, postId) {
+    const t = SOCIAL_TABLES[kind];
+    const { data, error } = await sb.from(t.comments).select('*').eq(t.owner, ownerId).eq(t.id, postId).order('created_at');
     if (error) throw error;
     return data || [];
   },
-  async addComment(ownerId, activityId, body) {
-    const { data, error } = await sb.from('comments').insert({ activity_user_id: ownerId, activity_id: activityId, user_id: currentUser.id, body }).select().single();
+  async addComment(kind, ownerId, postId, body) {
+    const t = SOCIAL_TABLES[kind];
+    const { data, error } = await sb.from(t.comments).insert({ [t.owner]: ownerId, [t.id]: postId, user_id: currentUser.id, body }).select().single();
     if (error) throw error;
     return data;
   },
-  async deleteComment(id) {
-    const { error } = await sb.from('comments').delete().eq('id', id);
+  async deleteComment(kind, id) {
+    const { error } = await sb.from(SOCIAL_TABLES[kind].comments).delete().eq('id', id);
     if (error) throw error;
   },
-  // Derived inbox: new followers, kudos and comments on your activities.
+  // Derived inbox: new followers, and likes and comments on what you've shared.
   async notifications() {
     const me = currentUser.id, none = Promise.resolve({ data: [] });
-    const [f, k, c] = await Promise.all([
+    const mine = (table, owner, cols, off) => _socialOff[off] ? none
+      : sb.from(table).select(cols).eq(owner, me).neq('user_id', me).order('created_at', { ascending: false }).limit(40);
+    const [f, al, ac, rl, rc] = await Promise.all([
       sb.from('follows').select('follower_id,created_at').eq('followee_id', me).order('created_at', { ascending: false }).limit(40),
-      _socialOff.kudos ? none : sb.from('kudos').select('user_id,activity_id,created_at').eq('activity_user_id', me).neq('user_id', me).order('created_at', { ascending: false }).limit(40),
-      _socialOff.comments ? none : sb.from('comments').select('id,user_id,activity_id,body,created_at').eq('activity_user_id', me).neq('user_id', me).order('created_at', { ascending: false }).limit(40),
+      mine('activity_likes', 'activity_user_id', 'user_id,activity_id,created_at', 'likes'),
+      mine('comments', 'activity_user_id', 'id,user_id,activity_id,body,created_at', 'comments'),
+      mine('relic_likes', 'story_user_id', 'user_id,story_id,created_at', 'relicSocial'),
+      mine('relic_comments', 'story_user_id', 'id,user_id,story_id,body,created_at', 'relicSocial'),
     ]);
-    if (k.error && isMissingTable(k.error)) _socialOff.kudos = true;
-    if (c.error && isMissingTable(c.error)) _socialOff.comments = true;
+    if (al.error && isMissingTable(al.error)) _socialOff.likes = true;
+    if (ac.error && isMissingTable(ac.error)) _socialOff.comments = true;
+    if ((rl.error && isMissingTable(rl.error)) || (rc.error && isMissingTable(rc.error))) _socialOff.relicSocial = true;
     const out = [];
     (f.data || []).forEach(r => out.push({ kind: 'follow', actor: r.follower_id, at: r.created_at }));
-    (k.data || []).forEach(r => out.push({ kind: 'kudos', actor: r.user_id, at: r.created_at, activityId: r.activity_id }));
-    (c.data || []).forEach(r => out.push({ kind: 'comment', actor: r.user_id, at: r.created_at, activityId: r.activity_id, body: r.body }));
+    (al.data || []).forEach(r => out.push({ kind: 'like', actor: r.user_id, at: r.created_at, activityId: r.activity_id }));
+    (ac.data || []).forEach(r => out.push({ kind: 'comment', actor: r.user_id, at: r.created_at, activityId: r.activity_id, body: r.body }));
+    (rl.data || []).forEach(r => out.push({ kind: 'like', actor: r.user_id, at: r.created_at, storyId: r.story_id }));
+    (rc.data || []).forEach(r => out.push({ kind: 'comment', actor: r.user_id, at: r.created_at, storyId: r.story_id, body: r.body }));
     return out.sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 60);
   },
   // People you may know: followers you don't follow back, friends of friends,
@@ -6656,10 +6673,10 @@ const DemoSocial = (() => {
     following: new Set(['u_ines', 'u_kai', 'u_maya']),
     followers: new Set(['u_ines', 'u_tomas', 'u_sam']),
     graph: { u_ines: ['u_lea', 'u_sam', 'u_kai'], u_kai: ['u_lea', 'u_noor'], u_maya: ['u_lea'] },
-    kudos: new Map(), comments: new Map(), cid: 1, blocked: new Set(),
+    likes: { activity: new Map(), relic: new Map() }, comments: { activity: new Map(), relic: new Map() }, cid: 1, blocked: new Set(),
   };
-  const give = (owner, aid, uid, ago) => { const k = socialKey(owner, aid); (state.kudos.get(k) || state.kudos.set(k, []).get(k)).push({ user_id: uid, at: new Date(now - ago).toISOString() }); };
-  const say = (owner, aid, uid, body, ago) => { const k = socialKey(owner, aid); (state.comments.get(k) || state.comments.set(k, []).get(k)).push({ id: 'c' + state.cid++, activity_user_id: owner, activity_id: aid, user_id: uid, body, created_at: new Date(now - ago).toISOString() }); };
+  const give = (owner, aid, uid, ago, kind = 'activity') => { const m = state.likes[kind], k = socialKey(owner, aid); (m.get(k) || m.set(k, []).get(k)).push({ user_id: uid, at: new Date(now - ago).toISOString() }); };
+  const say = (owner, aid, uid, body, ago, kind = 'activity') => { const m = state.comments[kind], k = socialKey(owner, aid); (m.get(k) || m.set(k, []).get(k)).push({ id: 'c' + state.cid++, activity_user_id: owner, activity_id: aid, user_id: uid, body, created_at: new Date(now - ago).toISOString() }); };
   give('u_ines', rows[0].activity_id, 'u_kai', 3 * H); give('u_ines', rows[0].activity_id, 'u_maya', 5 * H);
   say('u_ines', rows[0].activity_id, 'u_kai', 'That light! Jealous.', 4 * H);
   give('u_maya', 'demo_pub_u_maya_0', 'u_ines', 20 * H);
@@ -6668,6 +6685,12 @@ const DemoSocial = (() => {
   give('demo', 'demo_0', 'u_ines', 40 * 60e3); give('demo', 'demo_0', 'u_tomas', 3 * H);
   say('demo', 'demo_0', 'u_sam', 'That climb looks brutal 😅', 2 * H);
   give('demo', 'demo_3', 'u_kai', 26 * H);
+  // …and on a friend's relic, so the feed's relic cards show them too.
+  if (demoStories[0]) {
+    give(demoStories[0].user_id, demoStories[0].story_id, 'u_maya', 6 * H, 'relic');
+    give(demoStories[0].user_id, demoStories[0].story_id, 'u_lea', 9 * H, 'relic');
+    say(demoStories[0].user_id, demoStories[0].story_id, 'u_maya', 'Adding this to my list.', 5 * H, 'relic');
+  }
   const followerSince = { u_tomas: 90 * 60e3, u_sam: 30 * H, u_ines: 9 * D };
   const pub = () => Object.values(db).filter(o => !isStory(o) && o.isPublic).map(o => buildDemoPublicRow(o));
   const allRows = () => rows.concat(pub());
@@ -6690,7 +6713,7 @@ const DemoSocial = (() => {
     async userActivities(userId) { return wait(allRows().filter(r => r.user_id === userId).sort((a, b) => (a.date < b.date ? 1 : -1))); },
     async stories(authorIds, limit, cursor) {
       const own = getStories().filter(st => st.isPublic).map(buildStorySnapshotRow);
-      const key = r => (r.date_end || '') + '\u0000' + (r.story_id || '');
+      const key = r => (r.shared_at || r.date_end || '') + '\u0000' + (r.story_id || '');
       let all = demoStories.concat(own).filter(r => authorIds.includes(r.user_id))
         .sort((a, b) => (key(a) < key(b) ? 1 : -1));
       if (cursor && cursor.d) all = all.filter(r => key(r) < cursor.d + '\u0000' + (cursor.id || ''));
@@ -6704,29 +6727,32 @@ const DemoSocial = (() => {
       rows.forEach(r => { out[r.story_id] = (r.photos || []).filter(u => /^(data|blob|https?):/.test(u)); });
       return wait(out);
     },
-    async kudos(keys) {
-      const out = new Map();
-      keys.forEach(k => { const l = state.kudos.get(k) || []; if (l.length) out.set(k, { count: l.length, mine: l.some(x => x.user_id === currentUser.id), users: l.map(x => x.user_id) }); });
+    async likes(keys, kind = 'activity') {
+      const out = new Map(), m = state.likes[kind];
+      keys.forEach(k => { const l = m.get(k) || []; if (l.length) out.set(k, { count: l.length, mine: l.some(x => x.user_id === currentUser.id), users: l.map(x => x.user_id) }); });
       return wait(out);
     },
-    async setKudos(owner, aid, on) {
-      const k = socialKey(owner, aid), l = state.kudos.get(k) || [];
-      state.kudos.set(k, on ? l.concat({ user_id: currentUser.id, at: new Date().toISOString() }) : l.filter(x => x.user_id !== currentUser.id));
+    async setLike(kind, owner, aid, on) {
+      const m = state.likes[kind], k = socialKey(owner, aid), l = m.get(k) || [];
+      m.set(k, on ? l.concat({ user_id: currentUser.id, at: new Date().toISOString() }) : l.filter(x => x.user_id !== currentUser.id));
       return wait();
     },
-    async commentCounts(keys) { const out = new Map(); keys.forEach(k => { const n = (state.comments.get(k) || []).length; if (n) out.set(k, n); }); return wait(out); },
-    async comments(owner, aid) { return wait([...(state.comments.get(socialKey(owner, aid)) || [])]); },
-    async addComment(owner, aid, body) {
-      const c = { id: 'c' + state.cid++, activity_user_id: owner, activity_id: aid, user_id: currentUser.id, body, created_at: new Date().toISOString() };
-      const k = socialKey(owner, aid); state.comments.set(k, (state.comments.get(k) || []).concat(c));
+    async commentCounts(keys, kind = 'activity') { const out = new Map(), m = state.comments[kind]; keys.forEach(k => { const n = (m.get(k) || []).length; if (n) out.set(k, n); }); return wait(out); },
+    async comments(kind, owner, aid) { return wait([...(state.comments[kind].get(socialKey(owner, aid)) || [])]); },
+    async addComment(kind, owner, aid, body) {
+      const c = { id: 'c' + state.cid++, user_id: currentUser.id, body, created_at: new Date().toISOString() };
+      const m = state.comments[kind], k = socialKey(owner, aid); m.set(k, (m.get(k) || []).concat(c));
       return wait(c);
     },
-    async deleteComment(id) { state.comments.forEach((l, k) => state.comments.set(k, l.filter(c => c.id !== id))); return wait(); },
+    async deleteComment(kind, id) { const m = state.comments[kind]; m.forEach((l, k) => m.set(k, l.filter(c => c.id !== id))); return wait(); },
     async notifications() {
       const out = [];
       state.followers.forEach(id => out.push({ kind: 'follow', actor: id, at: new Date(now - (followerSince[id] || D)).toISOString() }));
-      state.kudos.forEach((l, k) => { const [o, a] = splitKey(k); if (o === currentUser.id) l.forEach(x => { if (x.user_id !== o) out.push({ kind: 'kudos', actor: x.user_id, at: x.at, activityId: a }); }); });
-      state.comments.forEach((l, k) => { const [o, a] = splitKey(k); if (o === currentUser.id) l.forEach(c => { if (c.user_id !== o) out.push({ kind: 'comment', actor: c.user_id, at: c.created_at, activityId: a, body: c.body }); }); });
+      ['activity', 'relic'].forEach(kind => {
+        const ref = a => kind === 'relic' ? { storyId: a } : { activityId: a };
+        state.likes[kind].forEach((l, k) => { const [o, a] = splitKey(k); if (o === currentUser.id) l.forEach(x => { if (x.user_id !== o) out.push({ kind: 'like', actor: x.user_id, at: x.at, ...ref(a) }); }); });
+        state.comments[kind].forEach((l, k) => { const [o, a] = splitKey(k); if (o === currentUser.id) l.forEach(c => { if (c.user_id !== o) out.push({ kind: 'comment', actor: c.user_id, at: c.created_at, body: c.body, ...ref(a) }); }); });
+      });
       return wait(out.sort((a, b) => (a.at < b.at ? 1 : -1)));
     },
     async suggestions() {
@@ -6862,11 +6888,11 @@ function renderActivityCard(it) {
   }
   if (it.photos && it.photos.length) h += `<div class="fc-photos">${it.photos.slice(0, 3).map(u => `<img src="${escapeHtml(u)}" alt="" loading="lazy" style="cursor:zoom-in" onclick="openLightboxUrl(this.src)">`).join('')}</div>`;
   if (mood) h += `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>`;
-  const social = it.isPublic && !_socialOff.kudos;
-  const k = it.kudos || { count: 0, mine: false };
+  const social = it.isPublic && !_socialOff.likes;
+  const k = it.likes || { count: 0, mine: false };
   h += `<footer class="fc-actions">`;
   if (social) {
-    h += `<button class="fc-act kudos${k.mine ? ' on' : ''}" onclick="toggleKudos(this)" title="${it.isOwn ? 'See who gave kudos' : 'Give kudos'}"><svg class="ic"><use href="#i-heart"/></svg><span class="n">${k.count || ''}</span></button>`;
+    h += `<button class="fc-act like${k.mine ? ' on' : ''}" onclick="toggleLike(this)" title="${it.isOwn ? 'See who liked this' : 'Like'}" aria-label="Like"><svg class="ic"><use href="#i-heart"/></svg><span class="n">${k.count || ''}</span></button>`;
     if (!_socialOff.comments) h += `<button class="fc-act" onclick="toggleComments(this)" title="Comments"><svg class="ic"><use href="#i-message"/></svg><span class="n">${it.commentCount || ''}</span></button>`;
   }
   h += `<span class="fc-spacer"></span>`;
@@ -6904,28 +6930,39 @@ function itemFromMoment(m) {
     photos: (m.photos || []).map(p => p.dataUrl).filter(Boolean),
   };
 }
-function itemFromPublicRow(r, prof, photos, kudos, ccounts) {
+function itemFromPublicRow(r, prof, photos, likes, ccounts) {
   const key = socialKey(r.user_id, r.activity_id);
   return {
     key, ownerId: r.user_id, activityId: r.activity_id, isOwn: r.user_id === currentUser.id, isPublic: true,
     author: { name: prof?.name || 'Someone', avatarUrl: prof?.avatarUrl || null },
     name: r.name, type: r.type, date: r.date, distance: r.distance, duration: r.duration, elevation: r.elevation,
     note: r.note, mood: r.mood, color: r.custom_color || getColor(r.type), polylines: r.polylines || [],
-    photos: (photos && photos[key]) || [], kudos: kudos && kudos.get(key), commentCount: (ccounts && ccounts.get(key)) || 0,
+    photos: (photos && photos[key]) || [], likes: likes && likes.get(key), commentCount: (ccounts && ccounts.get(key)) || 0,
   };
 }
-// Kudos/comment counts arrive after first paint — patch them into the cards.
-async function hydrateSocialCounts(container, keys) {
+// Like/comment counts arrive after first paint — patch them into the cards.
+// Activity cards are keyed by data-key, relic cards by data-story.
+async function hydrateSocialCounts(container, keys, kind = 'activity') {
   if (!keys.length) return;
-  const [k, c] = await Promise.all([Social.kudos(keys), Social.commentCounts(keys)]);
+  const t = SOCIAL_TABLES[kind], attr = kind === 'relic' ? 'data-story' : 'data-key';
+  const [k, c] = await Promise.all([Social.likes(keys, kind), Social.commentCounts(keys, kind)]);
   keys.forEach(key => {
-    const card = container.querySelector(`.feed-card[data-key="${CSS.escape(key)}"]`); if (!card) return;
-    const kv = k.get(key), kb = card.querySelector('.fc-act.kudos');
+    const card = container.querySelector(`.feed-card[${attr}="${CSS.escape(key)}"]`); if (!card) return;
+    const kv = k.get(key), kb = card.querySelector('.fc-act.like');
     if (kb) { kb.classList.toggle('on', !!kv?.mine); kb.querySelector('.n').textContent = kv?.count || ''; }
     const cb = card.querySelector('.fc-act[onclick^="toggleComments"] .n'); if (cb) cb.textContent = c.get(key) || '';
   });
-  if (_socialOff.kudos) container.querySelectorAll('.fc-act.kudos, .fc-act[onclick^="toggleComments"]').forEach(b => b.remove());
-  else if (_socialOff.comments) container.querySelectorAll('.fc-act[onclick^="toggleComments"]').forEach(b => b.remove());
+  const cards = [...container.querySelectorAll(`.feed-card[${attr}]`)];
+  const drop = sel => cards.forEach(card => card.querySelectorAll(sel).forEach(b => b.remove()));
+  if (_socialOff[t.likesOff]) drop('.fc-act.like');
+  if (_socialOff[t.commentsOff]) drop('.fc-act[onclick^="toggleComments"]');
+}
+// Like + comment buttons for a relic card; counts are filled in by
+// hydrateSocialCounts(…, 'relic').
+function relicSocialButtons() {
+  if (_socialOff.relicSocial) return '';
+  return `<button class="fc-act like" onclick="toggleLike(this)" title="Like" aria-label="Like"><svg class="ic"><use href="#i-heart"/></svg><span class="n"></span></button>
+    <button class="fc-act" onclick="toggleComments(this)" title="Comments" aria-label="Comments"><svg class="ic"><use href="#i-message"/></svg><span class="n"></span></button>`;
 }
 
 function buildOwnFeed() {
@@ -6941,10 +6978,12 @@ function buildOwnFeed() {
     return;
   }
   stories.forEach(s => computeStoryStats(s));
-  stories.sort((a, b) => ((b.dateEnd || b.createdAt || '') > (a.dateEnd || a.createdAt || '') ? 1 : -1));
+  // Newest made first, the way the Following tab is newest shared first.
+  stories.sort((a, b) => ((b.createdAt || b.dateEnd || '') > (a.createdAt || a.dateEnd || '') ? 1 : -1));
   container.innerHTML = '';
   stories.forEach(s => renderFeedStoryCard(container, s, loadProfile()));
   flushCanvasJobs();
+  hydrateSocialCounts(container, stories.filter(s => s.isPublic).map(s => socialKey(currentUser.id, s.id)), 'relic');
 }
 // Kept for the _r() registry / older callers.
 function renderFeedMomentCard(container, mem) {
@@ -6995,8 +7034,9 @@ async function buildFollowingFeed(reset) {
     c.insertAdjacentHTML('beforeend',
       pageStories.map(st => renderPublicStoryCard(st, byId[st.user_id], storyPhotoUrls[st.story_id])).join(''));
     flushCanvasJobs();
+    hydrateSocialCounts(c, pageStories.map(st => socialKey(st.user_id, st.story_id)), 'relic');
     const last = pageStories[pageStories.length - 1];
-    if (last) _feedCursor = { d: last.date_end, id: last.story_id };
+    if (last) _feedCursor = { d: last.shared_at || last.date_end, id: last.story_id };
     _feedDone = pageDone;
     more.innerHTML = _feedDone
       ? `<div class="people-empty" style="text-align:center">You're all caught up</div>`
@@ -7012,53 +7052,57 @@ function emptyBlock(icon, title, text, actions) {
   return `<div class="card empty-block"><div class="eb-icon"><svg class="ic"><use href="#i-${icon}"/></svg></div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p><div class="eb-actions">${actions || ''}</div></div>`;
 }
 
-// ── Kudos ──
-async function toggleKudos(btn) {
-  const card = btn.closest('.feed-card'); if (!card) return;
-  const [ownerId, activityId] = splitKey(card.dataset.key);
+// ── Likes and comments (activity cards and relic cards alike) ──
+// Which post a card button belongs to: relic cards carry data-story, activity
+// cards data-key, both `${ownerId}/${postId}`.
+function socialTarget(el) {
+  const card = el.closest('.feed-card'); if (!card) return null;
+  const key = card.dataset.story || card.dataset.key; if (!key) return null;
+  const [ownerId, postId] = splitKey(key);
+  return { card, key, ownerId, postId, kind: card.dataset.story ? 'relic' : 'activity' };
+}
+async function toggleLike(btn) {
+  const t = socialTarget(btn); if (!t) return;
   const n = btn.querySelector('.n');
-  if (ownerId === currentUser.id) {   // your own activity → show who gave kudos
-    const k = (await Social.kudos([card.dataset.key])).get(card.dataset.key);
-    if (!k || !k.count) { toast('No kudos yet'); return; }
+  if (t.ownerId === currentUser.id) {   // your own post → show who liked it
+    const k = (await Social.likes([t.key], t.kind)).get(t.key);
+    if (!k || !k.count) { toast('No likes yet'); return; }
     const profs = await Social.profiles(k.users);
     const names = profs.map(p => (p.name || 'Someone').split(' ')[0]);
     const list = names.length <= 2 ? names.join(' and ')
       : names.slice(0, 3).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '');
-    toast('Kudos from ' + list, { icon: 'heart', duration: 4000 });
+    toast('Liked by ' + list, { icon: 'heart', duration: 4000 });
     return;
   }
   const on = !btn.classList.contains('on');
   const cur = parseInt(n.textContent, 10) || 0;
   btn.classList.toggle('on', on); btn.classList.remove('pop'); void btn.offsetWidth; if (on) btn.classList.add('pop');
   n.textContent = Math.max(0, cur + (on ? 1 : -1)) || '';
-  try { await Social.setKudos(ownerId, activityId, on); if (on) track('kudos_given'); }
+  try { await Social.setLike(t.kind, t.ownerId, t.postId, on); if (on) track('like_given', { kind: t.kind }); }
   catch (e) {
-    console.error('Kudos failed', e);
+    console.error('Like failed', e);
     btn.classList.toggle('on', !on); n.textContent = cur || '';
     toast('Couldn\'t save that — try again', { error: true });
   }
 }
-
-// ── Comments ──
 async function toggleComments(btn) {
-  const card = btn.closest('.feed-card'); if (!card) return;
-  const box = card.querySelector('.fc-comments');
+  const t = socialTarget(btn); if (!t) return;
+  const box = t.card.querySelector('.fc-comments');
   if (!box.hidden) { box.hidden = true; return; }
   box.hidden = false;
   box.innerHTML = '<div class="cmt-empty">Loading comments…</div>';
-  const [ownerId, activityId] = splitKey(card.dataset.key);
-  await renderComments(box, ownerId, activityId);
+  await renderComments(box, t);
   box.querySelector('.cmt-input')?.focus();
 }
-async function renderComments(box, ownerId, activityId) {
+async function renderComments(box, t) {
   let rows;
-  try { rows = await Social.comments(ownerId, activityId); }
+  try { rows = await Social.comments(t.kind, t.ownerId, t.postId); }
   catch (e) { box.innerHTML = '<div class="cmt-empty">Couldn\'t load comments.</div>'; return; }
   const profs = await Social.profiles(rows.map(r => r.user_id).concat(currentUser.id)).catch(() => []);
   const byId = Object.fromEntries(profs.map(p => [p.id, p]));
   if (DEMO || !byId[currentUser.id]) byId[currentUser.id] = { name: _profile.name || 'You', avatarUrl: _profile.photo };
   const list = rows.filter(r => !myBlockedIds.has(r.user_id)).map(r => {
-    const p = byId[r.user_id] || {}, canDel = r.user_id === currentUser.id || ownerId === currentUser.id;
+    const p = byId[r.user_id] || {}, canDel = r.user_id === currentUser.id || t.ownerId === currentUser.id;
     const who = r.user_id === currentUser.id ? `switchView('profile')` : `openPublicProfile(${jsAttr(r.user_id)})`;
     return `<div class="cmt">${avatarHtml(p.avatarUrl, p.name, 'av-36', r.user_id)}<div class="cmt-body">
       <button class="cmt-name" onclick="${who}">${escapeHtml(p.name || 'Someone')}</button><span class="cmt-time">${escapeHtml(relTime(r.created_at))}</span>
@@ -7071,20 +7115,20 @@ async function renderComments(box, ownerId, activityId) {
       <input class="cmt-input" maxlength="1000" placeholder="Add a comment…" aria-label="Add a comment" oninput="this.form.querySelector('.cmt-send').disabled=!this.value.trim()">
       <button class="cmt-send" disabled aria-label="Post comment"><svg class="ic"><use href="#i-send"/></svg></button>
     </form>`;
-  const cnt = box.closest('.feed-card')?.querySelector('.fc-act[onclick^="toggleComments"] .n');
+  const cnt = t.card.querySelector('.fc-act[onclick^="toggleComments"] .n');
   if (cnt) cnt.textContent = rows.length || '';
 }
 async function postComment(e, form) {
   e.preventDefault();
   const input = form.querySelector('.cmt-input'), body = input.value.trim();
   if (!body) return false;
-  const card = form.closest('.feed-card'), box = card.querySelector('.fc-comments');
-  const [ownerId, activityId] = splitKey(card.dataset.key);
+  const t = socialTarget(form); if (!t) return false;
+  const box = t.card.querySelector('.fc-comments');
   input.disabled = true;
   try {
-    await Social.addComment(ownerId, activityId, body);
-    track('comment_posted');
-    await renderComments(box, ownerId, activityId);
+    await Social.addComment(t.kind, t.ownerId, t.postId, body);
+    track('comment_posted', { kind: t.kind });
+    await renderComments(box, t);
     box.querySelector('.cmt-input')?.focus();
   } catch (err) {
     console.error('Comment failed', err);
@@ -7095,9 +7139,9 @@ async function postComment(e, form) {
 }
 async function deleteComment(btn, id) {
   if (!(await uiConfirm({ title: 'Delete this comment?', ok: 'Delete', danger: true }))) return;
-  const card = btn.closest('.feed-card'), box = card.querySelector('.fc-comments');
-  const [ownerId, activityId] = splitKey(card.dataset.key);
-  try { await Social.deleteComment(id); await renderComments(box, ownerId, activityId); }
+  const t = socialTarget(btn); if (!t) return;
+  const box = t.card.querySelector('.fc-comments');
+  try { await Social.deleteComment(t.kind, id); await renderComments(box, t); }
   catch (e) { toast('Couldn\'t delete that comment', { error: true }); }
 }
 
@@ -7110,7 +7154,7 @@ function renderFeedStoryCard(container, story, profile) {
   const mood = MOODS.find(m => m.id === story.mood);
   const typeKeys = Object.keys(story._typeBreakdown || {});
   const open = `viewStoryOnMap(${jsAttr(story.id)})`;
-  let h = `<article class="feed-card story-card-feed">
+  let h = `<article class="feed-card story-card-feed"${story.isPublic ? ` data-story="${escapeHtml(socialKey(currentUser.id, story.id))}"` : ''}>
     <header class="fc-header">
       <div class="fc-avatar" onclick="switchView('profile')">${avatarHtml(profile.photo, profile.name || 'You', 'av-44', currentUser.id)}</div>
       <div class="fc-user"><button class="fc-username" onclick="switchView('profile')">${escapeHtml(profile.name || 'You')}</button><div class="fc-date"><span>${escapeHtml(dateRange)}</span><span class="fc-vis" title="${story.isPublic ? 'Shared with followers' : 'Only you'}"><svg class="ic"><use href="#i-${story.isPublic ? 'globe' : 'lock'}"/></svg></span></div></div>
@@ -7132,7 +7176,7 @@ function renderFeedStoryCard(container, story, profile) {
   if (ph.length) h += `<div class="fc-photos">${ph.map(p =>
     `<button class="fc-photo" onclick="openLightboxUrl(${jsAttr(p.url)})"><img src="${escapeHtml(p.url)}" alt="" loading="lazy"></button>`).join('')}</div>`;
   if (mood) h += `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>`;
-  h += `<footer class="fc-actions">${story.isPublic ? '' : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span><button class="fc-act" onclick="shareStoryImage(${jsAttr(story.id)})" title="Share as image" aria-label="Share as image"><svg class="ic"><use href="#i-image"/></svg></button>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View relic</button></footer></article>`;
+  h += `<footer class="fc-actions">${story.isPublic ? relicSocialButtons() : `<button class="fc-act" onclick="setStoryVisibility(${jsAttr(story.id)},true).then(buildFeed)"><svg class="ic"><use href="#i-globe"/></svg>Share with followers</button>`}<span class="fc-spacer"></span><button class="fc-act" onclick="shareStoryImage(${jsAttr(story.id)})" title="Share as image" aria-label="Share as image"><svg class="ic"><use href="#i-image"/></svg></button>${story.isPublic ? `<button class="fc-act" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(story.id)},${jsAttr(story.title)})" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>` : ''}<button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View relic</button></footer><div class="fc-comments" hidden></div></article>`;
   container.insertAdjacentHTML('beforeend', h);
 }
 
@@ -8037,10 +8081,10 @@ function renderPublicStoryCard(r, prof, photoUrls) {
     ${(photoUrls || []).length ? `<div class="fc-photos">${photoUrls.slice(0, 6).map(u =>
       `<button class="fc-photo" onclick="openLightboxUrl(${jsAttr(u)})"><img src="${escapeHtml(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
     ${mood ? `<div class="fc-mood">${mood.emoji} Felt ${escapeHtml(mood.label.toLowerCase())}</div>` : ''}
-    <footer class="fc-actions"><span class="fc-spacer"></span>
+    <footer class="fc-actions">${relicSocialButtons()}<span class="fc-spacer"></span>
       <button class="fc-act" onclick="shareStory(${jsAttr(r.user_id)},${jsAttr(r.story_id)},${jsAttr(r.title)})" title="Share" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></button>
       <button class="fc-view-btn" onclick="${open}"><svg class="ic" style="width:16px;height:16px"><use href="#i-map"/></svg>View relic</button>
-    </footer>
+    </footer><div class="fc-comments" hidden></div>
   </article>`;
 }
 
@@ -8413,7 +8457,7 @@ async function bulkSetVisibility(makePublic) {
     ok: 'Make public',
   } : {
     title: `Make ${n} activities private?`,
-    body: 'They\'ll disappear from your profile and your followers\' feeds. Kudos and comments are kept and come back if you make them public again.',
+    body: 'They\'ll disappear from your profile and your followers\' feeds. Likes and comments are kept and come back if you make them public again.',
     ok: 'Make private',
   });
   if (!ok) return;
@@ -8591,7 +8635,7 @@ async function beAction(kind, value) {
       ok: 'Make public',
     } : {
       title: `Make ${n} activities private?`,
-      body: 'They\'ll disappear from your profile and your followers\' feeds. Kudos and comments are kept for if you make them public again.',
+      body: 'They\'ll disappear from your profile and your followers\' feeds. Likes and comments are kept for if you make them public again.',
       ok: 'Make private',
     }))) return;
     await applyBulkPrivacy(changing, { isPublic: makePublic });
@@ -8720,7 +8764,7 @@ async function beDelete() {
   const mems = beSelected(); if (!mems.length) return;
   const n = mems.length.toLocaleString();
   const v = await uiForm({ title: `Delete ${n} activities?`, danger: true, ok: 'Delete permanently',
-    sub: 'This permanently deletes them, their photos, notes, kudos and comments. It cannot be undone. Strava activities may come back on a full re-sync.',
+    sub: 'This permanently deletes them, their photos, notes, likes and comments. It cannot be undone. Strava activities may come back on a full re-sync.',
     bodyHtml: `<label class="modal-sub" style="display:block;margin:0 0 6px">Type <b>DELETE</b> to confirm</label><input class="modal-input" name="confirm" autocomplete="off" placeholder="DELETE">`,
     validate: x => x.confirm.trim() === 'DELETE' });
   if (!v) return;
@@ -8948,12 +8992,13 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
         own ? 'This is how other people see your profile. Group a few activities into a relic to post it here.' : 'Relics are how people share trips and groups of activities here.',
         own ? `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>` : '');
   flushCanvasJobs();
+  hydrateSocialCounts(document.getElementById('pp-body'), stories.map(st => socialKey(userId, st.story_id)), 'relic');
   if (focusStoryId) {
     const body = document.getElementById('pp-body');
     const sc = body.querySelector(`.feed-card[data-story="${CSS.escape(socialKey(userId, focusStoryId))}"]`);
     if (sc) setTimeout(() => { sc.scrollIntoView({ behavior: 'smooth', block: 'center' }); sc.style.boxShadow = '0 0 0 3px var(--accent)'; setTimeout(() => sc.style.boxShadow = '', 2400); }, 350);
   }
-  // Photos/kudos/comments and the activity cards themselves are only built
+  // Photos/likes/comments and the activity cards themselves are only built
   // when their tracks actually get loaded onto the main map (see
   // viewProfileOnMainMap) — the profile page itself only needs the cover
   // image and the stats above.
@@ -9144,7 +9189,7 @@ function openProfileMoreMenu(e) {
   openMenu(anchor, items);
 }
 async function setBlocked(uid, first, on) {
-  if (on && !(await uiConfirm({ title: `Block ${first}?`, body: "They won't be able to follow you, give kudos or comment on your activities, and you won't see their posts. They aren't told that you blocked them.", ok: 'Block', danger: true }))) return;
+  if (on && !(await uiConfirm({ title: `Block ${first}?`, body: "They won't be able to follow you, like or comment on anything you share, and you won't see their posts. They aren't told that you blocked them.", ok: 'Block', danger: true }))) return;
   try {
     await Social.block(uid, on);
     if (on) { myBlockedIds.add(uid); myFollowingIds.delete(uid); myFollowerIds.delete(uid); } else myBlockedIds.delete(uid);
@@ -9183,7 +9228,7 @@ async function reportUser(uid, name) {
 }
 
 // ════════════════════════════════════════
-// NOTIFICATIONS — derived from follows / kudos / comments (see Social.notifications)
+// NOTIFICATIONS — derived from follows / likes / comments (see Social.notifications)
 // ════════════════════════════════════════
 let _notifItems = [], _notifTimer = null;
 function _notifSeenKey() { return 'relic_notif_seen_' + (currentUser?.id || ''); }
@@ -9223,22 +9268,24 @@ function closeNotifications() {
 async function renderNotifications(seen) {
   const body = document.getElementById('notif-body');
   if (!_notifItems.length) {
-    body.innerHTML = emptyBlock('bell', 'No notifications yet', 'When people follow you, give kudos or comment on your activities, you\'ll see it here.',
+    body.innerHTML = emptyBlock('bell', 'No notifications yet', 'When people follow you, or like or comment on what you share, you\'ll see it here.',
       `<button class="btn-primary" onclick="closeNotifications();shareMyProfile()"><svg class="ic"><use href="#i-link"/></svg>Invite friends</button>`).replace('card empty-block', 'empty-block');
     return;
   }
   let profs = [];
   try { profs = await Social.profiles(_notifItems.map(n => n.actor)); } catch (e) {}
   const byId = Object.fromEntries(profs.map(p => [p.id, p]));
-  const icon = { follow: 'user-plus', kudos: 'heart', comment: 'message' };
+  const icon = { follow: 'user-plus', like: 'heart', comment: 'message' };
   const row = n => {
     const p = byId[n.actor] || { name: 'Someone' };
-    const act = n.activityId && db[n.activityId];
-    const actName = `<b>${escapeHtml(act?.name || 'your activity')}</b>`;
+    const post = n.storyId ? db[n.storyId] : n.activityId && db[n.activityId];
+    const actName = n.storyId ? `your relic <b>${escapeHtml(post?.title || 'Untitled')}</b>` : `<b>${escapeHtml(post?.name || 'your activity')}</b>`;
     const text = n.kind === 'follow' ? `<b>${escapeHtml(p.name)}</b> started following you`
-      : n.kind === 'kudos' ? `<b>${escapeHtml(p.name)}</b> gave kudos to ${actName}`
+      : n.kind === 'like' ? `<b>${escapeHtml(p.name)}</b> liked ${actName}`
       : `<b>${escapeHtml(p.name)}</b> commented on ${actName}: <q>${escapeHtml((n.body || '').slice(0, 120))}</q>`;
-    const click = n.kind === 'follow' ? `closeNotifications();openPublicProfile(${jsAttr(n.actor)})` : `closeNotifications();goToActivity(${jsAttr(n.activityId)})`;
+    const click = n.kind === 'follow' ? `closeNotifications();openPublicProfile(${jsAttr(n.actor)})`
+      : n.storyId ? `closeNotifications();openPublicProfile(${jsAttr(currentUser.id)},null,${jsAttr(n.storyId)})`
+      : `closeNotifications();goToActivity(${jsAttr(n.activityId)})`;
     return `<div class="notif${isUnread(n, seen) ? ' unread' : ''}" onclick="${click}">
       ${avatarHtml(p.avatarUrl, p.name, 'av-44', n.actor)}<span class="notif-badge ${n.kind}"><svg class="ic"><use href="#i-${icon[n.kind]}"/></svg></span>
       <div class="notif-text">${text}<div class="notif-time">${escapeHtml(relTime(n.at))}</div></div>
@@ -10677,7 +10724,7 @@ _r('recoverAndReload',recoverAndReload);
 _r('toast',toast);_r('uiConfirm',uiConfirm);
 _r('toggleAccountMenu',toggleAccountMenu);_r('closeAccountMenu',closeAccountMenu);
 _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',buildFollowingFeed);
-_r('toggleKudos',toggleKudos);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
+_r('toggleLike',toggleLike);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
 _r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('setBlocked',setBlocked);_r('removeFollower',removeFollower);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);
