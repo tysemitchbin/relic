@@ -80,6 +80,15 @@ future sessions would need.
   same `strava_upsert_activities()` pattern as `type_edited` — must run
   before this ships, or every save fails) so a resync can't revert the fix.
 
+- **Product analytics go through `track(event, props)`** (`growth-redesign`,
+  2026-09-24), never `posthog.capture` directly. It holds events in
+  localStorage until the EU opt-in banner is answered, then sends or drops
+  them, and it no-ops in `?demo`/localhost. Fire it after the thing has
+  *succeeded* (post-save), with small snake_case props and never user text.
+  Every event is listed in `docs/analytics.md` — add a row there with any new
+  one. `docs/beta-metrics.sql` is the consent-independent scorecard read
+  straight from Supabase.
+
 ## Design system + social layer (`ux-social-overhaul`, 2026-09-18)
 
 Full rationale lives in `docs/review-2026-09-18.md`. What future edits need

@@ -2862,6 +2862,42 @@ if (location.hostname !== 'localhost') {
     opt_out_capturing_by_default: true, // ask first -- see showAnalyticsConsent()
   });
 }
+// ── Product analytics: every funnel event goes through track() ──
+// Nothing leaves the device before the consent banner is answered: events
+// fired while undecided wait in localStorage and are sent with their original
+// timestamps only on opt-in (flushAnalyticsQueue); opting out drops them.
+// The event list, and the question each event answers, is docs/analytics.md —
+// add any new event there too.
+const ANALYTICS_QUEUE_KEY = 'relic_analytics_queue_v1';
+function track(event, props) {
+  if (DEMO || location.hostname === 'localhost') return;
+  try {
+    if (posthog.has_opted_out_capturing()) return;
+    if (posthog.has_opted_in_capturing()) { posthog.capture(event, props || {}); return; }
+    const q = JSON.parse(localStorage.getItem(ANALYTICS_QUEUE_KEY) || '[]');
+    if (q.length < 100) q.push({ e: event, p: props || {}, t: Date.now() });
+    localStorage.setItem(ANALYTICS_QUEUE_KEY, JSON.stringify(q));
+  } catch (e) {}
+}
+function flushAnalyticsQueue(send) {
+  let q = [];
+  try { q = JSON.parse(localStorage.getItem(ANALYTICS_QUEUE_KEY) || '[]'); localStorage.removeItem(ANALYTICS_QUEUE_KEY); } catch (e) {}
+  if (send) q.forEach(x => { try { posthog.capture(x.e, x.p, { timestamp: new Date(x.t) }); } catch (e) {} });
+}
+// Once per boot, after the archive has loaded: the retention signal, plus
+// person properties so any funnel can be split by how set-up an account is.
+function trackAppOpened() {
+  const mems = getMoments(), stories = getStories();
+  const props = {
+    activities: mems.length,
+    pins: getPins().length,
+    relics: stories.length,
+    relics_shared: stories.filter(s => s.isPublic).length,
+    has_strava: mems.some(m => m.stravaId),
+  };
+  track('app_opened', props);
+  try { if (posthog.has_opted_in_capturing()) posthog.setPersonProperties(props); } catch (e) {}
+}
 const SIGNED_URL_TTL = 86400; // 24h — re-signed on every page load
 
 // Strava (public client id — the secret lives only in the `strava` Edge Function)
@@ -3567,8 +3603,10 @@ function initMap() {
     if (!fromCache) { frameArchiveOnLoad({ animate: true }); revealApp(); }
     else if (map) map.resize();
 
+    trackAppOpened();
     // Returned from a Strava connect? Run the first-import reveal on the map.
     if (new URLSearchParams(location.search).get('strava') === 'connected') {
+      track('strava_connected');
       history.replaceState(null, '', location.pathname);
       startFirstConnectReveal();
     } else {
@@ -5319,6 +5357,7 @@ async function savePin() {
   updateEmptyState();
   const result = await persistMoments([entry]);
   if (result.ok) {
+    track('pin_added', { category: entry.pinCategory || null });
     document.getElementById('pin-status').textContent = 'Pin saved.';
     setTimeout(closePinModal, 700);
   } else {
@@ -5378,6 +5417,7 @@ async function saveManualEntry() {
   initMapLayers(); applyFilters();
   const result = await persistMoments([entry]);
   if (result.ok) {
+    track('activity_added', { method: 'manual', type: getGroup(type) });
     statusEl.textContent = 'Saved.';
     setTimeout(closeManualEntryModal, 700);
     showDetail(id);
@@ -5729,6 +5769,8 @@ async function saveParsedRoute() {
     if (error) { statusEl.textContent = 'Legs saved, but grouping them into a Relic failed: ' + error.message; btn.disabled = false; return; }
   }
   statusEl.textContent = `Saved ${legs.length} leg${legs.length===1?'':'s'}.`;
+  track('activity_added', { method: 'describe', type: getGroup(legs[0].type), legs: legs.length });
+  if (storyId) track('relic_created', { source: 'describe', activities: legs.length });
   _pendingParsedRoute = null;
   setTimeout(() => { closeRoutePreviewMap(); closeNLParserModal(); }, 900);
   if (legs[0].startLat != null) map.flyTo({ center: [legs[0].startLng, legs[0].startLat], zoom: 6, duration: 1000 });
@@ -5911,6 +5953,7 @@ async function finishDrawRoute() {
     toast('Save failed: ' + (result.error || 'unknown error'), { error: true });
     return;
   }
+  track('activity_added', { method: 'draw', type: getGroup(entry.type) });
   showDetail(id); flyToTrack(entry);
 }
 
@@ -6281,25 +6324,30 @@ document.addEventListener('click', e => {
 // ── Share links: ?u=<user> (profile) and ?u=<user>&a=<activity> ──
 function profileLink(userId) { return location.origin + location.pathname + '?u=' + encodeURIComponent(userId); }
 function activityLink(userId, activityId) { return profileLink(userId) + '&a=' + encodeURIComponent(activityId); }
-async function shareLink(url, title, text) {
-  // Native share sheet on phones; clipboard everywhere else.
+async function shareLink(url, title, text, kind) {
+  // Native share sheet on phones; clipboard everywhere else. `kind` is only
+  // for analytics: own_profile / profile / activity / relic.
   try {
-    if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title, text, url }); return; }
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ title, text, url });
+      track('link_shared', { kind: kind || null, method: 'native' });
+      return;
+    }
   } catch (e) { if (e && e.name === 'AbortError') return; }
-  try { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', { icon: 'check' }); }
+  try { await navigator.clipboard.writeText(url); toast('Link copied to clipboard', { icon: 'check' }); track('link_shared', { kind: kind || null, method: 'clipboard' }); }
   catch (e) { window.prompt('Copy this link:', url); }
 }
 function shareMyProfile() {
   if (!currentUser) return;
   _lsSet('relic_invited', '1');
-  shareLink(profileLink(currentUser.id), 'My map on Relic', 'Follow my map on Relic' + (_profile.name ? ' — ' + _profile.name : ''));
+  shareLink(profileLink(currentUser.id), 'My map on Relic', 'Follow my map on Relic' + (_profile.name ? ' — ' + _profile.name : ''), 'own_profile');
   const nPublic = getMoments().filter(m => m.isPublic).length;
   if (!nPublic) setTimeout(() => toast('Tip: your activities are all private, so friends will see an empty profile.', {
     duration: 7000, action: { label: 'Sharing settings', fn: () => switchView('settings') },
   }), 900);
 }
 function shareActivity(ownerId, activityId, name) {
-  shareLink(activityLink(ownerId, activityId), name || 'An activity on Relic', (name || 'Take a look') + ' — on Relic');
+  shareLink(activityLink(ownerId, activityId), name || 'An activity on Relic', (name || 'Take a look') + ' — on Relic', 'activity');
 }
 
 // ════════════════════════════════════════
@@ -6983,7 +7031,7 @@ async function toggleKudos(btn) {
   const cur = parseInt(n.textContent, 10) || 0;
   btn.classList.toggle('on', on); btn.classList.remove('pop'); void btn.offsetWidth; if (on) btn.classList.add('pop');
   n.textContent = Math.max(0, cur + (on ? 1 : -1)) || '';
-  try { await Social.setKudos(ownerId, activityId, on); }
+  try { await Social.setKudos(ownerId, activityId, on); if (on) track('kudos_given'); }
   catch (e) {
     console.error('Kudos failed', e);
     btn.classList.toggle('on', !on); n.textContent = cur || '';
@@ -7035,6 +7083,7 @@ async function postComment(e, form) {
   input.disabled = true;
   try {
     await Social.addComment(ownerId, activityId, body);
+    track('comment_posted');
     await renderComments(box, ownerId, activityId);
     box.querySelector('.cmt-input')?.focus();
   } catch (err) {
@@ -7734,6 +7783,7 @@ async function rsSaveGlyph() {
   try { blob = await glyphToBlob(svg, 1024); } catch (e) { console.error(e); }
   dismiss();
   if (!blob) { toast('Couldn\'t create the image', { error: true }); return; }
+  track('image_shared', { kind: 'glyph' });
   const name = (story.title || 'relic').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').slice(0, 40) + '-glyph.png';
   const file = new File([blob], name, { type: 'image/png' });
   try {
@@ -7838,6 +7888,7 @@ async function shareAsImage(o) {
 }
 function shareMomentImage(memId) {
   const m = db[memId]; if (!m || isStory(m)) return;
+  track('image_shared', { kind: 'activity' });
   const c = getCoords(m);
   const color = m.customColor || getColor(m.type);
   shareAsImage({
@@ -7850,6 +7901,7 @@ function shareMomentImage(memId) {
 }
 function shareStoryImage(storyId) {
   const st = db[storyId]; if (!st || !isStory(st)) return;
+  track('image_shared', { kind: 'relic' });
   const snap = buildStorySnapshotRow(st);
   const fmt = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   shareAsImage({
@@ -7919,6 +7971,7 @@ async function setStoryVisibility(storyId, makePublic) {
     if (error) throw error;
     saveArchiveCache();
     toast(makePublic ? 'Relic shared with your followers' : 'Relic is private again', { icon: 'check' });
+    track(makePublic ? 'relic_shared' : 'relic_unshared', { activities: (story.momentIds || []).length });
   } catch (e) {
     story.isPublic = !makePublic;
     renderStoryShareSection(storyId);
@@ -7954,7 +8007,7 @@ function renderStoryShareSection(storyId) {
     ${pub ? `<button class="btn-ghost btn-sm" style="margin-top:10px" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(storyId)},${jsAttr(story.title)})"><svg class="ic"><use href="#i-share"/></svg>Share link</button>` : '<div class="detail-section-sub" style="margin:10px 0 0">Share it to post the whole trip to your followers\' feeds.</div>'}`;
 }
 function storyLink(userId, storyId) { return profileLink(userId) + '&s=' + encodeURIComponent(storyId); }
-function shareStory(userId, storyId, title) { shareLink(storyLink(userId, storyId), title || 'A relic on Relic', (title || 'A trip') + ' — on Relic'); }
+function shareStory(userId, storyId, title) { shareLink(storyLink(userId, storyId), title || 'A relic on Relic', (title || 'A trip') + ' — on Relic', 'relic'); }
 
 // Someone else's (or your own, as others see it) shared story.
 function renderPublicStoryCard(r, prof, photoUrls) {
@@ -8207,6 +8260,7 @@ async function syncStrava(full) {
       if (_revealHook) _revealHook(_syncTotal, 'activities imported…');
     }
     stravaProg(true, { done: true, text: 'Done — ' + _syncTotal + ' activities' });
+    track('strava_import_completed', { activities: _syncTotal, full: !!full });
     set('Synced ' + _syncTotal + ' — reloading…');
     await loadFromSupabase();
     await renderAll();
@@ -8331,7 +8385,7 @@ function buildSettings() {
   document.getElementById('settings-email').textContent = currentUser?.email || '';
   const analyticsEl = document.getElementById('analytics-state');
   try {
-    if (posthog.has_opted_in_capturing()) analyticsEl.textContent = 'Enabled — anonymous usage stats help find bugs faster.';
+    if (posthog.has_opted_in_capturing()) analyticsEl.textContent = 'Enabled — usage stats help find bugs faster.';
     else if (posthog.has_opted_out_capturing()) analyticsEl.textContent = 'Disabled';
     else analyticsEl.textContent = 'Not decided yet';
   } catch (e) { analyticsEl.textContent = 'Unavailable'; }
@@ -8805,7 +8859,7 @@ async function toggleFollow(userId, follow) {
     ppViewingFollowerCount = Math.max(0, ppViewingFollowerCount + (follow ? 1 : -1));
     const countEl = document.getElementById('pp-follower-count'); if (countEl) countEl.textContent = ppViewingFollowerCount;
   }
-  try { await Social.follow(userId, follow); }
+  try { await Social.follow(userId, follow); if (follow) track('followed', { source: currentView }); }
   catch (e) {
     console.error('Follow toggle failed', e);
     if (follow) myFollowingIds.delete(userId); else myFollowingIds.add(userId);
@@ -9072,7 +9126,7 @@ function closePublicProfile() {
 }
 function sharePublicProfile() {
   if (!ppViewingUserId) return;
-  shareLink(profileLink(ppViewingUserId), (_ppProfile?.name || 'A map') + ' on Relic', 'Check out ' + (_ppProfile?.name || 'this') + '\'s map on Relic');
+  shareLink(profileLink(ppViewingUserId), (_ppProfile?.name || 'A map') + ' on Relic', 'Check out ' + (_ppProfile?.name || 'this') + '\'s map on Relic', 'profile');
 }
 function openProfileMoreMenu(e) {
   e.stopPropagation();
@@ -9219,6 +9273,7 @@ function readPendingLink() {
 function handlePendingDeepLink() {
   const link = readPendingLink(); if (!link) return;
   try { localStorage.removeItem(PENDING_LINK_KEY); } catch (e) {}
+  track('link_opened', { kind: link.s ? 'relic' : link.a ? 'activity' : 'profile', own: link.u === currentUser?.id });
   if (link.u === currentUser?.id) { switchView('profile'); return; }
   openPublicProfile(link.u, link.a, link.s);
 }
@@ -9433,6 +9488,7 @@ function getDismissedRelicSuggestions() {
   try { return new Set(JSON.parse(localStorage.getItem(relicSuggestDismissKey()) || '[]')); } catch (e) { return new Set(); }
 }
 function dismissRelicSuggestion(id) {
+  track('relic_suggestion_dismissed');
   const set = getDismissedRelicSuggestions();
   set.add(id);
   try { localStorage.setItem(relicSuggestDismissKey(), JSON.stringify([...set])); } catch (e) {}
@@ -9521,6 +9577,7 @@ function openSuggestedRelicModal(suggestionId) {
   const s = computeRelicSuggestions().find(x => x.id === suggestionId);
   if (!s) { toast('That suggestion is out of date.', { error: true }); renderRelicSuggestions(); return; }
   openStoryModal();
+  _storySource = 'suggestion';
   storySelectedIds = new Set(s.momentIds);
   document.getElementById('sm-title').value = s.title;
   renderStoryMomentList();
@@ -9822,6 +9879,7 @@ async function doImport() {
     if(result.ok) {
       progress.textContent = `Done! ${imported} imported.`;
       toast(`${imported} ${imported === 1 ? 'activity' : 'activities'} on your map`, { icon: 'check' });
+      track('file_import_completed', { activities: imported });
       if (imported >= 2) setTimeout(offerFirstRelic, 3200);
       if (importedEntries.some(e => e.type === 'Flight')) await syncAirportPins();
     } else {
@@ -9883,8 +9941,12 @@ function clearStagedGlyphPref() {
   delete p[GLYPH_NEW];
   try { localStorage.setItem(GLYPH_KEY, JSON.stringify(p)); } catch (e) {}
 }
+// Where a new relic came from, for the relic_created event: set by
+// openSuggestedRelicModal after it opens the (reset) modal.
+let _storySource = 'manual';
 function openStoryModal(existingId) {
   clearStagedGlyphPref();
+  _storySource = 'manual';
   editingStoryId = existingId || null;
   storySelectedIds = new Set();
   storyTypeFilters = new Set(Object.keys(TYPE_CONFIG));
@@ -10119,6 +10181,7 @@ async function saveStory() {
     return;
   }
   document.getElementById('sm-status').textContent = 'Relic saved.';
+  if (!prev) track('relic_created', { source: _storySource, activities: story.momentIds.length });
 
   // Refresh app state
   allStories = getStories();
@@ -10379,6 +10442,7 @@ function goToActivity(id) {
 
 let currentView = 'map';
 function switchView(view) {
+  if (view !== currentView) track('view_opened', { view });
   if (view !== 'map') exitProfileView();
   currentView = view;
   closeAccountMenu();
@@ -10459,7 +10523,7 @@ async function sendFeedback() {
   }
 }
 
-async function signOut() { try { posthog.reset(); } catch(e){} try { await sb.auth.signOut(); } catch(e){} location.reload(); }
+async function signOut() { flushAnalyticsQueue(false); try { posthog.reset(); } catch(e){} try { await sb.auth.signOut(); } catch(e){} location.reload(); }
 
 // ── GDPR: export my data ──
 async function exportMyData() {
@@ -10790,6 +10854,8 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
     }
     const { error } = await sb.from('profiles').upsert({ id: currentUser.id, name, bio, avatar_path: avatarPath });
     if (error) throw error;
+    const via = readPendingLink();
+    track('onboarding_completed', { via_link: via ? (via.s ? 'relic' : via.a ? 'activity' : 'profile') : null, photo: !!avatarPath, bio: !!bio });
     document.getElementById('login').classList.remove('show');
     document.getElementById('login').style.display = 'none';
     document.getElementById('loading').style.display = 'flex';
@@ -10813,6 +10879,8 @@ function showAnalyticsConsent() {
 }
 function setAnalyticsConsent(accept) {
   try { accept ? posthog.opt_in_capturing() : posthog.opt_out_capturing(); } catch (e) {}
+  if (accept && currentUser) { try { posthog.identify(currentUser.id, { email: currentUser.email }); } catch (e) {} }
+  flushAnalyticsQueue(accept);
   const el = document.getElementById('analytics-consent');
   if (el) el.hidden = true;
   const stateEl = document.getElementById('analytics-state');
