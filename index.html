@@ -591,7 +591,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 #lightbox-caption { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--warm); letter-spacing: 0.04em; text-align: center; }
 
 /* ── PAGES (shared scaffolding for Feed / Profile / People / Settings) ── */
-#feed-view, #profile-view, #people-view, #public-profile-view, #settings-view, #activities-view, #relic-suggest-view {
+#feed-view, #profile-view, #people-view, #public-profile-view, #settings-view, #activities-view, #relic-suggest-view, #places-view {
   background: var(--bg); flex-direction: column; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 4px 0 20px; }
@@ -694,6 +694,25 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .feed-suggest-head span { font-size: 13px; color: var(--text-2); }
 .sm-map-preview { position: relative; aspect-ratio: 16 / 9; border-radius: var(--r-md); overflow: hidden; background: var(--paper2); border: 1px solid var(--border); }
 .sm-map-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; text-align: center; font-size: 13px; color: var(--text-3); }
+.profile-stats-row.six { grid-template-columns: repeat(3, 1fr); }
+.places-sort { margin: 4px 0 16px; }
+.place-country { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 10px; box-shadow: var(--sh-1); }
+.place-country > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 14px 16px; cursor: pointer; }
+.place-country > summary::-webkit-details-marker { display: none; }
+.place-flag { font-size: 26px; line-height: 1; width: 32px; text-align: center; }
+.place-main { flex: 1; min-width: 0; }
+.place-name { display: block; font: 600 16px var(--font-ui); color: var(--ink); }
+.place-meta { display: block; font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.place-cities { border-top: 1px solid var(--border); padding: 6px 8px 10px; }
+.place-city { display: flex; justify-content: space-between; gap: 10px; width: 100%; padding: 8px; border: 0; background: none; border-radius: var(--r-sm); cursor: pointer; text-align: left; font: 14px var(--font-ui); color: var(--ink); }
+.place-city:hover { background: var(--paper2); }
+.place-city span { color: var(--text-2); font-size: 13px; white-space: nowrap; }
+.places-credit { margin: 18px 0 8px; font-size: 12px; color: var(--text-3); }
+.places-credit a { color: inherit; }
+.detail-firsts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.detail-firsts[hidden] { display: none; }
+.first-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--r-pill); background: var(--accent-soft); color: var(--ink); font: 600 12px var(--font-ui); }
+@media (max-width: 768px) { .profile-stats-row.six { grid-template-columns: 1fr 1fr; } }
 .rs-state { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-2); margin: 4px 0 12px; }
 .rs-state .ic { width: 15px; height: 15px; flex: none; }
 .cmt-del:hover { color: var(--danger); }
@@ -2053,6 +2072,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
             <span id="d-date-text"></span>
             <svg class="ic detail-date-ic" id="d-date-ic"><use href="#i-pen"/></svg>
           </button>
+          <div class="detail-firsts" id="d-firsts" hidden></div>
         </div>
         <div class="detail-body" id="detail-body">
           <div class="detail-stats-grid" id="d-stats"></div>
@@ -2204,6 +2224,21 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
         <button class="pp-back" onclick="switchView('profile')"><svg class="ic"><use href="#i-chevron-left"/></svg>Back</button>
         <div class="page-head"><div><h1 class="page-title">Suggested relics</h1><div class="page-sub" id="relic-suggest-view-sub"></div></div></div>
         <div class="profile-suggest-grid" id="relic-suggest-view-grid"></div>
+      </div>
+    </div>
+
+    <!-- PLACES VIEW: every country and city you've been, from your activities and pins -->
+    <div class="view" id="places-view">
+      <div class="profile-wrap">
+        <button class="pp-back" onclick="switchView('profile')"><svg class="ic"><use href="#i-chevron-left"/></svg>Back</button>
+        <div class="page-head"><div><h1 class="page-title">Places</h1><div class="page-sub" id="places-sub">Working out where you've been…</div></div></div>
+        <div class="seg places-sort" id="places-sort">
+          <button data-s="first" class="active" onclick="setPlacesSort('first')">First visited</button>
+          <button data-s="most" onclick="setPlacesSort('most')">Most visited</button>
+          <button data-s="az" onclick="setPlacesSort('az')">A–Z</button>
+        </div>
+        <div id="places-list"></div>
+        <div class="places-credit">Place names: <a href="https://www.geonames.org" target="_blank" rel="noopener">GeoNames</a> (CC BY 4.0). Borders: Natural Earth.</div>
       </div>
     </div>
 
@@ -4749,6 +4784,7 @@ function showDetail(memId, back) {
   document.getElementById('d-name-input').oninput=onNameEdit;
   document.getElementById('d-date-text').textContent=mem.date?new Date(mem.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'}):'—';
   document.getElementById('d-date-ic').hidden = false;
+  renderFirstsBadges(mem);
   const hasTrack = !!(mem._polyline || (Array.isArray(mem.coords)&&mem.coords.length>1));
   document.getElementById('d-stats').innerHTML=[
     {val:mem.distance?fmtDist(mem.distance):'—',label:'Distance'},
@@ -4876,6 +4912,7 @@ function showStoryDetail(storyId) {
   // A Relic's date range is derived from its Moments, not stored on it
   // directly — nothing here to edit.
   document.getElementById('d-date-ic').hidden = true;
+  document.getElementById('d-firsts').hidden = true;
 
   // Stats
   document.getElementById('d-stats').innerHTML = [
@@ -6489,7 +6526,7 @@ const Social = {
   async profiles(ids) {
     ids = [...new Set((ids || []).filter(Boolean))];
     if (!ids.length) return [];
-    const { data, error } = await sb.from('profiles').select('id,name,bio,avatar_path').in('id', ids);
+    const { data, error } = await sb.from('profiles').select('id,name,bio,avatar_path,places_summary').in('id', ids);
     if (error) throw error;
     await signAvatarUrls((data || []).map(p => p.avatar_path));
     return (data || []).map(p => ({ ...p, avatarUrl: p.avatar_path ? (_avatarCache[p.avatar_path] || null) : null }));
@@ -8545,14 +8582,25 @@ async function buildProfile() {
   renderProfileCover();
   const mems = getMoments();
   const totalDist = mems.reduce((s, m) => s + (m.distance || 0), 0) / 1000;
+  const ps = placesSummaryCached();
   const statsHtml = (fl, fr) => [
+    { val: ps ? ps.countries.toLocaleString() : '…', label: 'Countries', onclick: "switchView('places')" },
+    { val: ps ? ps.cities.toLocaleString() : '…', label: 'Cities', onclick: "switchView('places')" },
     { val: mems.length.toLocaleString(), label: 'Activities' },
     { val: fmtDist(totalDist * 1000, 0), label: 'Distance' },
     { val: fr, label: 'Followers', onclick: "openConnections('followers')" },
     { val: fl, label: 'Following', onclick: "openConnections('following')" },
   ].map(s => `<div class="profile-stat"${s.onclick ? ` onclick="${s.onclick}" role="button" tabindex="0"` : ''}><div class="profile-stat-val">${s.val}</div><div class="profile-stat-label">${s.label}</div></div>`).join('');
   const row = document.getElementById('profile-stats-row');
+  row.classList.add('six');
   row.innerHTML = statsHtml('…', '…');
+  // Places need the (lazy) geo data; fill the two cards in when it's ready.
+  computePlaces().then(pl => {
+    if (currentView !== 'profile' || !pl) return;
+    const cards = row.querySelectorAll('.profile-stat-val');
+    if (cards[0]) cards[0].textContent = pl.countries.size.toLocaleString();
+    if (cards[1]) cards[1].textContent = pl.cityCount.toLocaleString();
+  }).catch(e => console.warn('Places failed', e));
   renderProfileStories();
   renderRelicSuggestions();
   updatePinNudge();
@@ -9124,7 +9172,11 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   ppViewingFollowerCount = counts.followers;
   const km = acts.reduce((s, a) => s + (a.distance || 0), 0) / 1000;
   const stat = (v, l, id) => `<div class="profile-stat"><div class="profile-stat-val"${id ? ` id="${id}"` : ''}>${v}</div><div class="profile-stat-label">${l}</div></div>`;
+  const ps = profile.places_summary;
+  const hasPlaces = ps && Number.isFinite(ps.countries);
+  document.getElementById('pp-stats-row').classList.toggle('six', !!hasPlaces);
   document.getElementById('pp-stats-row').innerHTML =
+    (hasPlaces ? stat(Number(ps.countries).toLocaleString(), 'Countries') + stat(Number(ps.cities || 0).toLocaleString(), 'Cities') : '') +
     stat(acts.length.toLocaleString(), 'Activities') + stat(fmtDist(km * 1000, 0), 'Distance') +
     stat(counts.followers, 'Followers', 'pp-follower-count') + stat(counts.following, 'Following');
   renderPpFollowButton();
@@ -9675,6 +9727,221 @@ async function showInviteBanner() {
 }
 
 // ════════════════════════════════════════
+// PLACES — countries and cities you've been, worked out on the device
+// ════════════════════════════════════════
+// data/countries.json (Natural Earth 1:50m outlines, [cc, name, bbox, rings],
+// coordinates ×100) and data/cities.json (GeoNames towns ≥5,000 people,
+// columnar) are fetched once, only when places are first needed. No
+// geocoding service: free, instant, and nothing to store under anyone's
+// terms. Each activity contributes its start, end and (not for flights —
+// nobody "visits" what they fly over) a few points along the way; pins
+// contribute their spot. A point's country is the outline it falls in
+// (nearest town's country if it's just offshore); its city is the nearest
+// town ≥5,000 within PLACE_CITY_KM in that same country.
+const PLACE_CITY_KM = 20;
+let _geoData = null, _geoLoading = null, _placeCache = {}, _cellCache = new Map(), _places = null;
+function loadGeoData() {
+  if (_geoData) return Promise.resolve(_geoData);
+  if (_geoLoading) return _geoLoading;
+  _geoLoading = Promise.all([fetch('data/countries.json').then(r => r.json()), fetch('data/cities.json').then(r => r.json())])
+    .then(([countries, c]) => {
+      const names = c.n.split('|'), grid = new Map();
+      for (let i = 0; i < names.length; i++) {
+        const k = Math.floor(c.lat[i] / 100) + ':' + Math.floor(c.lng[i] / 100);
+        (grid.get(k) || grid.set(k, []).get(k)).push(i);
+      }
+      _geoData = { countries, names, lat: c.lat, lng: c.lng, cc: c.cc, grid };
+      return _geoData;
+    });
+  _geoLoading.catch(() => { _geoLoading = null; });
+  return _geoLoading;
+}
+function _inRing(x, y, r) {
+  let inside = false;
+  for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+    const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1];
+    if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function geoCountryAt(lat, lng) {
+  const x = lng * 100, y = lat * 100;
+  for (const c of _geoData.countries) {
+    const b = c[2];
+    if (x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue;
+    for (const r of c[3]) if (_inRing(x, y, r)) return c[0];
+  }
+  return null;
+}
+function geoNearestCity(lat, lng, maxKm, cc) {
+  const g = _geoData, gy = Math.floor(lat), gx = Math.floor(lng);
+  let best = -1, bestD = maxKm;
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+    (g.grid.get((gy + dy) + ':' + (gx + dx)) || []).forEach(i => {
+      if (cc && g.cc.substr(i * 2, 2) !== cc) return;
+      const d = haversine(lat, lng, g.lat[i] / 100, g.lng[i] / 100) / 1000;
+      if (d < bestD) { bestD = d; best = i; }
+    });
+  }
+  return best < 0 ? null : { name: g.names[best], cc: g.cc.substr(best * 2, 2) };
+}
+// { cc, city } for one point; cached per ~1 km cell.
+function geoPlaceAt(lat, lng) {
+  const k = Math.round(lat * 100) + ':' + Math.round(lng * 100);
+  if (_cellCache.has(k)) return _cellCache.get(k);
+  let cc = geoCountryAt(lat, lng);
+  if (!cc) { const near = geoNearestCity(lat, lng, 40, null); cc = near ? near.cc : null; }
+  const city = cc ? geoNearestCity(lat, lng, PLACE_CITY_KM, cc) : null;
+  const v = cc ? { cc, city: city ? city.name : null } : null;
+  _cellCache.set(k, v);
+  return v;
+}
+function placeAnchors(m) {
+  const pts = [];
+  if (m.startLat != null && m.startLng != null) pts.push([m.startLat, m.startLng]);
+  if (m.endLat != null && m.endLng != null) pts.push([m.endLat, m.endLng]);
+  const c = m.isPin ? null : getCoords(m);
+  if (c && c.length) {
+    const flight = getGroup(m.type) === 'Flight';
+    const idx = flight ? [0, c.length - 1] : [0, 0.2, 0.4, 0.6, 0.8, 1].map(f => Math.round(f * (c.length - 1)));
+    [...new Set(idx)].forEach(i => pts.push([c[i][1], c[i][0]]));
+  }
+  return pts;
+}
+// [{cc, city}] for one activity or pin, memoised for the session.
+function placesOfMoment(m) {
+  if (_placeCache[m.id]) return _placeCache[m.id];
+  const seen = new Set(), out = [];
+  placeAnchors(m).forEach(([lat, lng]) => {
+    if (!isFinite(lat) || !isFinite(lng)) return;
+    const p = geoPlaceAt(lat, lng); if (!p) return;
+    const k = p.cc + '|' + (p.city || '');
+    if (!seen.has(k)) { seen.add(k); out.push(p); }
+  });
+  return (_placeCache[m.id] = out);
+}
+const _countryNames = () => Object.fromEntries((_geoData?.countries || []).map(c => [c[0], c[1]]));
+function flagEmoji(cc) { return /^[A-Z]{2}$/.test(cc || '') ? String.fromCodePoint(...[...cc].map(ch => 127397 + ch.charCodeAt(0))) : '🏳️'; }
+// Aggregate everything: country → {name, first, firstId, ids, cities: name → {first, firstId, ids}}.
+// "First" skips placeholder dates (see relicSuggestPlaceholderTimes) so a
+// year-only import can't claim to be your first visit on 1 Jan.
+async function computePlaces() {
+  await loadGeoData();
+  const items = getMoments().concat(getPins()).filter(m => m && !isStory(m));
+  const placeholders = relicSuggestPlaceholderTimes(items.filter(m => m.date && !m._dateEdited));
+  const names = _countryNames(), countries = new Map();
+  let cityCount = 0;
+  items.forEach(m => {
+    const realDate = m.date && !relicSuggestLooksDefaulted(m, placeholders) ? m.date : null;
+    placesOfMoment(m).forEach(({ cc, city }) => {
+      let c = countries.get(cc);
+      if (!c) countries.set(cc, c = { cc, name: names[cc] || cc, first: null, firstId: null, ids: new Set(), cities: new Map() });
+      c.ids.add(m.id);
+      if (realDate && (!c.first || realDate < c.first)) { c.first = realDate; c.firstId = m.id; }
+      if (!city) return;
+      let ct = c.cities.get(city);
+      if (!ct) { c.cities.set(city, ct = { name: city, first: null, firstId: null, ids: new Set() }); cityCount++; }
+      ct.ids.add(m.id);
+      if (realDate && (!ct.first || realDate < ct.first)) { ct.first = realDate; ct.firstId = m.id; }
+    });
+  });
+  _places = { countries, cityCount };
+  savePlacesSummary(countries.size, cityCount);
+  return _places;
+}
+// Counts only, for instant profile stats and for other people's view of your
+// profile (profiles.places_summary) — never which places.
+function placesSummaryCached() {
+  try { const v = JSON.parse(_lsGet('relic_places_summary') || 'null'); return v && Number.isFinite(v.countries) ? v : null; } catch (e) { return null; }
+}
+function savePlacesSummary(countries, cities) {
+  const prev = placesSummaryCached();
+  if (prev && prev.countries === countries && prev.cities === cities && prev.synced) return;
+  const v = { countries, cities };
+  _lsSet('relic_places_summary', JSON.stringify(v));
+  if (DEMO || !currentUser) return;
+  sb.from('profiles').update({ places_summary: v }).eq('id', currentUser.id)
+    .then(({ error }) => { if (!error) _lsSet('relic_places_summary', JSON.stringify({ ...v, synced: true })); }, () => {});
+}
+// A suggestion/relic title from where its activities were: the most common
+// city, else the country (or "Norway & Sweden"). Only once places have been
+// worked out this session — never blocks.
+function placeLabelFor(moments) {
+  if (!_geoData) return null;
+  const cityN = {}, ccN = {};
+  moments.forEach(m => placesOfMoment(m).forEach(p => {
+    ccN[p.cc] = (ccN[p.cc] || 0) + 1;
+    if (p.city) cityN[p.city] = (cityN[p.city] || 0) + 1;
+  }));
+  const top = o => Object.entries(o).sort((a, b) => b[1] - a[1]);
+  const names = _countryNames(), ccs = top(ccN);
+  if (ccs.length >= 2) return ccs.slice(0, 2).map(([cc]) => names[cc] || cc).join(' & ');
+  const city = top(cityN)[0];
+  return city ? city[0] : (ccs[0] ? names[ccs[0][0]] || ccs[0][0] : null);
+}
+function fmtFirst(d) { return d ? new Date(d).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : 'date unknown'; }
+let _placesSort = 'first';
+function setPlacesSort(s) {
+  _placesSort = s;
+  document.querySelectorAll('#places-sort button').forEach(b => b.classList.toggle('active', b.dataset.s === s));
+  renderPlacesView();
+}
+async function renderPlacesView() {
+  const list = document.getElementById('places-list'), sub = document.getElementById('places-sub');
+  if (!_places) list.innerHTML = '<div class="skel skel-card"></div>';
+  let pl;
+  try { pl = await computePlaces(); }
+  catch (e) { list.innerHTML = emptyBlock('map', 'Couldn\'t load place data', 'Check your connection and try again.', ''); return; }
+  if (!pl.countries.size) {
+    sub.textContent = '';
+    list.innerHTML = emptyBlock('map', 'No places yet', 'Import activities or drop a few pins, and every country and city you\'ve been will show up here.',
+      `<button class="btn-primary" onclick="openAddModal()"><svg class="ic"><use href="#i-plus"/></svg>Add to your map</button>`);
+    return;
+  }
+  const cs = [...pl.countries.values()];
+  const byFirst = (a, b) => (a.first || '9999') < (b.first || '9999') ? -1 : 1;
+  cs.sort(_placesSort === 'az' ? (a, b) => a.name.localeCompare(b.name) : _placesSort === 'most' ? (a, b) => b.ids.size - a.ids.size : byFirst);
+  const firstAbroad = cs.slice().sort(byFirst)[0];
+  sub.textContent = `${pl.countries.size} ${pl.countries.size === 1 ? 'country' : 'countries'} · ${pl.cityCount} ${pl.cityCount === 1 ? 'city' : 'cities'}` +
+    (firstAbroad?.first ? ` · since ${new Date(firstAbroad.first).getUTCFullYear()}` : '');
+  list.innerHTML = cs.map(c => {
+    const cities = [...c.cities.values()].sort(_placesSort === 'az' ? (a, b) => a.name.localeCompare(b.name) : _placesSort === 'most' ? (a, b) => b.ids.size - a.ids.size : byFirst);
+    return `<details class="place-country">
+      <summary><span class="place-flag">${flagEmoji(c.cc)}</span><span class="place-main"><span class="place-name">${escapeHtml(c.name)}</span>
+        <span class="place-meta">First visit ${fmtFirst(c.first)} · ${c.cities.size} ${c.cities.size === 1 ? 'city' : 'cities'} · ${c.ids.size} ${c.ids.size === 1 ? 'visit' : 'visits'}</span></span>
+        <button class="btn-ghost btn-sm" onclick="event.preventDefault();showPlaceOnMap(${jsAttr(c.cc)})">Map</button></summary>
+      ${cities.length ? `<div class="place-cities">${cities.map(ct => `<button class="place-city" onclick="showPlaceOnMap(${jsAttr(c.cc)},${jsAttr(ct.name)})">${escapeHtml(ct.name)}<span>${fmtFirst(ct.first)} · ${ct.ids.size}</span></button>`).join('')}</div>` : ''}
+    </details>`;
+  }).join('');
+}
+// Fly the main map to everything in a country or city.
+function showPlaceOnMap(cc, city) {
+  const c = _places?.countries.get(cc); if (!c) return;
+  const ids = city ? c.cities.get(city)?.ids : c.ids; if (!ids) return;
+  const pts = [];
+  ids.forEach(id => { const m = db[id]; if (m) placeAnchors(m).forEach(p => { const pl = geoPlaceAt(p[0], p[1]); if (pl && pl.cc === cc && (!city || pl.city === city)) pts.push(p); }); });
+  if (!pts.length) return;
+  switchView('map');
+  const lats = pts.map(p => p[0]), lngs = pts.map(p => p[1]);
+  setTimeout(() => { try { map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 80, maxZoom: 12, duration: 900 }); } catch (e) {} }, 80);
+}
+// "First time in 🇯🇵 Japan" / "New city: Kyoto" on the activity that was the
+// first visit. Needs the places pass; fills in when it lands.
+function renderFirstsBadges(mem) {
+  const el = document.getElementById('d-firsts'); if (!el) return;
+  el.hidden = true; el.innerHTML = '';
+  computePlaces().then(pl => {
+    if (selectedId !== mem.id || !pl) return;
+    const badges = [];
+    pl.countries.forEach(c => {
+      if (c.firstId === mem.id) badges.push(`<span class="first-badge">${flagEmoji(c.cc)} First time in ${escapeHtml(c.name)}</span>`);
+      c.cities.forEach(ct => { if (ct.firstId === mem.id && c.firstId !== mem.id) badges.push(`<span class="first-badge">New city: ${escapeHtml(ct.name)}</span>`); });
+    });
+    if (badges.length) { el.innerHTML = badges.slice(0, 3).join(''); el.hidden = false; }
+  }).catch(() => {});
+}
+
+// ════════════════════════════════════════
 // RELIC SUGGESTIONS
 // ════════════════════════════════════════
 // The deferred idea noted in CLAUDE.md under "Profile = Stories only": group
@@ -9775,6 +10042,9 @@ function relicSuggestionFromGroup(group, home) {
   });
   let place = null, placeN = 0;
   Object.entries(placeCounts).forEach(([p, n]) => { if (n > placeN) { place = p; placeN = n; } });
+  // Strava/GPX tracks carry no place names; the Places engine (once it has
+  // run this session) names them from where they actually are.
+  if (!place) place = placeLabelFor(group);
 
   const dateLabel = dateStart === dateEnd
     ? new Date(dateStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -10928,6 +11198,7 @@ function switchView(view) {
   if(view==='people') buildPeople();
   if(view==='settings') buildSettings();
   if(view==='relic-suggest') renderRelicSuggestView();
+  if(view==='places') renderPlacesView();
   if(view==='map') setTimeout(()=>{if(map)map.resize();},50);
 }
 
@@ -11147,7 +11418,7 @@ _r('recoverAndReload',recoverAndReload);
 _r('toast',toast);_r('uiConfirm',uiConfirm);
 _r('toggleAccountMenu',toggleAccountMenu);_r('closeAccountMenu',closeAccountMenu);
 _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',buildFollowingFeed);
-_r('toggleLike',toggleLike);_r('openRelicView',openRelicView);_r('closeRelicView',closeRelicView);_r('saveSuggestedRelic',saveSuggestedRelic);_r('showLikers',showLikers);_r('commentMenu',commentMenu);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
+_r('toggleLike',toggleLike);_r('setPlacesSort',setPlacesSort);_r('showPlaceOnMap',showPlaceOnMap);_r('openRelicView',openRelicView);_r('closeRelicView',closeRelicView);_r('saveSuggestedRelic',saveSuggestedRelic);_r('showLikers',showLikers);_r('commentMenu',commentMenu);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
 _r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('setBlocked',setBlocked);_r('removeFollower',removeFollower);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);

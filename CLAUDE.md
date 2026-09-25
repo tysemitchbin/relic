@@ -89,6 +89,38 @@ future sessions would need.
   one. `docs/beta-metrics.sql` is the consent-independent scorecard read
   straight from Supabase.
 
+## Places (`growth-redesign`, 2026-09-25)
+
+Countries and cities you've been, worked out **on the device** — no
+geocoding service (Mapbox's free geocoding results aren't meant to be
+stored; this is free, instant and has no terms to mind).
+
+- **Data:** `data/countries.json` (Natural Earth 1:50m outer rings,
+  `[cc, name, bbox, rings]`, coordinates ×100; a few official names
+  shortened, e.g. "United States") and `data/cities.json` (GeoNames towns
+  ≥5,000 people, columnar). Fetched once by `loadGeoData()`, only when places
+  are first needed. **GeoNames is CC BY 4.0 — keep the credit line on the
+  Places page.**
+- **Per point** (`geoPlaceAt`, cached per ~1 km cell): country = the outline
+  it falls in, else the nearest town's country within 40 km (offshore);
+  city = nearest town within `PLACE_CITY_KM` (20) *in that country*.
+- **Per activity** (`placesOfMoment`, memoised): start, end, and 4 points
+  along the track — but a **flight counts only its two ends** (you don't
+  visit what you fly over). Pins count at their spot.
+- **Aggregate** (`computePlaces()` → `_places`): country → cities, visit
+  ids, and the *first* visit — skipping placeholder dates via
+  `relicSuggestPlaceholderTimes`, so a year-only import can't be a "first".
+- **Where it shows:** Countries + Cities cards first on Profile (`.six`
+  stats grid, tap → `#places-view`); the Places page (`renderPlacesView`,
+  sortable, city rows fly the map there via `showPlaceOnMap`); "First time
+  in 🇯🇵 Japan" / "New city" badges in the activity detail
+  (`renderFirstsBadges`, `#d-firsts`); relic suggestion titles when the
+  activities carry no place names (`placeLabelFor`: top city, or "Norway &
+  Sweden" across two countries).
+- **Other people see counts only**: `profiles.places_summary`
+  `{countries, cities}`, written by the owner's device
+  (`savePlacesSummary`), read in `Social.profiles`. Never which places.
+
 ## Design system + social layer (`ux-social-overhaul`, 2026-09-18)
 
 Full rationale lives in `docs/review-2026-09-18.md`. What future edits need
