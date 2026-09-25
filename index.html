@@ -963,6 +963,16 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .pp-header { display: flex; gap: 22px; align-items: center; padding: 24px; margin-bottom: 16px; text-align: left; border-bottom: none; }
 .pp-avatar { width: 104px; height: 104px; font-size: 38px; margin: 0; border: none; }
 .pp-main { flex: 1; min-width: 0; }
+#pp-avatar .people-avatar-fallback, #pp-avatar > span { font-size: 40px; font-weight: 600; }
+.pp-name .chip { font-family: var(--font-ui); }
+/* The name is text here, not your profile's tall input, so keep it clear of
+   the banner the photo overlaps (desktop only — mobile stacks the hero). */
+@media (min-width: 769px) { #public-profile-view .profile-info { padding-top: 62px; } }
+.profile-actions .follow-btn { height: 42px; padding: 0 20px; font-size: 14px; }
+.relic-view-modal { max-width: 640px; width: calc(100% - 32px); max-height: calc(100% - 40px); overflow-y: auto; padding: 0; }
+.relic-view-modal .feed-card { margin: 0; border: 0; box-shadow: none; }
+.relic-view-modal .fc-view-btn { display: none; }
+.relic-view-modal .modal-actions { position: sticky; bottom: 0; background: var(--surface); padding: 12px 16px; margin: 0; border-top: 1px solid var(--border); }
 .pp-name { font: 600 30px/1.15 var(--font-display); letter-spacing: -0.02em; color: var(--ink); margin-bottom: 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pp-bio { font-size: 15px; color: var(--text-2); max-width: 520px; margin: 0 0 14px; line-height: 1.5; }
 .pp-stats-row { display: flex; gap: 22px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -2429,25 +2439,29 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="view" id="public-profile-view">
       <div class="profile-wrap">
         <button class="pp-back" onclick="closePublicProfile(true)"><svg class="ic"><use href="#i-chevron-left"/></svg>Back</button>
-        <div class="card pp-header">
-          <div class="people-avatar pp-avatar" id="pp-avatar"></div>
-          <div class="pp-main">
-            <div class="pp-name"><span id="pp-name"></span><span class="chip accent" id="pp-follows-you" hidden>Follows you</span></div>
-            <div class="pp-bio" id="pp-bio"></div>
-            <div class="pp-stats-row" id="pp-stats-row"></div>
-            <div class="pp-btns">
-              <button class="follow-btn" id="pp-follow-btn" onclick="togglePublicProfileFollow()"></button>
-              <button class="btn-ghost btn-sm" style="height:40px" onclick="sharePublicProfile()"><svg class="ic"><use href="#i-share"/></svg>Share</button>
-              <button class="icon-btn" style="border:1px solid var(--border)" onclick="openProfileMoreMenu(event)" aria-label="More"><svg class="ic"><use href="#i-more"/></svg></button>
-            </div>
-          </div>
-        </div>
+        <!-- Same layout as your own #profile-view (banner, photo, name, actions,
+             stat cards, relic grid) minus suggestions and editing. -->
         <div class="profile-cover-wrap" id="pp-cover-wrap" onclick="viewProfileOnMainMap(ppViewingUserId)" onkeydown="if(event.key==='Enter')viewProfileOnMainMap(ppViewingUserId)" role="button" tabindex="0" aria-label="View full map and every public activity">
           <div class="profile-cover" id="pp-cover"></div>
           <div class="cover-hint"><svg class="ic"><use href="#i-map"/></svg>View full map</div>
         </div>
-        <div class="section-title" style="margin-top:6px"><h2>Relics</h2></div>
-        <div class="pp-body" id="pp-body"></div>
+        <div class="profile-hero">
+          <div class="profile-photo-wrap" style="cursor:default"><div class="profile-photo" id="pp-avatar"></div></div>
+          <div class="profile-info">
+            <div class="pp-name"><span id="pp-name"></span><span class="chip accent" id="pp-follows-you" hidden>Follows you</span></div>
+            <div class="pp-bio" id="pp-bio"></div>
+          </div>
+        </div>
+        <div class="profile-actions">
+          <button class="follow-btn" id="pp-follow-btn" onclick="togglePublicProfileFollow()"></button>
+          <button class="btn-ghost" onclick="sharePublicProfile()"><svg class="ic"><use href="#i-share"/></svg>Share</button>
+          <button class="btn-ghost" onclick="openProfileMoreMenu(event)" aria-label="More"><svg class="ic"><use href="#i-more"/></svg></button>
+        </div>
+        <div class="profile-stats-row" id="pp-stats-row"></div>
+        <div class="profile-stories-section">
+          <div class="profile-stories-header"><div class="profile-stories-title">Relics</div></div>
+          <div class="profile-stories-grid" id="pp-body"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -2625,6 +2639,15 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 <!-- STORY MODAL -->
 <input type="file" id="relic-photo-input" accept="image/*" multiple hidden onchange="handleRelicPhotoUpload(this)">
 
+<div class="modal-overlay" id="relic-view-modal" onclick="if(event.target===this)closeRelicView()">
+  <div class="modal relic-view-modal">
+    <div id="relic-view-body"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeRelicView()">Close</button>
+      <button class="btn-primary" onclick="closeRelicView();viewProfileOnMainMap(ppViewingUserId)"><svg class="ic"><use href="#i-map"/></svg>See on map</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="relic-share-modal" onclick="if(event.target===this)closeRelicShare()">
   <div class="modal">
     <div class="modal-title">Share relic</div>
@@ -8536,14 +8559,9 @@ async function buildProfile() {
 // as many as fit in the URL budget).
 function renderProfileCover() {
   const el = document.getElementById('profile-cover'); if (!el) return;
-  const overlays = []; let budget = 7000;
-  getMoments().sort((a, b) => ((b.date || '') > (a.date || '') ? 1 : -1)).slice(0, 80).forEach(m => {
-    const p = encodedPolyOf(m); if (!p) return;
-    const seg = pathOv(p, (m.customColor || getColor(m.type)).replace('#', ''), 3, 0.9);
-    if (seg.length + 1 > budget) return;
-    overlays.push(seg); budget -= seg.length + 1;
-  });
-  el.innerHTML = overlays.length ? mapboxStaticImg(overlays, 880, 180) : '';
+  const tracks = [];
+  getMoments().forEach(m => { const p = encodedPolyOf(m); if (p) tracks.push({ poly: p, color: m.customColor || getColor(m.type) }); });
+  el.innerHTML = densestCoverImg(tracks, 880, 180);
 }
 function openConnections(tab) { peopleTab = tab; switchView('people'); }
 
@@ -9091,18 +9109,18 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   if (!profile) { document.getElementById('pp-body').innerHTML = emptyBlock('user', 'Profile not found', 'This account may have been deleted.', ''); document.getElementById('pp-cover').innerHTML = ''; return; }
   _ppProfile = profile;
   _ppActs = acts; _ppStories = stories;
-  document.getElementById('pp-avatar').innerHTML = profile.avatarUrl ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="">` : escapeHtml(initials(profile.name));
   const h = _hue(userId);
-  document.getElementById('pp-avatar').style.cssText = profile.avatarUrl ? '' : `background:hsl(${h} 42% 88%);color:hsl(${h} 38% 30%)`;
+  document.getElementById('pp-avatar').innerHTML = profile.avatarUrl ? `<img src="${escapeHtml(profile.avatarUrl)}" alt="">`
+    : `<span style="color:hsl(${h} 38% 30%)">${escapeHtml(initials(profile.name))}</span>`;
+  document.getElementById('pp-avatar').style.cssText = profile.avatarUrl ? '' : `background:hsl(${h} 42% 88%)`;
   document.getElementById('pp-name').textContent = profile.name || 'Unnamed';
   document.getElementById('pp-bio').textContent = profile.bio || '';
   ppViewingFollowerCount = counts.followers;
   const km = acts.reduce((s, a) => s + (a.distance || 0), 0) / 1000;
+  const stat = (v, l, id) => `<div class="profile-stat"><div class="profile-stat-val"${id ? ` id="${id}"` : ''}>${v}</div><div class="profile-stat-label">${l}</div></div>`;
   document.getElementById('pp-stats-row').innerHTML =
-    `<div><div class="pp-stat-val">${acts.length.toLocaleString()}</div><div class="pp-stat-label">Activities</div></div>` +
-    `<div><div class="pp-stat-val">${fmtDist(km * 1000, 0)}</div><div class="pp-stat-label">Distance</div></div>` +
-    `<div><div class="pp-stat-val" id="pp-follower-count">${counts.followers}</div><div class="pp-stat-label">Followers</div></div>` +
-    `<div><div class="pp-stat-val">${counts.following}</div><div class="pp-stat-label">Following</div></div>`;
+    stat(acts.length.toLocaleString(), 'Activities') + stat(fmtDist(km * 1000, 0), 'Distance') +
+    stat(counts.followers, 'Followers', 'pp-follower-count') + stat(counts.following, 'Following');
   renderPpFollowButton();
   renderPublicCover(acts);
   // Without these the relic cards here render no photos, though the feed's do.
@@ -9112,35 +9130,109 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   // map hero above (tap it → their tracks overlaid on the main map), same as
   // your own profile.
   const own = userId === currentUser.id;
+  _ppPhotos = ppPhotos;
   document.getElementById('pp-body').innerHTML = stories.length
-    ? stories.map(st => renderPublicStoryCard(st, profile, ppPhotos[st.story_id])).join('')
+    ? stories.map(publicRelicGridCard).join('')
     : emptyBlock('book', own ? 'No relics yet' : `${(profile.name || 'They').split(' ')[0]} hasn't posted a relic yet`,
         own ? 'This is how other people see your profile. Group a few activities into a relic to post it here.' : 'Relics are how people share trips and groups of activities here.',
         own ? `<button class="btn-primary" onclick="openStoryModal()"><svg class="ic"><use href="#i-plus"/></svg>New relic</button>` : '');
-  flushCanvasJobs();
-  hydrateSocialCounts(document.getElementById('pp-body'), stories.map(st => socialKey(userId, st.story_id)), 'relic');
-  if (focusStoryId) {
-    const body = document.getElementById('pp-body');
-    const sc = body.querySelector(`.feed-card[data-story="${CSS.escape(socialKey(userId, focusStoryId))}"]`);
-    if (sc) setTimeout(() => { sc.scrollIntoView({ behavior: 'smooth', block: 'center' }); sc.style.boxShadow = '0 0 0 3px var(--accent)'; setTimeout(() => sc.style.boxShadow = '', 2400); }, 350);
-  }
+  // A relic link / feed tap / map tap lands here with focusStoryId: open it.
+  if (focusStoryId && stories.some(st => st.story_id === focusStoryId)) openRelicView(focusStoryId);
   // Photos/likes/comments and the activity cards themselves are only built
   // when their tracks actually get loaded onto the main map (see
   // viewProfileOnMainMap) — the profile page itself only needs the cover
   // image and the stats above.
   if (focusActivityId) viewProfileOnMainMap(userId, focusActivityId);
 }
+// Someone else's relic as a grid card — the same card your own Relics grid
+// uses (renderProfileStories), built from their story_public row. Tapping it
+// opens the full relic (photos, likes, comments) in #relic-view-modal.
+let _ppPhotos = {};
+function publicRelicGridCard(r) {
+  const fmt = (d, y) => new Date(d).toLocaleDateString('en-GB', y ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' });
+  const range = r.date_start && r.date_end ? fmt(r.date_start) + ' — ' + fmt(r.date_end, true) : '';
+  const st = (v, l) => `<div class="story-card-stat"><div class="story-card-stat-val">${v}</div><div class="story-card-stat-label">${l}</div></div>`;
+  const types = Object.keys(r.type_counts || {});
+  return `<div class="story-card" onclick="openRelicView(${jsAttr(r.story_id)})" role="button" tabindex="0">
+    <div class="story-card-map is-glyph">${publicGlyphSvg(r)}<div class="story-card-badge">${Number(r.moment_count) || 0} activities</div></div>
+    <div class="story-card-body">
+      <div class="story-card-title">${escapeHtml(r.title || 'Untitled')}</div>
+      <div class="story-card-meta">${escapeHtml(range)}</div>
+      <div class="story-card-stats">${st(r.distance > 0 ? fmtDist(r.distance) : '—', 'Distance')}${st(r.elevation > 0 ? fmtElev(r.elevation) : '—', 'Elevation')}${st(r.duration > 0 ? formatDur(r.duration) : '—', 'Time')}</div>
+      <div class="story-card-types">${types.map(k => `<div class="story-card-type-dot" style="background:${escapeHtml(TYPE_CONFIG[k]?.color || '#92400e')}" title="${escapeHtml(TYPE_CONFIG[k]?.label || k)}"></div>`).join('')}</div>
+    </div>
+  </div>`;
+}
+function openRelicView(storyId) {
+  const r = (_ppStories || []).find(x => x.story_id === storyId); if (!r) return;
+  const body = document.getElementById('relic-view-body');
+  body.innerHTML = renderPublicStoryCard(r, _ppProfile, _ppPhotos[storyId]);
+  hydrateSocialCounts(body, [socialKey(r.user_id, r.story_id)], 'relic');
+  document.getElementById('relic-view-modal').classList.add('open');
+  document.querySelector('#relic-view-modal .modal').scrollTop = 0;
+}
+function closeRelicView() { document.getElementById('relic-view-modal').classList.remove('open'); }
+
 // A cover band made of their public tracks — same idea as renderProfileCover,
 // just built from Social.userActivities() rows instead of local Moments.
 function renderPublicCover(acts) {
   const el = document.getElementById('pp-cover'); if (!el) return;
-  const overlays = []; let budget = 7000;
-  acts.forEach(a => (a.polylines || []).forEach(p => {
-    const seg = pathOv(p, (a.custom_color || getColor(a.type)).replace('#', ''), 3, 0.9);
-    if (seg.length + 1 > budget) return;
-    overlays.push(seg); budget -= seg.length + 1;
-  }));
-  el.innerHTML = overlays.length ? mapboxStaticImg(overlays, 880, 180) : '';
+  const tracks = [];
+  acts.forEach(a => (a.polylines || []).forEach(p => tracks.push({ poly: p, color: a.custom_color || getColor(a.type) })));
+  el.innerHTML = densestCoverImg(tracks, 880, 180);
+}
+// Profile banner: frame the busiest part of someone's map, not the bounding
+// box of everything (one flight abroad would otherwise zoom it out to a
+// continent of empty tiles). Tracks are sampled into ~25 km cells, counting
+// each track once per cell; the cell with the most tracks in its 3×3
+// neighbourhood wins, and the frame is the 5th–95th percentile of the points
+// there, widened to the banner's aspect. Fixed thin stroke, like every
+// shared/rendered map — never the viewer's trackWidth.
+function densestCoverImg(tracks, w, h) {
+  const CELL = 0.25, samples = [];
+  tracks.forEach((t, i) => {
+    let c; try { c = decodePolyline(t.poly); } catch (e) { return; }
+    if (!c || !c.length) return;
+    const step = Math.max(1, Math.floor(c.length / 24));
+    for (let k = 0; k < c.length; k += step) samples.push({ i, lng: c[k][0], lat: c[k][1] });
+  });
+  if (!samples.length) return '';
+  const cells = new Map(), key = (x, y) => x + ':' + y;
+  samples.forEach(p => {
+    const k = key(Math.floor(p.lng / CELL), Math.floor(p.lat / CELL));
+    (cells.get(k) || cells.set(k, new Set()).get(k)).add(p.i);
+  });
+  let best = null, bestN = -1;
+  cells.forEach((_, k) => {
+    const [x, y] = k.split(':').map(Number), seen = new Set();
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) (cells.get(key(x + dx, y + dy)) || []).forEach(i => seen.add(i));
+    if (seen.size > bestN) { bestN = seen.size; best = [x, y]; }
+  });
+  const near = samples.filter(p => Math.abs(Math.floor(p.lng / CELL) - best[0]) <= 1 && Math.abs(Math.floor(p.lat / CELL) - best[1]) <= 1);
+  const q = (arr, f) => { const s = arr.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.max(0, Math.round(f * (s.length - 1))))]; };
+  let minLng = q(near.map(p => p.lng), 0.05), maxLng = q(near.map(p => p.lng), 0.95);
+  let minLat = q(near.map(p => p.lat), 0.05), maxLat = q(near.map(p => p.lat), 0.95);
+  // widen to the banner's aspect (in screen terms, so scale lng by cos(lat))
+  const midLat = (minLat + maxLat) / 2, cos = Math.max(0.2, Math.cos(midLat * Math.PI / 180));
+  let spanX = Math.max(maxLng - minLng, 0.04) * cos, spanY = Math.max(maxLat - minLat, 0.02);
+  spanX *= 1.15; spanY *= 1.3;                                   // breathing room
+  if (spanX / spanY < w / h) spanX = spanY * w / h; else spanY = spanX * h / w;
+  const cx = (minLng + maxLng) / 2, cy = midLat;
+  const bbox = [cx - spanX / cos / 2, cy - spanY / 2, cx + spanX / cos / 2, cy + spanY / 2].map(v => +v.toFixed(5));
+  // Tracks with the most points inside the frame go first; the rest only as
+  // the static-image URL budget allows.
+  const inside = new Map();
+  samples.forEach(p => { if (p.lng >= bbox[0] && p.lng <= bbox[2] && p.lat >= bbox[1] && p.lat <= bbox[3]) inside.set(p.i, (inside.get(p.i) || 0) + 1); });
+  const order = [...inside.keys()].sort((a, b) => inside.get(b) - inside.get(a));
+  const overlays = []; let budget = 7200;
+  order.forEach(i => {
+    const seg = pathOv(tracks[i].poly, tracks[i].color, 2, 0.9);
+    if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
+  });
+  if (!overlays.length) return '';
+  const url = `https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/static/${overlays.join(',')}/[${bbox.join(',')}]/${w}x${h}@2x`
+    + `?access_token=${encodeURIComponent(mapboxgl.accessToken)}&logo=false&attribution=false`;
+  return `<img class="static-map" loading="lazy" decoding="async" alt="" src="${url}" onerror="this.remove()">`;
 }
 
 // ════════════════════════════════════════
@@ -9685,8 +9777,26 @@ function relicSuggestionFromGroup(group, home) {
 // undated activity in the account landing on one fabricated day — instead
 // of an actual trip, so they're kept out of suggestion candidates entirely
 // rather than risk a bogus mega-cluster.
-function relicSuggestLooksDefaulted(m) {
-  const d = new Date(m.date);
+//
+// Midnight isn't the only placeholder. relic-bulk-import.html stamps every
+// activity whose KML only gave a year as that year's 1 Jan 12:00:00 — a real
+// account had 71 activities on "1 Jan 2024 12:00" and was offered a 38-activity
+// relic of them (2026-09-25). So, generally: a timestamp shared to the second
+// by RELIC_SUGGEST_PLACEHOLDER_MIN or more activities is a placeholder, not a
+// date — two real activities essentially never start in the same second, let
+// alone three. `placeholders` is that set, built once per computeRelicSuggestions().
+const RELIC_SUGGEST_PLACEHOLDER_MIN = 3;
+function relicSuggestPlaceholderTimes(moments) {
+  const n = new Map();
+  moments.forEach(m => { const t = Date.parse(m.date); if (!isNaN(t)) n.set(t, (n.get(t) || 0) + 1); });
+  return new Set([...n].filter(([, c]) => c >= RELIC_SUGGEST_PLACEHOLDER_MIN).map(([t]) => t));
+}
+function relicSuggestLooksDefaulted(m, placeholders) {
+  if (m._dateEdited) return false;   // a person set this date — trust it
+  const d = new Date(m.date), t = d.getTime();
+  if (isNaN(t)) return true;
+  if (placeholders && placeholders.has(t)) return true;
+  if (d.getUTCMonth() === 0 && d.getUTCDate() === 1 && d.getUTCHours() === 12 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0) return true;
   return d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0;
 }
 
@@ -9694,7 +9804,9 @@ function computeRelicSuggestions() {
   const usedIds = new Set();
   getStories().forEach(s => (s.momentIds || []).forEach(id => usedIds.add(id)));
 
-  const all = getMoments().filter(m => m.date && !usedIds.has(m.id) && !relicSuggestLooksDefaulted(m));
+  const dated = getMoments().filter(m => m.date);
+  const placeholders = relicSuggestPlaceholderTimes(dated.filter(m => !m._dateEdited));
+  const all = dated.filter(m => !usedIds.has(m.id) && !relicSuggestLooksDefaulted(m, placeholders));
   const anchorsById = {};
   all.forEach(m => { anchorsById[m.id] = relicSuggestAnchors(m); });
   const withAnchors = all.filter(m => anchorsById[m.id].length);
@@ -10973,7 +11085,7 @@ _r('recoverAndReload',recoverAndReload);
 _r('toast',toast);_r('uiConfirm',uiConfirm);
 _r('toggleAccountMenu',toggleAccountMenu);_r('closeAccountMenu',closeAccountMenu);
 _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',buildFollowingFeed);
-_r('toggleLike',toggleLike);_r('saveSuggestedRelic',saveSuggestedRelic);_r('showLikers',showLikers);_r('commentMenu',commentMenu);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
+_r('toggleLike',toggleLike);_r('openRelicView',openRelicView);_r('closeRelicView',closeRelicView);_r('saveSuggestedRelic',saveSuggestedRelic);_r('showLikers',showLikers);_r('commentMenu',commentMenu);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
 _r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('setBlocked',setBlocked);_r('removeFollower',removeFollower);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);

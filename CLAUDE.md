@@ -263,6 +263,18 @@ sidebar list both mean "this individual Moment has a written note"
   sections show an `emptyBlock()` empty state (not a hidden section) when
   there are none yet, with a "New story" CTA — the point is to nudge people
   toward making one, not to look broken.
+- **Someone else's profile uses the same layout as yours** (2026-09-25, user
+  ask): banner, overlapping photo, name/bio, Follow · Share · ⋯, the four
+  `.profile-stat` cards, and a `.profile-stories-grid` of relic cards
+  (`publicRelicGridCard`, built from `story_public` rows) — minus suggestions
+  and editing. A card opens the full relic (photos, likes, comments) in
+  `#relic-view-modal` (`openRelicView`), which is also where a relic deep
+  link / feed tap / map tap lands (`openPublicProfile(u, null, storyId)`).
+  **Both banners frame the busiest part of the map** (`densestCoverImg`):
+  ~25 km cells, most distinct tracks in a 3×3 neighbourhood wins, 5th–95th
+  percentile of those points widened to the banner aspect, explicit Mapbox
+  bbox rather than `auto` (one trip abroad used to zoom it out to empty
+  tiles). Thin fixed stroke.
 - **The map hero is clickable** (`onclick="viewProfileOnMainMap(...)"`,
   `role="button" tabindex="0"`, same plain-div-as-button pattern as
   `.profile-stat[onclick]` elsewhere in this file). **This used to open a
@@ -398,7 +410,13 @@ sidebar list both mean "this individual Moment has a written note"
   suggests it as one giant "trip" — caught from a live account where a
   suggestion was "38 activities on 1 Jan 2021". Excluded, not fixed —
   fixing a genuinely bad date needs a real known date/time, which is what
-  "Users can also edit a Moment's date/time" above adds.
+  "Users can also edit a Moment's date/time" above adds. **Midnight isn't the
+  only placeholder** (2026-09-25): `relic-bulk-import.html` stamps a
+  year-only KML activity as `YYYY-01-01T12:00:00Z`, and a live account was
+  offered a 38-activity relic "on 1 Jan". So any timestamp shared to the
+  second by `RELIC_SUGGEST_PLACEHOLDER_MIN` (3)+ activities is treated as a
+  placeholder (`relicSuggestPlaceholderTimes`), as is 1 Jan 12:00:00 itself —
+  except a date a person set by hand (`_dateEdited`), which is always trusted.
   **Card CSS pitfall**: the suggestion card's wrapper class is
   `.relic-suggest-card`, deliberately NOT `.suggest-card` — that name was
   already taken by the People/Discover "who to follow" card (`display:flex;
