@@ -688,6 +688,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .cmt-more .ic { width: 16px; height: 16px; }
 .fc-likes-line { display: block; width: 100%; text-align: left; padding: 0 18px 12px; font: 400 13px var(--font-ui); color: var(--text-2); background: none; border: 0; cursor: pointer; }
 .fc-likes-line b { color: var(--ink); font-weight: 600; }
+.feed-suggest { margin-bottom: 16px; }
+.feed-suggest-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.feed-suggest-head b { display: block; font: 600 16px var(--font-display); color: var(--ink); }
+.feed-suggest-head span { font-size: 13px; color: var(--text-2); }
 .rs-state { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-2); margin: 4px 0 12px; }
 .rs-state .ic { width: 15px; height: 15px; flex: none; }
 .cmt-del:hover { color: var(--danger); }
@@ -6879,7 +6883,28 @@ function renderOnThisDay() {
 }
 function renderFeedTop() {
   const el = document.getElementById('feed-top'); if (!el) return;
-  el.innerHTML = renderOnThisDay() + renderGettingStarted();
+  el.innerHTML = renderFeedSuggestion() + renderOnThisDay() + renderGettingStarted();
+}
+function renderFeedSuggestion() {
+  let list = [];
+  try { const dismissed = getDismissedRelicSuggestions(); list = computeRelicSuggestions().filter(s => !dismissed.has(s.id)); } catch (e) {}
+  if (!list.length) return '';
+  return `<section class="feed-suggest">
+    <div class="feed-suggest-head"><div><b>Relics waiting in your history</b>
+      <span>${list.length === 1 ? 'We found a trip' : `We found ${list.length} trips`} you haven't made into a relic yet.</span></div>
+      ${list.length > 1 ? `<button class="btn-ghost btn-sm" onclick="switchView('relic-suggest')">See all ${list.length}</button>` : ''}</div>
+    ${relicSuggestionCardHtml(list[0])}
+  </section>`;
+}
+// After an import, point at any trips it newly made suggestable. Only when the
+// count went up, so a routine sync doesn't nag.
+function nudgeRelicSuggestions() {
+  let n = 0;
+  try { const d = getDismissedRelicSuggestions(); n = computeRelicSuggestions().filter(s => !d.has(s.id)).length; } catch (e) { return; }
+  const key = 'relic_suggest_seen_count', prev = Number(_lsGet(key) || 0);
+  _lsSet(key, String(n));
+  if (n > prev) toast(`${n - prev === 1 ? 'A new trip' : `${n - prev} new trips`} found in your activities. Save ${n - prev === 1 ? 'it' : 'them'} as relics?`, {
+    icon: 'book', duration: 12000, action: { label: 'Take a look', fn: () => switchView('relic-suggest') } });
 }
 
 function setFeedTab(tab) {
@@ -8405,6 +8430,7 @@ async function syncStrava(full) {
     }
     stravaProg(true, { done: true, text: 'Done — ' + _syncTotal + ' activities' });
     track('strava_import_completed', { activities: _syncTotal, full: !!full });
+    if (_syncTotal > 0 && getStories().length) setTimeout(nudgeRelicSuggestions, 3500);
     set('Synced ' + _syncTotal + ' — reloading…');
     await loadFromSupabase();
     await renderAll();
@@ -9761,7 +9787,8 @@ function relicSuggestionCardHtml(s) {
           <ul class="suggest-activity-list">${activityRows}</ul>
         </details>
         <div class="story-card-actions">
-          <button class="btn-primary btn-sm" onclick="openSuggestedRelicModal(${jsAttr(s.id)})">Create relic</button>
+          <button class="btn-primary btn-sm" onclick="saveSuggestedRelic(${jsAttr(s.id)}, this)">Save relic</button>
+          <button class="story-card-btn" onclick="openSuggestedRelicModal(${jsAttr(s.id)})">Edit first</button>
           <button class="story-card-btn" onclick="dismissRelicSuggestion(${jsAttr(s.id)})">Dismiss</button>
         </div>
       </div>
@@ -9803,6 +9830,45 @@ function renderRelicSuggestView() {
 // Opens the existing Relic editor pre-filled with the suggestion's Moments
 // and a guessed title, so the user reviews/tweaks before it's actually
 // saved rather than a suggestion silently becoming a Relic on one click.
+// One tap: save the suggestion as a private relic straight away, edit later.
+// Builds the same object saveStory() would for a new relic (keep the two in
+// step — see the saveStory comment about restating every field).
+async function saveSuggestedRelic(suggestionId, btn) {
+  const s = computeRelicSuggestions().find(x => x.id === suggestionId);
+  if (!s) { toast('That suggestion is out of date.', { error: true }); refreshRelicSuggestionViews(); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const now = new Date().toISOString(), id = stableStoryId(s.title);
+  const story = {
+    id, type: 'story', title: s.title, subtitle: '', coverPhoto: null, isPublic: false,
+    glyphStyle: null, glyphColour: null, glyphInk: null,
+    momentIds: [...s.momentIds], narrative: '', mood: null, tags: [], published: false,
+    createdAt: now, lastModified: now,
+    _totalDistance: 0, _totalElevation: 0, _totalDuration: 0, _momentCount: 0, _typeBreakdown: {},
+  };
+  computeStoryStats(story);
+  db[id] = story;
+  if (!DEMO) {
+    const { error } = await sb.from('stories').upsert(storyToRow(story));
+    if (error) {
+      delete db[id];
+      if (btn) { btn.disabled = false; btn.textContent = 'Save relic'; }
+      toast('Couldn\'t save that relic — try again', { error: true });
+      return;
+    }
+    saveArchiveCache();
+  }
+  allStories = getStories();
+  track('relic_created', { source: 'suggestion', one_tap: true, activities: story.momentIds.length });
+  toast(`"${s.title}" saved as a private relic`, { icon: 'check', duration: 7000,
+    action: { label: 'Edit', fn: () => openStoryModal(id) } });
+  refreshRelicSuggestionViews();
+}
+// Whichever screens show suggestions or relics, re-render the visible one.
+function refreshRelicSuggestionViews() {
+  if (currentView === 'relic-suggest') renderRelicSuggestView();
+  else if (currentView === 'profile') buildProfile();
+  else if (currentView === 'feed') buildFeed();
+}
 function openSuggestedRelicModal(suggestionId) {
   const s = computeRelicSuggestions().find(x => x.id === suggestionId);
   if (!s) { toast('That suggestion is out of date.', { error: true }); renderRelicSuggestions(); return; }
@@ -10110,7 +10176,7 @@ async function doImport() {
       progress.textContent = `Done! ${imported} imported.`;
       toast(`${imported} ${imported === 1 ? 'activity' : 'activities'} on your map`, { icon: 'check' });
       track('file_import_completed', { activities: imported });
-      if (imported >= 2) setTimeout(offerFirstRelic, 3200);
+      if (imported >= 2) setTimeout(getStories().length ? nudgeRelicSuggestions : offerFirstRelic, 3200);
       if (importedEntries.some(e => e.type === 'Flight')) await syncAirportPins();
     } else {
       // roll back the local copies that didn't save
@@ -10907,7 +10973,7 @@ _r('recoverAndReload',recoverAndReload);
 _r('toast',toast);_r('uiConfirm',uiConfirm);
 _r('toggleAccountMenu',toggleAccountMenu);_r('closeAccountMenu',closeAccountMenu);
 _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',buildFollowingFeed);
-_r('toggleLike',toggleLike);_r('showLikers',showLikers);_r('commentMenu',commentMenu);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
+_r('toggleLike',toggleLike);_r('saveSuggestedRelic',saveSuggestedRelic);_r('showLikers',showLikers);_r('commentMenu',commentMenu);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
 _r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('setBlocked',setBlocked);_r('removeFollower',removeFollower);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);

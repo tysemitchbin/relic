@@ -31,7 +31,7 @@ directly. `track()` is a no-op in `?demo` and on `localhost`.
 | `file_import_completed` | GPX/KML import saved | `activities` | Import funnel (non-Strava) |
 | `pin_added` | Pin saved | `category` | Are non-athletes filling their map? |
 | `activity_added` | Manual entry / described trip / drawn route saved | `method` (`manual`/`describe`/`draw`), `type`, `legs` | Which no-GPS ways of adding things get used |
-| `relic_created` | A new relic is saved | `source` (`suggestion`/`manual`/`describe`), `activities` | **Core action.** Do suggestions drive relics? |
+| `relic_created` | A new relic is saved | `source` (`suggestion`/`manual`/`describe`), `one_tap` (saved straight from a suggestion card), `activities` | **Core action.** Do suggestions drive relics? |
 | `relic_suggestion_dismissed` | A suggestion is dismissed | — | Are suggestions any good? |
 | `relic_shared` / `relic_unshared` | Relic made public / private | `activities` | **Core action.** |
 | `link_shared` | A share link went out (share sheet or clipboard) | `kind` (`own_profile`/`profile`/`activity`/`relic`), `method` | Growth loop, outbound |

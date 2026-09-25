@@ -352,10 +352,17 @@ sidebar list both mean "this individual Moment has a written note"
   links two candidates whose nearest anchors are within 75km AND whose dates
   are within 2 days (one rest day mid-trip); groups of 2+ become a
   suggestion, titled from the most common `startPlace`/`endPlace` among the
-  group or else a date-range fallback. Clicking **Create relic** opens the
-  existing `openStoryModal()` pre-filled with the suggestion's Moments and
-  guessed title — a suggestion is never saved on one click, the user reviews
-  it first through the normal editor. **Dismiss** persists the suggestion's
+  group or else a date-range fallback. **Save relic** (`saveSuggestedRelic`,
+  `growth-redesign` 2026-09-24 — the user reversed the earlier "never save on
+  one click" rule: "save now, edit later") saves it straight away as a
+  *private* relic, building the same object `saveStory()` would (keep the two
+  literals in step), with an "Edit" action in the toast; **Edit first**
+  still opens `openStoryModal()` pre-filled. The best suggestion also sits at
+  the top of the Feed (`renderFeedSuggestion()` in `renderFeedTop`), and
+  after an import that adds new ones `nudgeRelicSuggestions()` toasts once —
+  only when the count went up (`relic_suggest_seen_count`), so routine syncs
+  don't nag. `refreshRelicSuggestionViews()` re-renders whichever screen
+  shows them. **Dismiss** persists the suggestion's
   id (stable — derived from its sorted Moment ids) in
   `relic_suggest_dismissed_v1_<uid>` so it doesn't reappear on the next
   render. Moments already inside any existing Story are excluded from
