@@ -692,6 +692,8 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .feed-suggest-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .feed-suggest-head b { display: block; font: 600 16px var(--font-display); color: var(--ink); }
 .feed-suggest-head span { font-size: 13px; color: var(--text-2); }
+.sm-map-preview { position: relative; aspect-ratio: 16 / 9; border-radius: var(--r-md); overflow: hidden; background: var(--paper2); border: 1px solid var(--border); }
+.sm-map-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; text-align: center; font-size: 13px; color: var(--text-3); }
 .rs-state { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-2); margin: 4px 0 12px; }
 .rs-state .ic { width: 15px; height: 15px; flex: none; }
 .cmt-del:hover { color: var(--danger); }
@@ -2691,6 +2693,10 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
       </div>
       <div class="story-modal-right">
         <div class="sm-builder">
+          <div>
+            <div class="sm-label">Map</div>
+            <div class="sm-map-preview" id="sm-map-preview"></div>
+          </div>
           <div>
             <div class="sm-label">Title</div>
             <input class="sm-title-input" type="text" id="sm-title" placeholder="Name your relic..." oninput="updateStoryPreview()">
@@ -9449,13 +9455,43 @@ async function reportUser(uid, name) {
 // NOTIFICATIONS — derived from follows / likes / comments (see Social.notifications)
 // ════════════════════════════════════════
 let _notifItems = [], _notifTimer = null;
+// "Seen up to" lives on the profile (profiles.notif_seen_at) so it's the same
+// on every device — it used to be localStorage only, so reading notifications
+// on a phone left the desktop saying "8 new" for ever. localStorage is kept as
+// a per-device fallback (and for before the column exists); the later of the
+// two wins. The value is the newest notification's own timestamp, not the
+// device clock, so a clock running behind can't make old items look new.
 function _notifSeenKey() { return 'relic_notif_seen_' + (currentUser?.id || ''); }
-function notifSeenAt() { try { return localStorage.getItem(_notifSeenKey()) || ''; } catch (e) { return ''; } }
+let _notifSeenServer = '', _notifSeenFetched = false;
+function _laterIso(a, b) { return (Date.parse(a) || 0) >= (Date.parse(b) || 0) ? (a || '') : (b || ''); }
+function notifSeenAt() {
+  let local = ''; try { local = localStorage.getItem(_notifSeenKey()) || ''; } catch (e) {}
+  return _laterIso(local, _notifSeenServer);
+}
+async function fetchNotifSeen() {
+  if (_notifSeenFetched || DEMO || !currentUser) return;
+  _notifSeenFetched = true;
+  try {
+    const { data, error } = await sb.from('profiles').select('notif_seen_at').eq('id', currentUser.id).limit(1);
+    if (!error && data && data[0]) _notifSeenServer = data[0].notif_seen_at || '';
+  } catch (e) {}
+}
+function markNotificationsSeen() {
+  const newest = _notifItems.reduce((m, n) => _laterIso(m, n.at), '');
+  const seen = _laterIso(notifSeenAt(), newest);
+  if (!seen) return;
+  try { localStorage.setItem(_notifSeenKey(), seen); } catch (e) {}
+  if (DEMO || !currentUser || seen === _notifSeenServer) return;
+  _notifSeenServer = seen;
+  // Column may not exist yet on an older database — the local copy still works.
+  sb.from('profiles').update({ notif_seen_at: seen }).eq('id', currentUser.id).then(() => {}, () => {});
+}
 // Compare as dates: Supabase returns "+00:00" offsets, we store "Z" — string
 // comparison between the two isn't reliable.
 function isUnread(n, seen) { return Date.parse(n.at) > (Date.parse(seen) || 0); }
 async function refreshNotifications() {
   if (!currentUser) return;
+  await fetchNotifSeen();
   try { _notifItems = (await Social.notifications()).filter(n => !myBlockedIds.has(n.actor)); } catch (e) { console.warn('Notifications failed', e); return; }
   const seen = notifSeenAt();
   const unread = _notifItems.filter(n => isUnread(n, seen)).length;
@@ -9476,7 +9512,7 @@ async function openNotifications() {
   if (!_notifItems.length) body.innerHTML = '<div class="people-empty">Loading…</div>';
   await refreshNotifications();
   await renderNotifications(seen);
-  try { localStorage.setItem(_notifSeenKey(), new Date().toISOString()); } catch (e) {}
+  markNotificationsSeen();
   const dot = document.getElementById('notif-dot'); if (dot) dot.hidden = true;
 }
 function closeNotifications() {
@@ -10505,6 +10541,7 @@ function removeStoryMoment(id) {
 
 function updateStoryPreview() {
   glyphRefresh(editingStoryId || GLYPH_NEW);
+  scheduleStoryMapPreview();
   // Selected chips
   const chipList = document.getElementById('sm-selected-list');
   chipList.innerHTML = '';
@@ -10529,6 +10566,31 @@ function updateStoryPreview() {
     '<div class="sm-stat"><div class="sm-stat-val">' + (dist > 0 ? fmtDist(dist) : '—') + '</div><div class="sm-stat-label">Distance</div></div>' +
     '<div class="sm-stat"><div class="sm-stat-val">' + (elev > 0 ? fmtElev(elev) : '—') + '</div><div class="sm-stat-label">Elevation</div></div>' +
     '<div class="sm-stat"><div class="sm-stat-val">' + (dur > 0 ? formatDur(dur) : '—') + '</div><div class="sm-stat-label">Time</div></div>';
+}
+
+// The relic builder's map: the selected tracks on a static map, redrawn a
+// beat after the selection stops changing (each redraw is a Mapbox Static
+// Images request, so ticking ten boxes shouldn't cost ten). Same thin fixed
+// stroke as every shared map; framed on the tracks with auto bounds.
+let _smMapTimer = null, _smMapKey = '';
+function scheduleStoryMapPreview() {
+  clearTimeout(_smMapTimer);
+  _smMapTimer = setTimeout(renderStoryMapPreview, 350);
+}
+function renderStoryMapPreview() {
+  const el = document.getElementById('sm-map-preview'); if (!el) return;
+  const mems = [...storySelectedIds].map(id => db[id]).filter(m => m && !isStory(m) && !m.isPin);
+  const key = mems.map(m => m.id).sort().join(',');
+  if (key === _smMapKey && el.childElementCount) return;
+  _smMapKey = key;
+  const overlays = []; let budget = 7200;
+  mems.sort((a, b) => (a.date || '') > (b.date || '') ? 1 : -1).forEach(m => {
+    const p = encodedPolyOf(m); if (!p) return;
+    const seg = pathOv(p, m.customColor || getColor(m.type), 2, 0.9);
+    if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
+  });
+  const img = overlays.length ? mapboxStaticImg(overlays, 640, 360) : '';
+  el.innerHTML = img || `<div class="sm-map-empty">${mems.length ? 'These activities have no GPS tracks to draw.' : 'Pick activities on the left to see them on the map.'}</div>`;
 }
 
 async function saveStory() {

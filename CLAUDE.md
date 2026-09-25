@@ -214,8 +214,16 @@ to know:
   applied through the Supabase tooling so they're recorded. The older
   `docs/supabase-*.sql` files are history; don't re-run them.
 - **Notifications** are derived (follows/likes/comments aimed at you, newest
-  first) with a per-device "last seen" in localStorage — there is no
-  notifications table. Compare timestamps with `Date.parse`, not strings.
+  first) — there is no notifications table. "Seen up to" is
+  `profiles.notif_seen_at` (2026-09-25; it was per-device localStorage only,
+  so reading them on the phone left the desktop badge stuck on "8"), with
+  localStorage as a per-device fallback — the later of the two wins
+  (`notifSeenAt`). `markNotificationsSeen()` stores the *newest item's own
+  timestamp*, never the device clock. Compare timestamps with `Date.parse`,
+  not strings.
+- **The relic builder shows a map** (`#sm-map-preview`,
+  `renderStoryMapPreview`): a static image of the selected tracks, debounced
+  350 ms so rapid ticking costs one Mapbox Static Images request.
 - **Deep links:** `?u=<user>` opens a profile, `&a=<activity>` / `&s=<story>`
   focuses a card. `captureDeepLink()` stores it (so it survives sign-up /
   email confirmation) and strips it from the URL; `handlePendingDeepLink()`
