@@ -14,7 +14,7 @@ export async function onRequestGet(ctx) {
   let budget = 7400;
   (r.polylines || []).forEach((p, i) => {
     const hex = String((r.colors || [])[i] || '#C1502E').replace('#', '').replace(/[^0-9a-f]/gi, '').slice(0, 6) || 'C1502E';
-    const seg = `path-5+${hex}-0.95(${encodeURIComponent(p)})`;
+    const seg = `path-3+${hex}-0.95(${encodeURIComponent(p)})`;
     if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
   });
   if (!overlays.length) return fallback();

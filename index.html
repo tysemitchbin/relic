@@ -682,6 +682,14 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .cmt-time { font-size: 12px; color: var(--text-3); margin-left: 6px; }
 .cmt-text { font-size: 14px; line-height: 1.45; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
 .cmt-del { background: none; border: none; font-size: 12px; color: var(--text-3); cursor: pointer; padding: 0; margin-left: 6px; }
+.cmt-head { display: flex; align-items: center; }
+.cmt-more { margin-left: auto; background: none; border: 0; padding: 2px 4px; border-radius: 6px; color: var(--text-3); cursor: pointer; line-height: 0; }
+.cmt-more:hover { background: var(--paper2); color: var(--ink); }
+.cmt-more .ic { width: 16px; height: 16px; }
+.fc-likes-line { display: block; width: 100%; text-align: left; padding: 0 18px 12px; font: 400 13px var(--font-ui); color: var(--text-2); background: none; border: 0; cursor: pointer; }
+.fc-likes-line b { color: var(--ink); font-weight: 600; }
+.rs-state { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text-2); margin: 4px 0 12px; }
+.rs-state .ic { width: 15px; height: 15px; flex: none; }
 .cmt-del:hover { color: var(--danger); }
 .cmt-form { display: flex; gap: 8px; align-items: center; }
 .cmt-input {
@@ -1535,7 +1543,8 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
 .pr-dates { text-align: center; color: var(--text-2); font-size: 14px; padding: 6px 18px 0; }
 .pr-note { padding: 14px 18px 0; font-size: 15px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
 .pr-map { margin: 16px 18px 0; border-radius: var(--r-md); overflow: hidden; background: var(--paper2); }
-.pr-map img { display: block; width: 100%; height: auto; }
+.pr-map { aspect-ratio: 600 / 340; }
+.pr-map .static-map { position: static; display: block; width: 100%; height: 100%; object-fit: cover; }
 .pr-reactions { display: flex; gap: 16px; padding: 12px 18px 16px; color: var(--text-2); font-size: 14px; align-items: center; }
 .pr-reactions .ic { width: 16px; height: 16px; vertical-align: -3px; margin-right: 4px; }
 .pr-cta { margin-top: 18px; padding: 22px 20px; border-radius: var(--r-lg); background: var(--ink); color: #fff; text-align: center; }
@@ -2616,6 +2625,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
   <div class="modal">
     <div class="modal-title">Share relic</div>
     <div class="modal-sub" id="rs-sub"></div>
+    <div class="rs-state" id="rs-state"></div>
     <div class="rs-preview" id="rs-preview"></div>
     <div class="sm-label">How it looks</div>
     <div id="rs-controls"></div>
@@ -2623,7 +2633,7 @@ textarea.modal-input { font: 400 15px/1.5 var(--font-ui) !important; }
     <div class="rs-targets">
       <button class="btn-ghost" onclick="rsSaveGlyph()"><svg class="ic"><use href="#i-image"/></svg>Save glyph as image</button>
       <button class="btn-ghost" onclick="rsShareCard()"><svg class="ic"><use href="#i-image"/></svg>Share as card</button>
-      <button class="btn-ghost" onclick="rsShareLink()"><svg class="ic"><use href="#i-share"/></svg>Share a link</button>
+      <button class="btn-ghost" id="rs-link-btn" onclick="rsShareLink()"><svg class="ic"><use href="#i-share"/></svg>Share a link</button>
     </div>
     <div class="modal-actions"><button class="btn-ghost" onclick="closeRelicShare()">Cancel</button></div>
   </div>
@@ -6981,12 +6991,40 @@ async function hydrateSocialCounts(container, keys, kind = 'activity') {
     const card = container.querySelector(`.feed-card[${attr}="${CSS.escape(key)}"]`); if (!card) return;
     const kv = k.get(key), kb = card.querySelector('.fc-act.like');
     if (kb) { kb.classList.toggle('on', !!kv?.mine); kb.querySelector('.n').textContent = kv?.count || ''; }
+    if (!_socialOff[t.likesOff]) renderLikesLine(card, kind, key, kv);
     const cb = card.querySelector('.fc-act[onclick^="toggleComments"] .n'); if (cb) cb.textContent = c.get(key) || '';
   });
   const cards = [...container.querySelectorAll(`.feed-card[${attr}]`)];
   const drop = sel => cards.forEach(card => card.querySelectorAll(sel).forEach(b => b.remove()));
   if (_socialOff[t.likesOff]) drop('.fc-act.like');
   if (_socialOff[t.commentsOff]) drop('.fc-act[onclick^="toggleComments"]');
+}
+// "Liked by Maya, Lea and 3 others" under a card — the one place that says
+// who liked it, for the owner and everyone else. Tap for the full list.
+async function renderLikesLine(card, kind, key, like) {
+  let line = card.querySelector('.fc-likes-line');
+  if (!like || !like.count) { line?.remove(); return; }
+  const profs = await Social.profiles(like.users.slice(0, 2)).catch(() => []);
+  const first = like.users.slice(0, 2).map(id => id === currentUser.id ? 'you'
+    : ((profs.find(p => p.id === id)?.name) || 'Someone').split(' ')[0]);
+  const rest = like.count - first.length;
+  const html = 'Liked by ' + first.map(n => `<b>${escapeHtml(n)}</b>`).join(rest ? ', ' : ' and ')
+    + (rest ? ` and <b>${rest} other${rest === 1 ? '' : 's'}</b>` : '');
+  if (!line) {
+    line = document.createElement('button');
+    line.className = 'fc-likes-line';
+    line.setAttribute('onclick', 'showLikers(this)');
+    card.querySelector('.fc-actions')?.before(line);
+  }
+  line.innerHTML = html;
+}
+async function showLikers(el) {
+  const t = socialTarget(el); if (!t) return;
+  const k = (await Social.likes([t.key], t.kind)).get(t.key);
+  if (!k || !k.count) { toast('No likes yet'); return; }
+  const profs = await Social.profiles(k.users).catch(() => []);
+  const names = k.users.map(id => id === currentUser.id ? 'You' : (profs.find(p => p.id === id)?.name || 'Someone'));
+  await uiConfirm({ title: `Liked by ${k.count} ${k.count === 1 ? 'person' : 'people'}`, body: names.join(', '), ok: 'Close', cancel: 'Back' });
 }
 // Like + comment buttons for a relic card; counts are filled in by
 // hydrateSocialCounts(…, 'relic').
@@ -7095,21 +7133,16 @@ function socialTarget(el) {
 async function toggleLike(btn) {
   const t = socialTarget(btn); if (!t) return;
   const n = btn.querySelector('.n');
-  if (t.ownerId === currentUser.id) {   // your own post → show who liked it
-    const k = (await Social.likes([t.key], t.kind)).get(t.key);
-    if (!k || !k.count) { toast('No likes yet'); return; }
-    const profs = await Social.profiles(k.users);
-    const names = profs.map(p => (p.name || 'Someone').split(' ')[0]);
-    const list = names.length <= 2 ? names.join(' and ')
-      : names.slice(0, 3).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '');
-    toast('Liked by ' + list, { icon: 'heart', duration: 4000 });
-    return;
-  }
+  if (t.ownerId === currentUser.id) { showLikers(btn); return; }   // your own post → who liked it
   const on = !btn.classList.contains('on');
   const cur = parseInt(n.textContent, 10) || 0;
   btn.classList.toggle('on', on); btn.classList.remove('pop'); void btn.offsetWidth; if (on) btn.classList.add('pop');
   n.textContent = Math.max(0, cur + (on ? 1 : -1)) || '';
-  try { await Social.setLike(t.kind, t.ownerId, t.postId, on); if (on) track('like_given', { kind: t.kind }); }
+  try {
+    await Social.setLike(t.kind, t.ownerId, t.postId, on);
+    if (on) track('like_given', { kind: t.kind });
+    hydrateSocialCounts(t.card.parentElement, [t.key], t.kind);   // refresh the "Liked by" line
+  }
   catch (e) {
     console.error('Like failed', e);
     btn.classList.toggle('on', !on); n.textContent = cur || '';
@@ -7136,8 +7169,8 @@ async function renderComments(box, t) {
     const p = byId[r.user_id] || {}, canDel = r.user_id === currentUser.id || t.ownerId === currentUser.id;
     const who = r.user_id === currentUser.id ? `switchView('profile')` : `openPublicProfile(${jsAttr(r.user_id)})`;
     return `<div class="cmt">${avatarHtml(p.avatarUrl, p.name, 'av-36', r.user_id)}<div class="cmt-body">
-      <button class="cmt-name" onclick="${who}">${escapeHtml(p.name || 'Someone')}</button><span class="cmt-time">${escapeHtml(relTime(r.created_at))}</span>
-      ${canDel ? `<button class="cmt-del" onclick="deleteComment(this,${jsAttr(r.id)})">Delete</button>` : ''}
+      <div class="cmt-head"><button class="cmt-name" onclick="${who}">${escapeHtml(p.name || 'Someone')}</button><span class="cmt-time">${escapeHtml(relTime(r.created_at))}</span>
+      <button class="cmt-more" aria-label="Comment options" onclick="commentMenu(event,${jsAttr(r.id)},${jsAttr(r.user_id)},${jsAttr(p.name || 'Someone')},${canDel ? 1 : 0})"><svg class="ic"><use href="#i-more"/></svg></button></div>
       <div class="cmt-text">${escapeHtml(r.body)}</div></div></div>`;
   }).join('');
   box.innerHTML = (list || '<div class="cmt-empty">No comments yet. Say something nice.</div>') +
@@ -7167,6 +7200,28 @@ async function postComment(e, form) {
     toast('Couldn\'t post your comment', { error: true });
   }
   return false;
+}
+function commentMenu(e, id, authorId, name, canDelete) {
+  e.stopPropagation();
+  const btn = e.currentTarget, own = authorId === currentUser.id, items = [];
+  if (!own) items.push({ label: 'Reply', icon: 'message', fn: () => replyToComment(btn, name) });
+  if (!own) items.push({ label: 'Report', icon: 'flag', fn: () => reportComment(id, name) });
+  if (canDelete) items.push({ label: 'Delete', icon: 'trash', danger: true, fn: () => deleteComment(btn, id) });
+  if (items.length) openMenu(btn, items);
+}
+// Replies are flat: "@Name " at the start of a new comment, like most apps'
+// lightweight replies — no threading table needed.
+function replyToComment(btn, name) {
+  const input = btn.closest('.fc-comments')?.querySelector('.cmt-input'); if (!input) return;
+  input.value = '@' + String(name).split(' ')[0] + ' ';
+  input.dispatchEvent(new Event('input'));
+  input.focus();
+}
+async function reportComment(id, name) {
+  const ok = await uiConfirm({ title: `Report ${name}'s comment?`, body: 'Tell us if it\'s abusive, spam or harassment. Reports are private and reviewed by a person.', ok: 'Report', danger: true });
+  if (!ok) return;
+  try { await Social.report('comment', id); toast('Thanks. We\'ll take a look.', { icon: 'check' }); }
+  catch (e) { toast('Couldn\'t send the report', { error: true }); }
 }
 async function deleteComment(btn, id) {
   if (!(await uiConfirm({ title: 'Delete this comment?', ok: 'Delete', danger: true }))) return;
@@ -7825,6 +7880,7 @@ function openRelicShare(storyId) {
   document.getElementById('rs-sub').textContent =
     (story.title || 'Untitled') + ' · ' + (story._momentCount || 0) + ' activities';
   glyphRefresh(storyId);
+  renderRelicShareState();
   document.getElementById('relic-share-modal').classList.add('open');
 }
 function closeRelicShare() {
@@ -7872,11 +7928,24 @@ async function rsSaveGlyph() {
   toast('Glyph saved', { icon: 'check' });
 }
 function rsShareCard() { const id = _rsStoryId; closeRelicShare(); shareStoryImage(id); }
-function rsShareLink() {
+async function rsShareLink() {
   const story = db[_rsStoryId];
   if (!story) return;
-  if (!story.isPublic) toast('This relic is private — only you can open that link', { icon: 'lock' });
+  if (!story.isPublic) {
+    await setStoryVisibility(story.id, true);          // has its own confirm
+    if (!db[story.id]?.isPublic) return;               // they said no
+    renderRelicShareState();
+  }
   shareStory(currentUser.id, story.id, story.title);
+}
+// The share popup says up front whether a link would work.
+function renderRelicShareState() {
+  const story = db[_rsStoryId], el = document.getElementById('rs-state'); if (!story || !el) return;
+  el.innerHTML = story.isPublic
+    ? `<svg class="ic"><use href="#i-globe"/></svg>Shared. Anyone with the link can see it.`
+    : `<svg class="ic"><use href="#i-lock"/></svg>Private. Sharing a link will share the relic with your followers first.`;
+  const lb = document.getElementById('rs-link-btn');
+  if (lb) lb.lastChild.textContent = story.isPublic ? 'Share a link' : 'Share relic and copy link';
 }
 function setStoryGlyphColour(storyId, mode) { setGlyphPref(storyId, { colour: mode }); glyphRefresh(storyId); }
 function setStoryGlyphInk(storyId, ink) { setGlyphPref(storyId, { ink: ink }); glyphRefresh(storyId); }
@@ -8079,7 +8148,7 @@ function renderStoryShareSection(storyId) {
       <button class="visibility-btn ${!pub ? 'active' : ''}" onclick="setStoryVisibility(${jsAttr(storyId)},false)"><svg class="ic" style="width:15px;height:15px"><use href="#i-lock"/></svg>Private</button>
       <button class="visibility-btn ${pub ? 'active' : ''}" onclick="setStoryVisibility(${jsAttr(storyId)},true)"><svg class="ic" style="width:15px;height:15px"><use href="#i-globe"/></svg>Shared</button>
     </div>
-    ${pub ? `<button class="btn-ghost btn-sm" style="margin-top:10px" onclick="shareStory(${jsAttr(currentUser.id)},${jsAttr(storyId)},${jsAttr(story.title)})"><svg class="ic"><use href="#i-share"/></svg>Share link</button>` : '<div class="detail-section-sub" style="margin:10px 0 0">Share it to post the whole trip to your followers\' feeds.</div>'}`;
+    <div class="detail-section-sub" style="margin:10px 0 0">${pub ? 'On your profile and in your followers\' feeds. Anyone with the link can see it.' : 'Only you can see it. Share it to post the whole trip to your followers\' feeds.'}</div>`;
 }
 function storyLink(userId, storyId) { return profileLink(userId) + '&s=' + encodeURIComponent(storyId); }
 function shareStory(userId, storyId, title) { shareLink(storyLink(userId, storyId), title || 'A relic on Relic', (title || 'A trip') + ' — on Relic', 'relic'); }
@@ -9386,7 +9455,9 @@ function renderPublicRelicPage({ relic: r, author, photos, likes, comments }) {
   const overlays = [];
   let budget = 7200;
   (r.polylines || []).forEach((p, i) => {
-    const seg = pathOv(p, (r.colors || [])[i] || '#C1502E', 4, 0.9);
+    // Fixed, thin stroke: this is the owner's relic as anyone sees it, not
+    // shaped by the viewer's (or owner's) track-thickness preference.
+    const seg = pathOv(p, (r.colors || [])[i] || '#C1502E', 2, 0.9);
     if (seg.length + 1 <= budget) { overlays.push(seg); budget -= seg.length + 1; }
   });
   const stat = (v, l) => `<div class="fc-stat"><div class="fc-stat-val">${v}</div><div class="fc-stat-label">${l}</div></div>`;
@@ -10836,7 +10907,7 @@ _r('recoverAndReload',recoverAndReload);
 _r('toast',toast);_r('uiConfirm',uiConfirm);
 _r('toggleAccountMenu',toggleAccountMenu);_r('closeAccountMenu',closeAccountMenu);
 _r('setFeedTab',setFeedTab);_r('buildFeed',buildFeed);_r('buildFollowingFeed',buildFollowingFeed);
-_r('toggleLike',toggleLike);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
+_r('toggleLike',toggleLike);_r('showLikers',showLikers);_r('commentMenu',commentMenu);_r('publicRelicCta',publicRelicCta);_r('toggleComments',toggleComments);_r('postComment',postComment);_r('deleteComment',deleteComment);
 _r('shareMyProfile',shareMyProfile);_r('shareActivity',shareActivity);_r('sharePublicProfile',sharePublicProfile);
 _r('openProfileMoreMenu',openProfileMoreMenu);_r('openConnections',openConnections);_r('setPeopleTab',setPeopleTab);
 _r('bulkSetVisibility',bulkSetVisibility);_r('setStoryVisibility',setStoryVisibility);_r('dismissGettingStarted',dismissGettingStarted);_r('setBlocked',setBlocked);_r('removeFollower',removeFollower);_r('renderFeedTop',renderFeedTop);_r('_lsSet',_lsSet);_r('shareStory',shareStory);_r('openNotifications',openNotifications);_r('closeNotifications',closeNotifications);

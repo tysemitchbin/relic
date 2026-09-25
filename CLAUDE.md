@@ -178,6 +178,18 @@ to know:
   `Social` like/comment methods take a `kind`. Relic cards get their buttons
   from `relicSocialButtons()` and counts from `hydrateSocialCounts(…,
   'relic')` — call that after rendering any list of relic cards.
+  Who liked a post is shown as a **"Liked by Maya, Léa and 3 others"** line
+  (`renderLikesLine`, tap → `showLikers`); tapping the heart on your own post
+  opens the same list (user: the toast-on-own-heart wasn't intuitive).
+  Each comment has a **⋯ menu** (`commentMenu`, via the shared `openMenu`):
+  Reply (flat `@Name ` prefill, no threading table), Report
+  (`Social.report('comment', id)`), Delete (author or post owner).
+- **A relic has one Share button** (the popup, `openRelicShare`). The
+  detail panel's Sharing section is only the Private/Shared switch. Sharing a
+  link to a *private* relic first offers to share it (`rsShareLink` →
+  `setStoryVisibility`), since a link nobody can open is pointless;
+  `renderRelicShareState()` says up front which case you're in. Public-page
+  and link-preview maps use a fixed thin stroke, never `trackWidth`.
 - **Shared relic links work without an account** (`growth-redesign`,
   2026-09-24). A signed-out visitor opening `?u=&s=` sees the relic itself
   (`#public-relic`, `maybeShowPublicRelic()` → `renderPublicRelicPage()`,
