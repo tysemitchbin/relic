@@ -707,6 +707,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .place-city { display: flex; justify-content: space-between; gap: 10px; width: 100%; padding: 8px; border: 0; background: none; border-radius: var(--r-sm); cursor: pointer; text-align: left; font: 14px var(--font-ui); color: var(--ink); }
 .place-city:hover { background: var(--paper2); }
 .place-city span { color: var(--text-2); font-size: 13px; white-space: nowrap; }
+.place-own { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px; border-top: 1px solid var(--border); }
+.place-chip { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.place-chip .ic { width: 14px; height: 14px; }
 .places-credit { margin: 18px 0 8px; font-size: 12px; color: var(--text-3); }
 .places-credit a { color: inherit; }
 .detail-firsts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
@@ -8585,7 +8588,7 @@ async function buildProfile() {
   const ps = placesSummaryCached();
   const statsHtml = (fl, fr) => [
     { val: ps ? ps.countries.toLocaleString() : '…', label: 'Countries', onclick: "switchView('places')" },
-    { val: ps ? ps.cities.toLocaleString() : '…', label: 'Cities', onclick: "switchView('places')" },
+    { val: ps ? ps.cities.toLocaleString() : '…', label: 'Towns & cities', onclick: "switchView('places')" },
     { val: mems.length.toLocaleString(), label: 'Activities' },
     { val: fmtDist(totalDist * 1000, 0), label: 'Distance' },
     { val: fr, label: 'Followers', onclick: "openConnections('followers')" },
@@ -9176,7 +9179,7 @@ async function openPublicProfile(userId, focusActivityId, focusStoryId) {
   const hasPlaces = ps && Number.isFinite(ps.countries);
   document.getElementById('pp-stats-row').classList.toggle('six', !!hasPlaces);
   document.getElementById('pp-stats-row').innerHTML =
-    (hasPlaces ? stat(Number(ps.countries).toLocaleString(), 'Countries') + stat(Number(ps.cities || 0).toLocaleString(), 'Cities') : '') +
+    (hasPlaces ? stat(Number(ps.countries).toLocaleString(), 'Countries') + stat(Number(ps.cities || 0).toLocaleString(), 'Towns & cities') : '') +
     stat(acts.length.toLocaleString(), 'Activities') + stat(fmtDist(km * 1000, 0), 'Distance') +
     stat(counts.followers, 'Followers', 'pp-follower-count') + stat(counts.following, 'Following');
   renderPpFollowButton();
@@ -9737,7 +9740,8 @@ async function showInviteBanner() {
 // nobody "visits" what they fly over) a few points along the way; pins
 // contribute their spot. A point's country is the outline it falls in
 // (nearest town's country if it's just offshore); its city is the nearest
-// town ≥5,000 within PLACE_CITY_KM in that same country.
+// town ≥1,000 within PLACE_CITY_KM in that same country (≥5,000 missed
+// whole regions — Lofoten's biggest town, Svolvær, has ~4,200 people).
 const PLACE_CITY_KM = 20;
 let _geoData = null, _geoLoading = null, _placeCache = {}, _cellCache = new Map(), _places = null;
 function loadGeoData() {
@@ -9760,16 +9764,26 @@ function _inRing(x, y, r) {
   let inside = false;
   for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
     const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1];
+    // An edge jumping more than 180° of longitude is the antimeridian wrap
+    // (Russia, Fiji…), not a real border — counting it makes every point at
+    // that latitude "inside Russia" (Lofoten was, until this).
+    if (Math.abs(xi - xj) > 18000) continue;
     if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
   }
   return inside;
 }
+// Outlines that cross the antimeridian (Russia, Fiji…) are stored unwrapped:
+// their far-east points shifted to 180°–190° so each ring is one continuous
+// shape. So a point west of 0° is also tried at +360°.
 function geoCountryAt(lat, lng) {
-  const x = lng * 100, y = lat * 100;
+  const y = lat * 100, xs = lng < 0 ? [lng * 100, lng * 100 + 36000] : [lng * 100];
   for (const c of _geoData.countries) {
     const b = c[2];
-    if (x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue;
-    for (const r of c[3]) if (_inRing(x, y, r)) return c[0];
+    if (y < b[1] || y > b[3]) continue;
+    for (const x of xs) {
+      if (x < b[0] || x > b[2]) continue;
+      for (const r of c[3]) if (_inRing(x, y, r)) return c[0];
+    }
   }
   return null;
 }
@@ -9835,8 +9849,9 @@ async function computePlaces() {
     const realDate = m.date && !relicSuggestLooksDefaulted(m, placeholders) ? m.date : null;
     placesOfMoment(m).forEach(({ cc, city }) => {
       let c = countries.get(cc);
-      if (!c) countries.set(cc, c = { cc, name: names[cc] || cc, first: null, firstId: null, ids: new Set(), cities: new Map() });
+      if (!c) countries.set(cc, c = { cc, name: names[cc] || cc, first: null, firstId: null, ids: new Set(), cities: new Map(), relics: new Set(), pins: new Set() });
       c.ids.add(m.id);
+      if (m.isPin) c.pins.add(m.id);
       if (realDate && (!c.first || realDate < c.first)) { c.first = realDate; c.firstId = m.id; }
       if (!city) return;
       let ct = c.cities.get(city);
@@ -9845,6 +9860,12 @@ async function computePlaces() {
       if (realDate && (!ct.first || realDate < ct.first)) { ct.first = realDate; ct.firstId = m.id; }
     });
   });
+  // Your own names for places: the relics you made there and the pins you
+  // dropped. "Lofoten 2024" is how you remember Lofoten, whatever the town data says.
+  getStories().forEach(st => (st.momentIds || []).forEach(id => {
+    const m = db[id]; if (!m) return;
+    placesOfMoment(m).forEach(p => countries.get(p.cc)?.relics.add(st.id));
+  }));
   _places = { countries, cityCount };
   savePlacesSummary(countries.size, cityCount);
   return _places;
@@ -9902,14 +9923,17 @@ async function renderPlacesView() {
   const byFirst = (a, b) => (a.first || '9999') < (b.first || '9999') ? -1 : 1;
   cs.sort(_placesSort === 'az' ? (a, b) => a.name.localeCompare(b.name) : _placesSort === 'most' ? (a, b) => b.ids.size - a.ids.size : byFirst);
   const firstAbroad = cs.slice().sort(byFirst)[0];
-  sub.textContent = `${pl.countries.size} ${pl.countries.size === 1 ? 'country' : 'countries'} · ${pl.cityCount} ${pl.cityCount === 1 ? 'city' : 'cities'}` +
+  sub.textContent = `${pl.countries.size} ${pl.countries.size === 1 ? 'country' : 'countries'} · ${pl.cityCount} ${pl.cityCount === 1 ? 'town' : 'towns & cities'}` +
     (firstAbroad?.first ? ` · since ${new Date(firstAbroad.first).getUTCFullYear()}` : '');
   list.innerHTML = cs.map(c => {
     const cities = [...c.cities.values()].sort(_placesSort === 'az' ? (a, b) => a.name.localeCompare(b.name) : _placesSort === 'most' ? (a, b) => b.ids.size - a.ids.size : byFirst);
     return `<details class="place-country">
       <summary><span class="place-flag">${flagEmoji(c.cc)}</span><span class="place-main"><span class="place-name">${escapeHtml(c.name)}</span>
-        <span class="place-meta">First visit ${fmtFirst(c.first)} · ${c.cities.size} ${c.cities.size === 1 ? 'city' : 'cities'} · ${c.ids.size} ${c.ids.size === 1 ? 'visit' : 'visits'}</span></span>
+        <span class="place-meta">First visit ${fmtFirst(c.first)} · ${c.relics.size ? `${c.relics.size} ${c.relics.size === 1 ? 'relic' : 'relics'} · ` : ''}${c.cities.size} ${c.cities.size === 1 ? 'town' : 'towns'} · ${c.ids.size} ${c.ids.size === 1 ? 'visit' : 'visits'}</span></span>
         <button class="btn-ghost btn-sm" onclick="event.preventDefault();showPlaceOnMap(${jsAttr(c.cc)})">Map</button></summary>
+      ${c.relics.size || c.pins.size ? `<div class="place-own">${[...c.relics].map(id => db[id]).filter(Boolean).map(st =>
+          `<button class="chip place-chip" onclick="viewStoryOnMap(${jsAttr(st.id)})"><svg class="ic"><use href="#i-book"/></svg>${escapeHtml(st.title || 'Untitled relic')}</button>`).join('')}${[...c.pins].map(id => db[id]).filter(Boolean).map(pn =>
+          `<button class="chip place-chip" onclick="goToActivity(${jsAttr(pn.id)})">${escapeHtml(PIN_CATEGORIES[pn.pinCategory]?.icon || '📍')} ${escapeHtml(pn.name || 'Pin')}</button>`).join('')}</div>` : ''}
       ${cities.length ? `<div class="place-cities">${cities.map(ct => `<button class="place-city" onclick="showPlaceOnMap(${jsAttr(c.cc)},${jsAttr(ct.name)})">${escapeHtml(ct.name)}<span>${fmtFirst(ct.first)} · ${ct.ids.size}</span></button>`).join('')}</div>` : ''}
     </details>`;
   }).join('');
@@ -9935,7 +9959,7 @@ function renderFirstsBadges(mem) {
     const badges = [];
     pl.countries.forEach(c => {
       if (c.firstId === mem.id) badges.push(`<span class="first-badge">${flagEmoji(c.cc)} First time in ${escapeHtml(c.name)}</span>`);
-      c.cities.forEach(ct => { if (ct.firstId === mem.id && c.firstId !== mem.id) badges.push(`<span class="first-badge">New city: ${escapeHtml(ct.name)}</span>`); });
+      c.cities.forEach(ct => { if (ct.firstId === mem.id && c.firstId !== mem.id) badges.push(`<span class="first-badge">New place: ${escapeHtml(ct.name)}</span>`); });
     });
     if (badges.length) { el.innerHTML = badges.slice(0, 3).join(''); el.hidden = false; }
   }).catch(() => {});

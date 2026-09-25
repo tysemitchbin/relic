@@ -97,8 +97,12 @@ stored; this is free, instant and has no terms to mind).
 
 - **Data:** `data/countries.json` (Natural Earth 1:50m outer rings,
   `[cc, name, bbox, rings]`, coordinates ×100; a few official names
-  shortened, e.g. "United States") and `data/cities.json` (GeoNames towns
-  ≥5,000 people, columnar). Fetched once by `loadGeoData()`, only when places
+  shortened, e.g. "United States"; rings crossing the antimeridian — RU, FJ,
+  AQ — are **unwrapped** to 180°–190° so each is one continuous shape, and
+  `geoCountryAt` also tries lng+360 for western points: without it the
+  wrap edge made all of Lofoten "Russia") and `data/cities.json` (GeoNames
+  towns **≥1,000** people, columnar — ≥5,000 missed whole regions: Lofoten's
+  biggest town, Svolvær, has ~4,200). UI calls them "Towns & cities". Fetched once by `loadGeoData()`, only when places
   are first needed. **GeoNames is CC BY 4.0 — keep the credit line on the
   Places page.**
 - **Per point** (`geoPlaceAt`, cached per ~1 km cell): country = the outline
@@ -117,6 +121,11 @@ stored; this is free, instant and has no terms to mind).
   (`renderFirstsBadges`, `#d-firsts`); relic suggestion titles when the
   activities carry no place names (`placeLabelFor`: top city, or "Norway &
   Sweden" across two countries).
+- **Your own names count too** (user, 2026-09-25: "Lofoten is not a country
+  or city"): each country on the Places page lists the relics you made there
+  and the pins you dropped (`c.relics`, `c.pins`) as chips above its towns.
+  Named areas (national parks, island groups, ranges) are *not* built —
+  GeoNames only has them as points; revisit with OSM outlines if wanted.
 - **Other people see counts only**: `profiles.places_summary`
   `{countries, cities}`, written by the owner's device
   (`savePlacesSummary`), read in `Social.profiles`. Never which places.
